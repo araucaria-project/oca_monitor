@@ -8,11 +8,11 @@ PyQt5
 astropy
 matplotlib
 
-#Running
+# Running
 python oca_monit.py
 
-#Adding/modifying tabs
+# Adding/modifying tabs
 Edit oca_monit_tabs.py and add new tab name to the "tabList" (the and of the file)
 
-#Adding/modifying telescopes
+# Adding/modifying telescopes
 Edit oca_monit_telescopes.py and add new telescope name to the "telescopesList" (the and of the file)
