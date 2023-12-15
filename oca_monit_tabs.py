@@ -1,14 +1,24 @@
 #!/usr/bin/env python
 import os
+import asyncio
+import requests
 #import numpy as np
 #import time
 #import datetime
+
 from PyQt5 import QtCore
 from PyQt5 import QtWidgets
 from PyQt5.QtGui import QPixmap, QPixmapCache
 #QtCore.QCoreApplication.setAttribute(QtCore.Qt.AA_ShareOpenGLContexts, True)
 #from PyQt5 import QtWebEngine
 #from PyQt5.QtWebKitWidgets import QWebView
+
+from serverish.messenger import Messenger, get_reader
+
+import datetime
+import time
+from matplotlib.pyplot import Circle
+
 
 
 
@@ -23,11 +33,175 @@ from PyQt5.QtGui import QPixmap, QPixmapCache
 #                                                               #
 #################################################################
 
+###################################################################################################
+#----------Tabs will appear only if they have attribute self.display = True, and self.active = True / False
+####################################################################################################
+
+
+
+
+#maybe some initial configuration should be here- which tabs should be displayed in batch mode
+
+
+# ################## TEMPLATE ########################
+class Template(QtWidgets.QWidget):
+    def __init__(self, parent=None):
+        super().__init__()
+        self.parent = parent
+        self.name = "Template"
+        self.display = True    # If to display as a TAB it should be True
+        self.active = True
+        self.mkUI()
+
+        self.freq = 500
+        self.timer = QtCore.QTimer()
+        self.timer.timeout.connect(self._do_sthg)
+        self.timer.setInterval(self.freq)
+
+        self.counter = 0
+
+    def mkUI(self):
+
+        # Active toggle
+        self.b_active = QtWidgets.QCheckBox('ACTIVE ')
+        self.b_active.setChecked(True)
+        self.b_active.setStyleSheet("QCheckBox::indicator:checked {image: url(./Icons/SwitchOn.png)}::indicator:unchecked {image: url(./Icons/SwitchOff.png)}")
+        self.b_active.clicked.connect(self._active_clicked)
+
+        # pretty picture
+        self.label = QtWidgets.QLabel("Henlol")
+
+        # add buttons and pictures to layout, active toggle buttons is obligatory
+        grid = QtWidgets.QGridLayout()
+        grid.addWidget(self.b_active, 0, 0)
+        grid.addWidget(self.label, 1, 0)
+        self.setLayout(grid)
+
+    def _do_sthg(self):
+        self.counter = self.counter + 1
+        txt = f"Henlol {self.counter}"
+        self.label.setText(txt)
+
+    def wakeUp(self):
+        self.currImage = 0
+        self._do_sthg()
+        self.timer.start()
+
+    def sleep(self):
+        pass
+        #self.timer.stop()
+
+    def _active_clicked(self):
+        try:
+            self.active = self.b_active.checkState()
+        except Exception as e:
+            pass
+
+
+# Weather conditions
+class WeatherGui(QtWidgets.QWidget):
+    def __init__(self, parent=None):
+        super(WeatherGui, self).__init__(parent)
+        self.parent = parent
+        self.name = "Weather"
+        self.active = True
+        self.display = True
+        self.mkUI()
+        self.m = None
+
+        self.parent.add_background_task(self.nats_weather_loop())
+
+    async def nats_weather_loop(self):
+
+            reader = get_reader('telemetry.weather.davis', deliver_policy='last')
+            async for data, meta in reader:
+                weather = data['measurements']
+
+                self.wind_e.setText(f"{weather['wind_10min_ms']:.1f} [m/s]")
+                self.windDir_e.setText(f"{weather['wind_dir_deg']} [deg]")
+                self.temp_e.setText(f"{weather['temperature_C']:.1f} [C]")
+                self.hummidity_e.setText(f"{weather['humidity']:.1f} [%]")
+                self.pressure_e.setText(f"{weather['pressure_Pa']:.0f} [Pa]")
+
+
+
+    def mkUI(self):
+        self.freq = 30000
+        grid = QtWidgets.QGridLayout()
+        self.timer = QtCore.QTimer()
+        self.timer.timeout.connect(self._readWeather)
+        self.timer.setInterval(self.freq)
+        self.setLayout(grid)
+
+        self.b_active = QtWidgets.QCheckBox('ACTIVE ')
+        self.b_active.setChecked(True)
+        self.b_active.setStyleSheet("QCheckBox::indicator:checked {image: url(./Icons/SwitchOn.png)}::indicator:unchecked {image: url(./Icons/SwitchOff.png)}")
+        self.b_active.clicked.connect(self._active_clicked)
+
+        self.wind_l = QtWidgets.QLabel("Wind:")
+        self.wind_e = QtWidgets.QLineEdit()
+        self.wind_e.setReadOnly(True)
+        self.wind_e.setStyleSheet("background-color: rgb(235,235,235);")
+        self.windDir_l = QtWidgets.QLabel("Direction:")
+        self.windDir_e = QtWidgets.QLineEdit()
+        self.windDir_e.setReadOnly(True)
+        self.windDir_e.setStyleSheet("background-color: rgb(235,235,235);")
+        self.temp_l = QtWidgets.QLabel("Temp:")
+        self.temp_e = QtWidgets.QLineEdit()
+        self.temp_e.setReadOnly(True)
+        self.temp_e.setStyleSheet("background-color: rgb(235,235,235);")
+        self.hummidity_l = QtWidgets.QLabel("Humidity:")
+        self.hummidity_e = QtWidgets.QLineEdit()
+        self.hummidity_e.setReadOnly(True)
+        self.hummidity_e.setStyleSheet("background-color: rgb(235,235,235);")
+        self.pressure_l = QtWidgets.QLabel("Pressure:")
+        self.pressure_e = QtWidgets.QLineEdit()
+        self.pressure_e.setReadOnly(True)
+        self.pressure_e.setStyleSheet("background-color: rgb(235,235,235);")
+
+        w = 0
+        grid.addWidget(self.b_active, w, 1)
+        w = w + 1
+        grid.addWidget(self.temp_l, w, 1)
+        grid.addWidget(self.temp_e, w, 2)
+        w = w + 1
+        grid.addWidget(self.hummidity_l, w, 1)
+        grid.addWidget(self.hummidity_e, w, 2)
+        w = w + 1
+        grid.addWidget(self.wind_l, w, 1)
+        grid.addWidget(self.wind_e, w, 2)
+        w = w + 1
+        grid.addWidget(self.windDir_l, w, 1)
+        grid.addWidget(self.windDir_e, w, 2)
+        w = w + 1
+        grid.addWidget(self.pressure_l, w, 1)
+        grid.addWidget(self.pressure_e, w, 2)
+
+    def _readWeather(self):
+        pass
+
+    def wakeUp(self):
+        self._readWeather()
+        self.timer.start()
+
+    def sleep(self):
+        # self.label.setPixmap()
+        self.timer.stop()
+
+    def _active_clicked(self):
+        try:
+            self.active = self.b_active.checkState()
+        except Exception as e:
+            pass
+
 #Status of clusters, power production from solar panels
 class EnergyGui(QtWidgets.QWidget):
-    def __init__(self):
+    def __init__(self,parent=None):
         super().__init__()
+        self.parent = parent
         self.name = "Energy"
+        self.active = True
+        self.display = False
         self.mkUI()
 
     def mkUI(self):
@@ -44,7 +218,7 @@ class EnergyGui(QtWidgets.QWidget):
 
     
     def _downloadEnergy(self):
-        print("TODO")
+        pass
 
     def wakeUp(self):
         self._downloadEnergy()
@@ -55,32 +229,6 @@ class EnergyGui(QtWidgets.QWidget):
 
         
 
-#Weather conditions
-class WeatherGui(QtWidgets.QWidget):
-    def __init__(self):
-        super().__init__()
-        self.name = "Weather" 
-        self.mkUI()
-
-    def mkUI(self):
-        self.freq = 30000
-        grid = QtWidgets.QGridLayout()
-        self.timer=QtCore.QTimer()
-        self.timer.timeout.connect(self._readWeather)
-        self.timer.setInterval(self.freq)
-        self.setLayout(grid)
-
-    def _readWeather(self):
-        print("TODO")
-    
-    def wakeUp(self):
-        self._readWeather()
-        self.timer.start()
-
-    def sleep(self):
-        #self.label.setPixmap()
-        self.timer.stop()
-        
 
         
 
@@ -91,9 +239,12 @@ class WeatherGui(QtWidgets.QWidget):
 #from memory_profiler import profile
 
 class ForecastGui(QtWidgets.QWidget):
-    def __init__(self):
+    def __init__(self,parent=None):
         super().__init__()
-        self.name = "Forecast"  
+        self.parent = parent
+        self.name = "Forecast"
+        self.active = True
+        self.display = False
         self.mkUI()
     #@profile
     def mkUI(self):
@@ -133,9 +284,12 @@ class ForecastGui(QtWidgets.QWidget):
 
 #Water and maybe some other social stuff like temperature, humidity in the building....
 class WaterGui(QtWidgets.QWidget):
-    def __init__(self):
+    def __init__(self,parent=None):
         super().__init__()
+        self.parent = parent
         self.name = "Water"
+        self.active = True
+        self.display = True
         self.mkUI()
 
     def mkUI(self):
@@ -180,9 +334,12 @@ class WaterGui(QtWidgets.QWidget):
 
 #allsky image with positions of telescopes, wind arrow
 class AllskyGui(QtWidgets.QWidget):
-    def __init__(self):
+    def __init__(self,parent=None):
         super().__init__()
+        self.parent = parent
         self.name = "Allsky"
+        self.active = True
+        self.display = False
         self.mkUI()
 
     def mkUI(self):
@@ -239,18 +396,18 @@ class AllskyGui(QtWidgets.QWidget):
                 ax3.axes.get_xaxis().set_ticks([])'''
         
         QPixmapCache.clear()
-        try:    
-            self.images = os.popen('ls ./copy_scripts/GOES_satellite/*600x600.jpg').read().split('\n')[:-1]
-            
-            self.currImage += 1
-            if self.currImage == len(self.images):
-                self.currImage = 0
-
-            self.im.load(self.images[self.currImage])
-            self.label.setPixmap(self.im.scaled(800,800))
-
-        except:
-            pass
+        # try:
+        #     self.images = os.popen('ls ./copy_scripts/GOES_satellite/*600x600.jpg').read().split('\n')[:-1]
+        #
+        #     self.currImage += 1
+        #     if self.currImage == len(self.images):
+        #         self.currImage = 0
+        #
+        #     self.im.load(self.images[self.currImage])
+        #     self.label.setPixmap(self.im.scaled(800,800))
+        #
+        # except:
+        #     pass
 
     def wakeUp(self):
         self.currImage=0
@@ -264,62 +421,174 @@ class AllskyGui(QtWidgets.QWidget):
         self.label.setPixmap(self.im.scaled(800,800))
         QPixmapCache.clear()
         #self.im = self.blank
-        
+
+
+
+# class SatelliteGui(QtWidgets.QWidget):
+#     def __init__(self, parent=None):
+#         super().__init__()
+#         self.parent = parent
+#         self.name = "Satellite"
+#         self.active = True
+#         self.display = True
+#         self.mkUI()
+#
+#         self.currImage = -1
+#         self.freq = 500
+#         self.timer = QtCore.QTimer()
+#         self.timer.timeout.connect(self._plot_satellite)
+#         self.timer.setInterval(self.freq)
+#
+#     def mkUI(self):
+#
+#         # Active toggle
+#         self.b_active = QtWidgets.QCheckBox('ACTIVE ')
+#         self.b_active.setStyleSheet(
+#             "QCheckBox::indicator:checked {image: url(./Icons/SwitchOn.png)}::indicator:unchecked {image: url(./Icons/SwitchOff.png)}")
+#         self.b_active.clicked.connect(self._active_clicked)
+#
+#         # pretty picture
+#         self.label = QtWidgets.QLabel()
+#         self.im = QPixmap()
+#         self.label.setPixmap(self.im.scaled(800, 800))
+#
+#         # add buttons and pictures to layout
+#         grid = QtWidgets.QGridLayout()
+#         grid.addWidget(self.b_active, 0, 0)
+#         grid.addWidget(self.label, 1, 0)
+#         self.setLayout(grid)
+#
+#     def _plot_satellite(self):
+#
+#         QPixmapCache.clear()
+#         try:
+#             self.images = os.popen('ls ./copy_scripts/GOES_satellite/*600x600.jpg').read().split('\n')[:-1]
+#
+#             self.currImage += 1
+#             if self.currImage == len(self.images):
+#                 self.currImage = 0
+#
+#             self.im.load(self.images[self.currImage])
+#             self.label.setPixmap(self.im.scaled(700, 600))
+#
+#         except:
+#             pass
+#
+#     def wakeUp(self):
+#         self.currImage = 0
+#         self._plot_satellite()
+#         self.timer.start()
+#
+#     def sleep(self):
+#         self.timer.stop()
+#         self.im = QPixmap()
+#         self.label.setPixmap(self.im.scaled(800, 800))
+#         QPixmapCache.clear()
+#         # self.im = self.blank
+#         # self.freq = 2147483647
+#
+#     def _active_clicked(self):
+#         try:
+#             self.active = self.b_active.checkState()
+#         except Exception as e:
+#             pass
+
 
 class SatelliteGui(QtWidgets.QWidget):
-    def __init__(self):
+    def __init__(self, parent=None):
         super().__init__()
+        self.parent = parent
         self.name = "Satellite"
+        self.active = True
+        self.display = True
         self.mkUI()
 
-    def mkUI(self):
-        self.currImage = -1
-        self.freq = 500
-        self.label = QtWidgets.QLabel()
-        self.im = QPixmap()
-        self.label.setPixmap(self.im.scaled(800,800))
-        grid = QtWidgets.QGridLayout()
-        w=0
-        self.timer=QtCore.QTimer()
+        self.freq = 1000*60
+        self.timer = QtCore.QTimer()
         self.timer.timeout.connect(self._plot_satellite)
         self.timer.setInterval(self.freq)
-        grid.addWidget(self.label, w, 0)
-        self.setLayout(grid)
 
-    def _plot_satellite(self):
-        
-        QPixmapCache.clear()
-        try:     
-            self.images = os.popen('ls ./copy_scripts/GOES_satellite/*600x600.jpg').read().split('\n')[:-1]
-            
-            self.currImage += 1
-            if self.currImage == len(self.images):
-                self.currImage = 0
-
-            self.im.load(self.images[self.currImage])
-            self.label.setPixmap(self.im.scaled(800,800))
-            
-        except:
-            pass
-
-    def wakeUp(self):
-        self.currImage=0
         self._plot_satellite()
         self.timer.start()
 
-    def sleep(self):
-        self.timer.stop()
+    def mkUI(self):
+
+        # Active toggle
+        self.b_active = QtWidgets.QCheckBox('ACTIVE ')
+        self.b_active.setChecked(True)
+        self.b_active.setStyleSheet("QCheckBox::indicator:checked {image: url(./Icons/SwitchOn.png)}::indicator:unchecked {image: url(./Icons/SwitchOff.png)}")
+        self.b_active.clicked.connect(self._active_clicked)
+
+        # pretty picture
+        self.label = QtWidgets.QLabel()
         self.im = QPixmap()
-        self.label.setPixmap(self.im.scaled(800,800))
+        self.label.setPixmap(self.im.scaled(700, 600))
+
+        # add buttons and pictures to layout
+        grid = QtWidgets.QGridLayout()
+        grid.addWidget(self.b_active, 0, 0)
+        grid.addWidget(self.label, 1, 0)
+        self.setLayout(grid)
+
+    def _plot_satellite(self):
         QPixmapCache.clear()
-        #self.im = self.blank
-        #self.freq = 2147483647
-   
+        image = self.get_photo()
+        if image != None:
+            self.im.loadFromData(image)
+            self.label.setPixmap(self.im.scaled(700, 600))
 
-############################################################################
-#----------Add any new tab to the list below before running oca_monit.py!  #
-############################################################################
+    def wakeUp(self):
+        pass
 
-tabsList = [AllskyGui(),SatelliteGui(),WeatherGui(),ForecastGui(),WaterGui(),EnergyGui()]
+    def sleep(self):
+        pass
+        # self.timer.stop()
+        # self.im = QPixmap()
+        # self.label.setPixmap(self.im.scaled(700, 600))
+        # QPixmapCache.clear()
 
-#maybe some initial configuration should be here- which tabs should be displayed in batch mode
+    def _active_clicked(self):
+        try:
+            self.active = self.b_active.checkState()
+        except Exception as e:
+            pass
+
+    def get_photo(self):
+        image = None
+        url = 'https://cdn.star.nesdis.noaa.gov/GOES16/ABI/SECTOR/ssa/GEOCOLOR/latest.jpg'
+        r = requests.get(url)
+        if r.status_code == 200:
+            image = r.content
+        return image
+
+    def edit_images(images, dates):
+        sites_dic = {"OCA": [270, 270, "*", "red"], "Antofagasta": [250, 180, "s", "magenta"],
+                     "Tal-Tal": [240, 330, "s", "yellow"], "Llullaillaco": [430, 270, "^", "green"],
+                     "Copiapo": [250, 530, "s", "cyan"]}
+
+        # with imageio.get_writer('satellite.gif', mode='I',duration=500) as writer:
+        # try:
+        if True:
+            for j, image in enumerate(images):
+                mpl.pyplot.figure(figsize=(10, 10))
+                im = mpl.pyplot.imread(image)
+                mpl.pyplot.clf()
+
+                mpl.pyplot.imshow(im[1000:1600, 2100:2700])
+                for i, site in enumerate(sites_dic):
+                    (x, y, marker, color) = sites_dic[site]
+                    mpl.pyplot.plot(x, y, marker, color=color, markersize=10)
+
+                    mpl.pyplot.text(x - 70, y, site, c=color)
+                mpl.pyplot.text(20, 580, 'UT: ' + dates[j], c='red', fontsize='x-large')
+                mpl.pyplot.text(500, 580, 'GOES-16 satellite', c='yellow')
+
+                frame = mpl.pyplot.gca()
+                frame.axes.xaxis.set_ticklabels([])
+                frame.axes.yaxis.set_ticklabels([])
+                frame.axes.get_xaxis().set_ticks([])
+                frame.axes.get_yaxis().set_ticks([])
+
+                mpl.pyplot.tight_layout()
+                mpl.pyplot.savefig(image.replace('7200x4320.jpg', '600x600.jpg', 1))
+

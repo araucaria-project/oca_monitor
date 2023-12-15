@@ -1,0 +1,30 @@
+[tool.poetry]
+name = "oca_monit"
+version = "0.1.0"
+description = ""
+authors = ["pwielgorski"]
+readme = "README.md"
+
+[tool.poetry.dependencies]
+python = "^3.8"
+#paho-mqtt = "^1.6.1"
+
+pyqt5-qt5 = "5.15.2"
+pyqt5 = "^5.15.10"
+astropy = ">=5.0.4,<5.1.0"
+ephem = "^4.1.4"
+matplotlib = "^3.6.3"
+requests = "^2.28.1"
+serverish = {version="^0.11.2", extras=["messenger"]}
+#numpy = "^1.24.1"
+qasync = "^0.23.0"
+
+# ocabox = {git = "https://github.com/araucaria-project/ocabox.git"}
+#ocabox = {path = "../ocabox", develop = true}
+
+[tool.poetry.scripts]
+ocam = "oca_monit:main"
+
+[build-system]
+requires = ["poetry-core"]
+build-backend = "poetry.core.masonry.api"
