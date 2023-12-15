@@ -1,6 +1,8 @@
 #!/usr/bin/env python
 import os
 import asyncio
+import subprocess
+
 import requests
 #import numpy as np
 #import time
@@ -115,6 +117,7 @@ class WeatherGui(QtWidgets.QWidget):
 
             reader = get_reader('telemetry.weather.davis', deliver_policy='last')
             async for data, meta in reader:
+                subprocess.run(["aplay", "./sounds/romulan_alarm.wav"])
                 weather = data['measurements']
 
                 self.wind_e.setText(f"{weather['wind_10min_ms']:.1f} [m/s]")
