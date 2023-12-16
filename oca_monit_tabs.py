@@ -117,8 +117,10 @@ class TelescopesGui(QtWidgets.QWidget):
         async for data, meta in reader:
             d = data
             r = d.message
-            subprocess.run(["aplay", "./sounds/romulan_alarm.wav"])
-            print("NATS BELL: ", r)
+            if "INFO: BELL" in r:
+                subprocess.run(["aplay", "./sounds/romulan_alarm.wav"])
+            self.zb08_e.append(f"{r}\n")
+
 
 
 
@@ -135,18 +137,38 @@ class TelescopesGui(QtWidgets.QWidget):
         self.b_active.setStyleSheet("QCheckBox::indicator:checked {image: url(./Icons/SwitchOn.png)}::indicator:unchecked {image: url(./Icons/SwitchOff.png)}")
         self.b_active.clicked.connect(self._active_clicked)
 
-        self.wind_l = QtWidgets.QLabel("Wind:")
-        self.wind_e = QtWidgets.QLineEdit()
-        self.wind_e.setReadOnly(True)
-        self.wind_e.setStyleSheet("background-color: rgb(235,235,235);")
+        self.wk06_l = QtWidgets.QLabel("wk06:")
+        self.wk06_e = QtWidgets.QTextEdit()
+        self.wk06_e.setReadOnly(True)
+        self.wk06_e.setStyleSheet("background-color: rgb(235,235,235);")
 
+        self.zb08_l = QtWidgets.QLabel("zb08:")
+        self.zb08_e = QtWidgets.QTextEdit()
+        self.zb08_e.setReadOnly(True)
+        self.zb08_e.setStyleSheet("background-color: rgb(235,235,235);")
+
+        self.jk15_l = QtWidgets.QLabel("jk15:")
+        self.jk15_e = QtWidgets.QTextEdit()
+        self.jk15_e.setReadOnly(True)
+        self.jk15_e.setStyleSheet("background-color: rgb(235,235,235);")
+
+        self.iris_l = QtWidgets.QLabel("IRIS:")
+        self.iris_e = QtWidgets.QTextEdit()
+        self.iris_e.setReadOnly(True)
+        self.iris_e.setStyleSheet("background-color: rgb(235,235,235);")
 
         w = 0
-
-        grid.addWidget(self.wind_l, w, 1)
-        grid.addWidget(self.wind_e, w, 2)
-        w = w + 1
-
+        grid.addWidget(self.wk06_l, w, 0)
+        grid.addWidget(self.zb08_l, w, 1)
+        w=w+1
+        grid.addWidget(self.wk06_e, w, 0)
+        grid.addWidget(self.zb08_e, w, 1)
+        w=w+1
+        grid.addWidget(self.jk15_l, w, 0)
+        grid.addWidget(self.iris_l, w, 1)
+        w=w+1
+        grid.addWidget(self.jk15_e, w, 0)
+        grid.addWidget(self.iris_e, w, 1)
 
     def _readWeather(self):
         pass
