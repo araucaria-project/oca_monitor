@@ -13,6 +13,7 @@ import inspect
 import sys, ephem, os
 import time
 import datetime
+import subprocess
 from astropy.time import Time as czas_astro
 from PyQt5 import QtGui,QtCore
 from PyQt5 import QtWidgets
