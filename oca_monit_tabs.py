@@ -117,10 +117,9 @@ class TelescopesGui(QtWidgets.QWidget):
         async for data, meta in reader:
             d = data
             r = d.message
+            self.zb08_e.append(f"{r}")
             if "INFO: BELL" in r:
                 subprocess.run(["aplay", "./sounds/romulan_alarm.wav"])
-            self.zb08_e.append(f"{r}\n")
-
 
 
 
