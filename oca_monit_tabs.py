@@ -15,7 +15,7 @@ from PyQt5.QtGui import QPixmap, QPixmapCache
 #from PyQt5 import QtWebEngine
 #from PyQt5.QtWebKitWidgets import QWebView
 
-from serverish.messenger import Messenger, get_reader
+from serverish.messenger import Messenger, single_read, get_reader, get_journalreader
 
 import datetime
 import time
@@ -51,7 +51,7 @@ class Template(QtWidgets.QWidget):
         super().__init__()
         self.parent = parent
         self.name = "Template"
-        self.display = True    # If to display as a TAB it should be True
+        self.display = False    # If to display as a TAB it should be True
         self.active = True
         self.mkUI()
 
@@ -99,6 +99,73 @@ class Template(QtWidgets.QWidget):
         except Exception as e:
             pass
 
+# Weather conditions
+class TelescopesGui(QtWidgets.QWidget):
+    def __init__(self, parent=None):
+        super(TelescopesGui, self).__init__(parent)
+        self.parent = parent
+        self.name = "Telescopes"
+        self.active = True
+        self.display = True
+        self.mkUI()
+        self.m = None
+
+        self.parent.add_background_task(self.nats_toi_signal())
+
+    async def nats_toi_signal(self):
+        reader = get_journalreader(f'tic.journal.zb08.toi.signal', deliver_policy='last')
+        async for data, meta in reader:
+            d = data
+            r = d.message
+            subprocess.run(["aplay", "./sounds/romulan_alarm.wav"])
+            print("NATS BELL: ", r)
+
+
+
+    def mkUI(self):
+        self.freq = 30000
+        grid = QtWidgets.QGridLayout()
+        self.timer = QtCore.QTimer()
+        self.timer.timeout.connect(self._readWeather)
+        self.timer.setInterval(self.freq)
+        self.setLayout(grid)
+
+        self.b_active = QtWidgets.QCheckBox('ACTIVE ')
+        self.b_active.setChecked(True)
+        self.b_active.setStyleSheet("QCheckBox::indicator:checked {image: url(./Icons/SwitchOn.png)}::indicator:unchecked {image: url(./Icons/SwitchOff.png)}")
+        self.b_active.clicked.connect(self._active_clicked)
+
+        self.wind_l = QtWidgets.QLabel("Wind:")
+        self.wind_e = QtWidgets.QLineEdit()
+        self.wind_e.setReadOnly(True)
+        self.wind_e.setStyleSheet("background-color: rgb(235,235,235);")
+
+
+        w = 0
+
+        grid.addWidget(self.wind_l, w, 1)
+        grid.addWidget(self.wind_e, w, 2)
+        w = w + 1
+
+
+    def _readWeather(self):
+        pass
+
+    def wakeUp(self):
+        #self._readWeather()
+        self.timer.start()
+
+    def sleep(self):
+        pass
+        # self.label.setPixmap()
+        #self.timer.stop()
+
+    def _active_clicked(self):
+        try:
+            self.active = self.b_active.checkState()
+        except Exception as e:
+            pass
+
 
 # Weather conditions
 class WeatherGui(QtWidgets.QWidget):
@@ -117,7 +184,6 @@ class WeatherGui(QtWidgets.QWidget):
 
             reader = get_reader('telemetry.weather.davis', deliver_policy='last')
             async for data, meta in reader:
-                subprocess.run(["aplay", "./sounds/romulan_alarm.wav"])
                 weather = data['measurements']
 
                 self.wind_e.setText(f"{weather['wind_10min_ms']:.1f} [m/s]")
@@ -292,7 +358,7 @@ class WaterGui(QtWidgets.QWidget):
         self.parent = parent
         self.name = "Water"
         self.active = True
-        self.display = True
+        self.display = False
         self.mkUI()
 
     def mkUI(self):
