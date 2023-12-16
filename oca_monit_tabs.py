@@ -119,7 +119,8 @@ class TelescopesGui(QtWidgets.QWidget):
             r = d.message
             self.zb08_e.append(f"{r}")
             if "INFO: BELL" in r:
-                subprocess.run(["aplay", "./sounds/romulan_alarm.wav"])
+                if self.parent.sound:
+                    subprocess.run(["aplay", "./sounds/romulan_alarm.wav"])
 
 
 

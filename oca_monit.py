@@ -462,6 +462,8 @@ class MonitGUI2(QtWidgets.QWidget,CaleToZlo, metaclass=MetaCaleToZlo):
         super().__init__(loop=loop)
         self.loop = loop
 
+        self.sound = True
+
         self.tab_window_size=[600,700]
         self.resize(self.tab_window_size[0]+74,self.tab_window_size[1]+32)
         self.setWindowTitle("OCA MONITOR")
@@ -473,7 +475,9 @@ class MonitGUI2(QtWidgets.QWidget,CaleToZlo, metaclass=MetaCaleToZlo):
         self.b_enable.setStyleSheet("QCheckBox::indicator:checked {image: url(./Icons/SwitchOn.png)}::indicator:unchecked {image: url(./Icons/SwitchOff.png)}")
 
         self.b_sound = QtWidgets.QCheckBox('ENABLE SOUND WARNING')
+        self.b_sound.setChecked(True)
         self.b_sound.setStyleSheet("QCheckBox::indicator:checked {image: url(./Icons/SwitchOn.png)}::indicator:unchecked {image: url(./Icons/SwitchOff.png)}")
+        self.b_sound.clicked.connect(self.enable_sound)
 
         self.b_enable_warnings = QtWidgets.QCheckBox('ENABLE WARNINGS')
         self.b_enable_warnings.setStyleSheet("QCheckBox::indicator:checked {image: url(./Icons/SwitchOn.png)}::indicator:unchecked {image: url(./Icons/SwitchOff.png)}")
@@ -551,6 +555,11 @@ class MonitGUI2(QtWidgets.QWidget,CaleToZlo, metaclass=MetaCaleToZlo):
     async def on_start_app(self):
         await self.run_background_tasks()
 
+    def enable_sound(self):
+        if self.b_sound.checkState():
+            self.sound = True
+        else:
+            self.sound = False
 
 
 class TabBox(QtWidgets.QWidget):
