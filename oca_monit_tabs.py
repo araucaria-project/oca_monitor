@@ -110,6 +110,7 @@ class TelescopesGui(QtWidgets.QWidget):
         self.mkUI()
         self.m = None
 
+
         self.parent.add_background_task(self.nats_toi_signal())
 
     async def nats_toi_signal(self):

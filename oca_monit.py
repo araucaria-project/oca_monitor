@@ -468,6 +468,10 @@ class MonitGUI2(QtWidgets.QWidget,CaleToZlo, metaclass=MetaCaleToZlo):
         self.resize(self.tab_window_size[0]+74,self.tab_window_size[1]+32)
         self.setWindowTitle("OCA MONITOR")
         self.mkUI()
+        hohoho = datetime.datetime(2023, 12, 16, 5, 0, 0)
+        no_hohoho = datetime.datetime(2023, 12, 17, 5, 0, 0)
+        if datetime.datetime.now() > hohoho and datetime.datetime.now() < no_hohoho:
+            subprocess.run(["aplay", "./sounds/jingle_bells.wav"])
 
     def mkUI(self):
 
