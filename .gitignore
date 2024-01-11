@@ -1,5 +1,4 @@
 .DS_Store
-poetry.lock
 .idea
 
 # Byte-compiled / optimized / DLL files
@@ -143,3 +142,6 @@ ob/configuration/*
 # poetry 
 poetry.lock
 
+
+# Ignore dynaconf secret files
+.secrets.*
