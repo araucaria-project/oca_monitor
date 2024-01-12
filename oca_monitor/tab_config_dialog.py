@@ -1,5 +1,5 @@
-from PyQt5.QtCore import Qt
-from PyQt5.QtWidgets import QDialog, QVBoxLayout, QCheckBox, QSlider, QLabel, QHBoxLayout, QPushButton, QGroupBox
+from PyQt6.QtCore import Qt
+from PyQt6.QtWidgets import QDialog, QVBoxLayout, QCheckBox, QSlider, QLabel, QHBoxLayout, QPushButton, QGroupBox
 
 from oca_monitor.controls import SlideCheckbox
 from oca_monitor.paths import icon_path
@@ -29,7 +29,7 @@ class TabConfigDialog(QDialog):
         self.layout.addWidget(self.speed_label)
 
         self.speed_slider = QSlider()
-        self.speed_slider.setOrientation(Qt.Horizontal)
+        self.speed_slider.setOrientation(Qt.Orientation.Horizontal)
         self.speed_slider.setMinimum(1)
         self.speed_slider.setMaximum(60)
         self.speed_slider.setMinimumWidth(300)  # Zwiększ minimalną szerokość slidera

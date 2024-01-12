@@ -1,5 +1,5 @@
 import logging
-from PyQt5.QtWidgets import QWidget, QVBoxLayout, QLabel
+from PyQt6.QtWidgets import QWidget, QVBoxLayout, QLabel
 
 # please use logging like here, it will name the log record with the name of the module
 logger = logging.getLogger(__name__.rsplit('.')[-1])

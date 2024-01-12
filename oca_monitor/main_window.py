@@ -13,9 +13,9 @@ import logging
 from importlib import import_module
 import dataclasses
 
-from PyQt5.QtCore import QTimer
-from PyQt5.QtWidgets import QMainWindow, QGridLayout, QWidget, QTabWidget, QLabel, QToolBar
-from PyQt5.QtWidgets import QPushButton, QVBoxLayout
+from PyQt6.QtCore import QTimer
+from PyQt6.QtWidgets import QMainWindow, QGridLayout, QWidget, QTabWidget, QLabel, QToolBar
+from PyQt6.QtWidgets import QPushButton, QVBoxLayout
 
 from oca_monitor.config import settings
 from oca_monitor.tab_config_dialog import TabConfigDialog
@@ -145,7 +145,7 @@ class ConfigurableTabWidget(QWidget):
     def openConfigDialog(self):
         # Tutaj możesz otworzyć dialog konfiguracyjny
         dialog = TabConfigDialog(self)
-        dialog.exec_()
+        dialog.exec()
 
     def addTab(self, widget, name, auto_interval=10, auto_enabled=False):
         self.tab_widget.addTab(widget, name, auto_interval=auto_interval, auto_enabled=auto_enabled)
