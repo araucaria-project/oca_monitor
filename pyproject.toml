@@ -12,7 +12,7 @@ include = ["settings.toml", "oca_monitor/resources/icons/*"]
 python = "^3.9"
 #paho-mqtt = "^1.6.1"
 
-pyqt5-qt5 = "^5.15.12"
+#pyqt5-qt5 = "^5.15.12"
 pyqt5 = "^5.15.10"
 astropy = "^6.0.0"
 ephem = "^4.1.4"
