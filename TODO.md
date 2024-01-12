@@ -6,3 +6,4 @@
 * Sounds nice and nonblocking (pygame?)
 * WEB browser (QWebEngineView, PyQt5.QtWebKitWidgets import QWebView)
 * Downloader(docker + NFS + NATS)
+* Additional Setting file from commandline

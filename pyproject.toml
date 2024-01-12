@@ -1,12 +1,15 @@
 [tool.poetry]
 name = "oca_monitor"
-version = "0.2.0"
+version = "0.3.0"
 description = "Flexible GUI for displaying telescopes and other OCM systems status"
 license = "MIT"
 authors = ["pwielgorski"]
 readme = "README.md"
-
 include = ["settings.toml"]
+
+[tool.poetry.include]
+patterns = ["oca_monitor/resources/icons/*"]
+
 
 
 [tool.poetry.dependencies]

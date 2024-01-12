@@ -2,9 +2,11 @@
 # e.g. OCAMONITOR_NATS_HOST=test.oca.lan
 
 [default]  # global configuration is used by all environments, setting from here override all other settings
-window_size = [800, 800]
-panel_columns = [2, 1]  # The size ratio of the columns in the panel grid
-panel_rows = [1, 1, 1]  # The size ratio of the rows in the panel grid
+window_size = [1920, 1080]
+panel_columns = [1, 1]  # The size ratio of the columns in the panel grid
+panel_rows = [10,1]  # The size ratio of the rows in the panel grid
+#style = "dark"
+style = "white"
 
 nats_host = ""
 nats_port = 4222
@@ -17,16 +19,16 @@ log_level = "INFO"
 # Panel page declaration:
 # environment.panels.xy.tabname
 [default.panels.00.example]
-auto_interval = 3  # seconds, how long to show this page before auto switching to next page, 0 to disable auto switching
+auto_interval = 3  # seconds, how long to show this page before auto switching to next page
 source = "example"  # page source - page is defined in oca_monitor/pages/example.py
 
 [default.panels.00.dupa]
-auto_interval = 3  # seconds, how long to show this page before auto switching to next page, 0 to disable auto switching
+auto_interval = 3  # seconds, how long to show this page before auto switching to next page
 source = "example"  # page source - page is defined in oca_monitor/pages/example.py
 example_parameter = "example text"  # example of page parameter
 
 [default.panels.01.zupa]
-auto_interval = 3  # seconds, how long to show this page before auto switching to next page, 0 to disable auto switching
+auto_interval = 3  # seconds, how long to show this page before auto switching to next page
 source = "example"  # page source - page is defined in oca_monitor/pages/example.py
 
 [oca]  #  default configuration
@@ -46,5 +48,4 @@ example_parameter = "OCM Rulez!"
 [dev.panels.00.hohohoh]
 source = "example"
 example_parameter = "Ho Ho"
-
 

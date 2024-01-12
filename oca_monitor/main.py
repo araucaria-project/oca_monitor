@@ -8,12 +8,13 @@ import asyncio
 import os
 import sys
 import argparse
+from importlib import import_module
 
 from qasync import QEventLoop, QApplication
 from serverish.messenger import Messenger
 
 from oca_monitor.config import settings
-from oca_monitor.oca_monitor import MainWindow
+from oca_monitor.main_window import MainWindow
 
 logger = logging.getLogger('main')
 
@@ -64,6 +65,15 @@ def main():
 
     # Standard Qt Application
     app = QApplication(sys.argv)
+
+    # Style sheet
+    try:
+        style_module = import_module(f'oca_monitor.styles.{settings.style}')
+        app.setStyleSheet(style_module.style_sheet)
+    except ImportError:
+        logger.warning(f'Cannot import style sheet from {settings.style_sheet}')
+    except (AttributeError, LookupError):
+        pass
 
     # Event loop from qasync (make Qt + asyncio work together)
     loop = QEventLoop(app)
