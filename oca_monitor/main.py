@@ -38,12 +38,9 @@ async def asyncmain(app):
     window = MainWindow()
     window.show()
 
-    t = asyncio.create_task(dummytask())
-
     app_close_event = asyncio.Event()
     app.aboutToQuit.connect(app_close_event.set)
     await app_close_event.wait()
-    return t
 
 def main():
     # Parse command line arguments
