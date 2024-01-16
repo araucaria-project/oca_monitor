@@ -8,14 +8,17 @@
 #                                                               #
 #################################################################
 """
-
+import asyncio
 import logging
+from asyncio import Lock
 from importlib import import_module
 import dataclasses
 
 from PyQt6.QtCore import QTimer
 from PyQt6.QtWidgets import QMainWindow, QGridLayout, QWidget, QTabWidget, QLabel, QToolBar
 from PyQt6.QtWidgets import QPushButton, QVBoxLayout
+from serverish.base.task_manager import create_task_sync
+from serverish.messenger import Messenger, single_read
 
 from oca_monitor.config import settings
 from oca_monitor.tab_config_dialog import TabConfigDialog
@@ -68,7 +71,11 @@ class AsyncTabWidget(QTabWidget):
             self.seconds_counter += 1
             time_passed = self.seconds_counter * 10 / self.speed
             current_tab_name = self.tabText(self.currentIndex())
-            pageinfo = self.pages[current_tab_name]
+            try:
+                pageinfo = self.pages[current_tab_name]
+            except KeyError:
+                logger.error(f"Page {current_tab_name} not found")
+                return
             if time_passed >= pageinfo.auto_interval:
                 self.seconds_counter = 0
                 next_index = self.currentIndex() + 1
@@ -159,6 +166,7 @@ class MainWindow(QMainWindow):
     def __init__(self):
         super().__init__()
         self.initUI()
+        self._config = None
 
     def initUI(self):
         self.central_widget = QWidget()
@@ -215,4 +223,14 @@ class MainWindow(QMainWindow):
         self.setCentralWidget(self.central_widget)
         self.setWindowTitle("OCA Monitor")
         self.resize(*settings.window_size)
+
+    _config_reading_in_progress = Lock()
+
+    async def observatory_config(self) -> dict:
+        if self._config is None:
+            async with self._config_reading_in_progress:
+                if self._config is None:
+                    self._config, meta = await single_read('tic.config.observatory')
+                    logger.info(f'Obtained Observatory Config. Published: {self._config["published"]}')
+        return self._config
 

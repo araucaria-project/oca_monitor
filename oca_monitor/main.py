@@ -18,8 +18,14 @@ from oca_monitor.main_window import MainWindow
 
 logger = logging.getLogger('main')
 
+async def dummytask():
+    logger.info('Dummy task started')
+    return
+    while True:
+        await asyncio.sleep(1)
+        logger.info('Dummy task')
 
-async def asyncmain(loop):
+async def asyncmain(app):
     host, port = settings.nats_host, settings.nats_port
 
     msg = Messenger()
@@ -32,7 +38,9 @@ async def asyncmain(loop):
     window = MainWindow()
     window.show()
 
-    loop.run_forever()
+    app_close_event = asyncio.Event()
+    app.aboutToQuit.connect(app_close_event.set)
+    await app_close_event.wait()
 
 def main():
     # Parse command line arguments
@@ -79,4 +87,4 @@ def main():
     loop = QEventLoop(app)
     asyncio.set_event_loop(loop)
 
-    asyncio.run(asyncmain(loop))
+    loop.run_until_complete(asyncmain(app))
