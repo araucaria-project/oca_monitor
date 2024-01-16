@@ -8,14 +8,17 @@
 #                                                               #
 #################################################################
 """
-
+import asyncio
 import logging
+from asyncio import Lock
 from importlib import import_module
 import dataclasses
 
 from PyQt5.QtCore import QTimer
 from PyQt5.QtWidgets import QMainWindow, QGridLayout, QWidget, QTabWidget, QLabel, QToolBar
 from PyQt5.QtWidgets import QPushButton, QVBoxLayout
+from serverish.base.task_manager import create_task_sync
+from serverish.messenger import Messenger, single_read
 
 from oca_monitor.config import settings
 from oca_monitor.tab_config_dialog import TabConfigDialog
@@ -159,6 +162,7 @@ class MainWindow(QMainWindow):
     def __init__(self):
         super().__init__()
         self.initUI()
+        self._config = None
 
     def initUI(self):
         self.central_widget = QWidget()
@@ -215,4 +219,14 @@ class MainWindow(QMainWindow):
         self.setCentralWidget(self.central_widget)
         self.setWindowTitle("OCA Monitor")
         self.resize(*settings.window_size)
+
+    _config_reading_in_progress = Lock()
+
+    async def observatory_config(self) -> dict:
+        if self._config is None:
+            async with self._config_reading_in_progress:
+                if self._config is None:
+                    self._config, meta = await single_read('tic.config.observatory')
+                    logger.info(f'Obtained Observatory Config. Published: {self._config["published"]}')
+        return self._config
 
