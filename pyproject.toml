@@ -1,6 +1,6 @@
 [tool.poetry]
 name = "oca_monitor"
-version = "0.3.0"
+version = "0.3.1"
 description = "Flexible GUI for displaying telescopes and other OCM systems status"
 license = "MIT"
 authors = ["pwielgorski"]
@@ -12,19 +12,28 @@ include = ["settings.toml", "oca_monitor/resources/icons/*"]
 python = "^3.9"
 #paho-mqtt = "^1.6.1"
 
-#pyqt5-qt5 = "^5.15.12"
-pyqt6 = "*"
+# pyqy6 is optional, because there is no such package for ARM
+# to install it from PyPI on other platforms, use `poetry update --extras pyqt`
+pyqt6 = {version="*", optional = true}
 astropy = "^6.0.0"
 ephem = "^4.1.4"
 matplotlib = "^3.8.2"
 requests = "^2.28.1"
-serverish = {version="^1.0.0", extras=["messenger"]}
+serverish = {version="^1.0.2", extras=["messenger"]}
 #numpy = "^1.24.1"
 qasync = "^0.27.1"
-
-# ocabox = {git = "https://github.com/araucaria-project/ocabox.git"}
-#ocabox = {path = "../ocabox", develop = true}
 dynaconf = "^3.2.4"
+
+
+[tool.poetry.extras]
+pyqt = ["pyqt6"]
+
+[tool.poetry.group.pyqt]
+optional = true
+
+[tool.poetry.group.pyqt.dependencies]
+pyqt6 = "*"
+
 
 [tool.poetry.scripts]
 ocam_old = "oca_monit:main"

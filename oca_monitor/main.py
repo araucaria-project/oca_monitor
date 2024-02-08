@@ -47,7 +47,7 @@ def main():
     argparser = argparse.ArgumentParser(description=__doc__)
     argparser.add_argument('--env',
                            help='Settings environment name, overrides OCAMONITOR_ENV environment variable. '
-                                'If none of them is set, default value "dev" is used')
+                                'If none of them is set, default values are used')
     argparser.add_argument('--log-level', choices=['DEBUG', 'INFO', 'WARNING', 'ERROR', 'CRITICAL'],
                            help='Logging level, overrides OCAMONITOR_LOG_LEVEL environment variable and settings.toml.')
     args = argparser.parse_args()
@@ -57,7 +57,7 @@ def main():
     if args.env:
         os.environ["OCAMONITOR_ENV"] = args.env  # hard override
     else:
-        os.environ.setdefault("OCAMONITOR_ENV", "dev")  # effective only if env variable is not set
+        os.environ.setdefault("OCAMONITOR_ENV", "default")  # effective only if env variable is not set
 
 
     # Logging configuration

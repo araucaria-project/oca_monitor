@@ -2,13 +2,13 @@
 # e.g. OCAMONITOR_NATS_HOST=test.oca.lan
 
 [default]  # global configuration is used by all environments, setting from here override all other settings
-window_size = [1920, 1080]
-panel_columns = [1, 1]  # The size ratio of the columns in the panel grid
-panel_rows = [10,1]  # The size ratio of the rows in the panel grid
+window_size = [1080, 1800]
+panel_columns = [1]  # The size ratio of the columns in the panel grid
+panel_rows = [1,1]   # The size ratio of the rows in the panel grid
 #style = "dark"
 style = "white"
 
-nats_host = ""
+nats_host = "nats.oca.lan"
 nats_port = 4222
 
 #log_level = "DEBUG"
@@ -17,26 +17,20 @@ log_level = "INFO"
 
 
 # Panel page declaration:
-# environment.panels.xy.tabname
+# environment.panels.rowcolumn.tabname
 [default.panels.00.wind]
 auto_interval = 10  # seconds, how long to show this page before auto switching to next page
 source = "wind"  # page source - page is defined in oca_monitor/pages/example.py
 
-[default.panels.00.dupa]
+[default.panels.10.dupa]
 auto_interval = 10  # seconds, how long to show this page before auto switching to next page
 source = "example"  # page source - page is defined in oca_monitor/pages/example.py
 example_parameter = "example text"  # example of page parameter
 
-[default.panels.01.zupa]
+[default.panels.10.zupa]
 auto_interval = 10  # seconds, how long to show this page before auto switching to next page
 source = "example"  # page source - page is defined in oca_monitor/pages/example.py
 
-[oca]  #  default configuration
-#nats_host = "nats.oca.lan"
-nats_host = "192.168.7.38"
-window_size = [800, 1024]
-panel_columns = [1]  # The size ratio of the columns in the panel grid
-panel_rows = [4, 4, 1]  # The size ratio of the rows in the panel grid
 
 
 [dev]  # set OCAMONITOR_ENV=dev env var to use this configuration
