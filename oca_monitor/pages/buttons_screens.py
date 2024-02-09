@@ -14,18 +14,18 @@ class lightSlide():
         self.slide = slide
 
     def changeLight(self,value):
-        #try:
-        if True:
+        try:
+            #if True:
             self.slide.setValue(value)
             val = str(hex(int(value*255/100))).replace('0x','',1)
             if len(val) == 1:
                 val = '0'+val
             
             self.req(self.ip,val)
-        #except:
-        #    pass
+        except:
+            pass
 
-    def req(self,ip,val):
+    async def req(self,ip,val):
         requests.post('http://'+ip+'/api/rgbw/set',json={"rgbw":{"desiredColor":val}})
 
 
@@ -46,7 +46,7 @@ class ButtonsWidget(QWidget):
         self.layout.addWidget(self.label)
         self.lightSlides = []
         for i,light in enumerate(config.bbox_led_control):
-            self.lightSlides.append(lightSlide(light,config.bbox_led_control[light],QSlider(self)))
+            self.lightSlides.append(lightSlide(light,config.bbox_led_control[light],QSlider(self,QtCore.Qt.Horizontal)))
             #self.lightSlides[-1].slide.groove(background="#C9CDD0",height='50px')
             self.lightSlides[-1].slide.setRange(0,100)
             self.lightSlides[-1].slide.setPageStep(10)
