@@ -21,12 +21,13 @@ class lightSlide():
             if len(val) == 1:
                 val = '0'+val
             
-            self.req(self.ip,val)
+            self.req(val)
         except:
             pass
 
+    @asyncSlot()
     async def req(self,ip,val):
-        task = asyncio.create_task( requests.post('http://'+ip+'/api/rgbw/set',json={"rgbw":{"desiredColor":val}}))
+        task = asyncio.create_task( requests.post('http://'+self.ip+'/api/rgbw/set',json={"rgbw":{"desiredColor":val}}))
         await task
 
 

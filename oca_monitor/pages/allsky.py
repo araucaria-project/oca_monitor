@@ -1,6 +1,6 @@
 import logging
 import datetime
-
+import time
 from PyQt6.QtWidgets import QApplication, QWidget, QVBoxLayout,QLabel,QSizePolicy
 from PyQt6.QtCore import QTimer
 from PyQt6 import QtCore
@@ -25,9 +25,10 @@ class AllskyWidget(QWidget):
     def initUI(self):
         self.layout = QVBoxLayout(self)
         self.label = QLabel()
+        time.sleep(1)
         self.label.resize(self.width(),self.width())
-        
         self.layout.addWidget(self.label,1)
+        
         self.update()
         
     def update(self):
