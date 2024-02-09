@@ -43,9 +43,9 @@ class WindDataWidget(QWidget):
         self.ax_hum = self.figure.add_subplot(223)
         self.ax_pres = self.figure.add_subplot(224)
         self.ax_wind.set_title("Wind [m/s]")
-        self.ax_wind.set_title("Temperature [C]")
-        self.ax_wind.set_title("Humidity [%]")
-        self.ax_wind.set_title("Pressure [hPa]")
+        self.ax_temp.set_title("Temperature [C]")
+        self.ax_hum.set_title("Humidity [%]")
+        self.ax_pres.set_title("Pressure [hPa]")
         # setting a limits
         self.ax_wind.set_xlim([0, 24])
         self.ax_wind.set_ylim([0, 20])
@@ -174,12 +174,12 @@ class WindDataWidget(QWidget):
                     list(self.ln_today_temp.get_ydata()) + [temp]
                 )
 
-                self.ln_today_wind.set_data(
+                self.ln_today_hum.set_data(
                     list(self.ln_todayt_hum.get_xdata()) + [hour],
                     list(self.ln_today_hum.get_ydata()) + [hum]
                 )
 
-                self.ln_today_wind.set_data(
+                self.ln_today_pres.set_data(
                     list(self.ln_today_pres.get_xdata()) + [hour],
                     list(self.ln_today_pres.get_ydata()) + [pres]
                 )
