@@ -3,7 +3,7 @@ from PyQt6.QtWidgets import QWidget, QVBoxLayout, QLabel,QSlider,QDial,QScrollBa
 from PyQt6 import QtCore
 import json,requests
 import oca_monitor.config as config
-
+import asyncio
 # please use logging like here, it will name the log record with the name of the module
 logger = logging.getLogger(__name__.rsplit('.')[-1])
 
@@ -26,7 +26,8 @@ class lightSlide():
             pass
 
     async def req(self,ip,val):
-        await requests.post('http://'+ip+'/api/rgbw/set',json={"rgbw":{"desiredColor":val}})
+        task = asyncio.create_task( requests.post('http://'+ip+'/api/rgbw/set',json={"rgbw":{"desiredColor":val}}))
+        await task
 
 
 
