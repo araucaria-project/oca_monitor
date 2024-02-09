@@ -175,7 +175,7 @@ class WindDataWidget(QWidget):
                 )
 
                 self.ln_today_hum.set_data(
-                    list(self.ln_todayt_hum.get_xdata()) + [hour],
+                    list(self.ln_today_hum.get_xdata()) + [hour],
                     list(self.ln_today_hum.get_ydata()) + [hum]
                 )
 
