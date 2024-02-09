@@ -20,12 +20,12 @@ class lightSlide():
             if len(val) == 1:
                 val = '0'+val
             
-            req('http://'+self.ip+'/api/rgbw/set',json={"rgbw":{"desiredColor":val}})
+            self.req(self.ip,val)
         except:
             pass
 
-    async def req(message):
-        await requests.post(message)
+    async def req(self,ip,val):
+        await requests.post('http://'+ip+'/api/rgbw/set',json={"rgbw":{"desiredColor":val}})
 
 
 
