@@ -223,6 +223,7 @@ class MainWindow(QMainWindow):
         self.setCentralWidget(self.central_widget)
         self.setWindowTitle("OCA Monitor")
         self.resize(*settings.window_size)
+        self.setFixedSize() 
 
     _config_reading_in_progress = Lock()
 
