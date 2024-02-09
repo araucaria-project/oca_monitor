@@ -14,15 +14,16 @@ class lightSlide():
         self.slide = slide
 
     def changeLight(self,value):
-        try:
+        #try:
+        if True:
             self.slide.setValue(value)
             val = str(hex(int(value*255/100))).replace('0x','',1)
             if len(val) == 1:
                 val = '0'+val
             
             self.req(self.ip,val)
-        except:
-            pass
+        #except:
+        #    pass
 
     def req(self,ip,val):
         requests.post('http://'+ip+'/api/rgbw/set',json={"rgbw":{"desiredColor":val}})
