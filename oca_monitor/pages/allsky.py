@@ -1,7 +1,7 @@
 import logging
 import datetime
 
-from PyQt6.QtWidgets import QApplication, QWidget, QVBoxLayout
+from PyQt6.QtWidgets import QApplication, QWidget, QVBoxLayout,QLabel
 from PyQt6.QtCore import QTimer
 from PyQt6.QtGui import QPixmap
 #from matplotlib.backends.backend_qt5agg import FigureCanvasQTAgg as FigureCanvas
@@ -24,12 +24,12 @@ class AllskyWidget(QWidget):
 
     def initUI(self):
         self.layout = QVBoxLayout(self)
-
+        self.label = QLabel()
         self.figure = QPixmap(self.dir+'lastimage.jpg')
-
+        self.label.setPixmap(self.figure)
         
-        self.layout.addWidget(self.figure)
-        QTimer.singleShot(200, self.async_init)
+        self.layout.addWidget(self.label)
+        QTimer.singleShot(200, self.initUI)
         
 
 widget_class = AllskyWidget

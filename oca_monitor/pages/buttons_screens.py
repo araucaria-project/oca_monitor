@@ -21,7 +21,8 @@ class lightSlide():
                 val = '0'+val
             
             req = requests.post('http://'+self.ip+'/api/rgbw/set',json={"rgbw":{"desiredColor":val}})
-        except exception as e:
+        except:
+            pass
 
 
 
