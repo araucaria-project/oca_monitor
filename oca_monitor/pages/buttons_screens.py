@@ -25,7 +25,7 @@ class lightSlide():
             pass
 
     async def req(self,ip,val):
-        await requests.post('http://'+ip+'/api/rgbw/set',json={"rgbw":{"desiredColor":val}})
+        requests.post('http://'+ip+'/api/rgbw/set',json={"rgbw":{"desiredColor":val}})
 
 
 

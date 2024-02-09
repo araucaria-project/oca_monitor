@@ -22,18 +22,16 @@ class AllskyWidget(QWidget):
         self.dir = allsky_dir
         self.initUI()
         
-
-
     def initUI(self):
         self.layout = QVBoxLayout(self)
         self.label = QLabel()
-        self.label.resize(self.width(),self.width())
+        self.label.resize(1000,1000)
         self.layout.addWidget(self.label,1)
         self.update()
         
     def update(self):
         figure = QPixmap(self.dir+'lastimage.jpg')
-        self.label.setPixmap(figure.scaled(self.label.width(),self.label.width(), QtCore.Qt.AspectRatioMode.KeepAspectRatio))
+        self.label.setPixmap(figure.scaled(1000,1000, QtCore.Qt.AspectRatioMode.KeepAspectRatio))
         QTimer.singleShot(60000, self.initUI)
 
 widget_class = AllskyWidget
