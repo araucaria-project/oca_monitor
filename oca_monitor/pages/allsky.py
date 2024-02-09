@@ -27,7 +27,7 @@ class AllskyWidget(QWidget):
         self.layout = QVBoxLayout(self)
         self.label = QLabel()
         self.figure = QPixmap(self.dir+'lastimage.jpg')
-        self.label.setScaledContents( true );
+        #self.label.setScaledContents( true );
         self.label.setPixmap(self.figure.scaled(self.label.width(), self.label.height()))
         
         self.layout.addWidget(self.label)
