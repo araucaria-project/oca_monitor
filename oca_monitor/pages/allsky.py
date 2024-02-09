@@ -4,7 +4,7 @@ import datetime
 from PyQt6.QtWidgets import QApplication, QWidget, QVBoxLayout,QLabel,QSizePolicy
 from PyQt6.QtCore import QTimer
 from PyQt6.QtGui import QPixmap
-from PyQt6 import Qt
+#from PyQt6 import Qt
 #from matplotlib.backends.backend_qt5agg import FigureCanvasQTAgg as FigureCanvas
 #from matplotlib.figure import Figure
 #from qasync import asyncSlot
@@ -28,7 +28,7 @@ class AllskyWidget(QWidget):
         self.label = QLabel()
         self.figure = QPixmap(self.dir+'lastimage.jpg')
         self.label.setScaledContents( true );
-        self.label.setPixmap(self.figure.scaled(self.label.width(), self.label.height(), Qt.KeepAspectRatio,Qt.SmoothTransformation))
+        self.label.setPixmap(self.figure.scaled(self.label.width(), self.label.height()))
         
         self.layout.addWidget(self.label)
         QTimer.singleShot(200, self.initUI)
