@@ -38,10 +38,10 @@ class WindDataWidget(QWidget):
         # Matplotlib setup
         self.figure = Figure()
         self.canvas = FigureCanvas(self.figure)
-        self.ax_wind = self.figure.add_subplot(411)
-        self.ax_temp = self.figure.add_subplot(412)
-        self.ax_hum = self.figure.add_subplot(421)
-        self.ax_pres = self.figure.add_subplot(422)
+        self.ax_wind = self.figure.add_subplot(221)
+        self.ax_temp = self.figure.add_subplot(222)
+        self.ax_hum = self.figure.add_subplot(223)
+        self.ax_pres = self.figure.add_subplot(224)
         self.ax_wind.set_title("Wind [m/s]")
         self.ax_wind.set_title("Temperature [C]")
         self.ax_wind.set_title("Humidity [%]")
@@ -136,7 +136,7 @@ class WindDataWidget(QWidget):
             ts = dt_ensure_datetime(data['ts']).astimezone()
             measurement = data['measurements']
             wind_speed10 = measurement['wind_10min_ms']
-            temp = measurement['temperature_c']
+            temp = measurement['temperature_C']
             hum = measurement['humidity']
             pres = measurement['pressure_Pa']/100.
             # depending on the date of the measurement, we want to add point to the yesterday or today data
