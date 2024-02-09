@@ -13,16 +13,19 @@ class lightSlide():
         self.ip = ip
         self.slide = slide
 
-    async def changeLight(self,value):
+    def changeLight(self,value):
         try:
             self.slide.setValue(value)
             val = str(hex(int(value*255/100))).replace('0x','',1)
             if len(val) == 1:
                 val = '0'+val
             
-            req = requests.post('http://'+self.ip+'/api/rgbw/set',json={"rgbw":{"desiredColor":val}})
+            req('http://'+self.ip+'/api/rgbw/set',json={"rgbw":{"desiredColor":val}})
         except:
             pass
+
+    async def req(message):
+        await requests.post(message)
 
 
 
