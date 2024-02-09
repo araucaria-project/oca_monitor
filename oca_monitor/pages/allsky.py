@@ -32,4 +32,4 @@ class AllskyWidget(QWidget):
         QTimer.singleShot(200, self.async_init)
         
 
-widget_class = WindDataWidget
+widget_class = AllskyWidget
