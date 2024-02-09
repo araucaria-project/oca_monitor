@@ -13,7 +13,7 @@ class lightSlide():
         self.ip = ip
         self.slide = slide
 
-    def changeLight(self,value):
+    async def changeLight(self,value):
         try:
             self.slide.setValue(value)
             val = str(hex(int(value*255/100))).replace('0x','',1)

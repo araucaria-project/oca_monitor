@@ -32,7 +32,7 @@ class AllskyWidget(QWidget):
         
     def update(self):
         figure = QPixmap(self.dir+'lastimage.jpg')
-        self.label.setPixmap(figure.scaled(self.label.width(), self.label.height(),QtCore.Qt.KeepAspectRatio))
+        self.label.setPixmap(figure.scaled(self.label.width(), self.label.height(),QtCore.Qt.AspectRatioModeKeepAspectRatio))
         QTimer.singleShot(60000, self.initUI)
 
 widget_class = AllskyWidget
