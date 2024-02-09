@@ -27,10 +27,10 @@ class AllskyWidget(QWidget):
     def initUI(self):
         self.layout = QVBoxLayout(self)
         self.label = QLabel()
-        self.update()
         self.layout.addWidget(self.label,1)
+        self.update()
         
-    async def update(self):
+    def update(self):
         figure = QPixmap(self.dir+'lastimage.jpg')
         self.label.setPixmap(figure.scaled(self.label.width(), self.label.height(),QtCore.Qt.KeepAspectRatio))
         QTimer.singleShot(60000, self.initUI)
