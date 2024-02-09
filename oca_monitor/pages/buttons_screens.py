@@ -27,7 +27,7 @@ class lightSlide():
             pass
 
     @asyncSlot()
-    async def req(self,ip,val):
+    async def req(self,val):
         await create_task(requests.post('http://'+self.ip+'/api/rgbw/set',json={"rgbw":{"desiredColor":val}}),"setLight")
         
 

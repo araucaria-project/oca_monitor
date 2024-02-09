@@ -25,10 +25,10 @@ class AllskyWidget(QWidget):
     def initUI(self):
         self.layout = QVBoxLayout(self)
         self.label = QLabel()
-        time.sleep(2)
+        time.sleep(3)
         self.label.resize(self.width(),self.width())
         self.layout.addWidget(self.label,1)
-        time.sleep(1)
+        time.sleep(3)
         self.update()
         
     def update(self):
