@@ -24,7 +24,7 @@ class lightSlide():
         except:
             pass
 
-    async def req(self,ip,val):
+    def req(self,ip,val):
         requests.post('http://'+ip+'/api/rgbw/set',json={"rgbw":{"desiredColor":val}})
 
 
@@ -45,7 +45,7 @@ class ButtonsWidget(QWidget):
         self.layout.addWidget(self.label)
         self.lightSlides = []
         for i,light in enumerate(config.bbox_led_control):
-            self.lightSlides.append(lightSlide(light,config.bbox_led_control[light],QDial(self)))
+            self.lightSlides.append(lightSlide(light,config.bbox_led_control[light],QSlider(self)))
             #self.lightSlides[-1].slide.groove(background="#C9CDD0",height='50px')
             self.lightSlides[-1].slide.setRange(0,100)
             self.lightSlides[-1].slide.setPageStep(10)
