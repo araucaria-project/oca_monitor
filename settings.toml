@@ -62,7 +62,7 @@ source = "wind"  # page source - page is defined in oca_monitor/pages/example.py
 vertical_screen = 1
 
 [screen.panels.20.Buttons]
-source = "buttons_screens"  # page source - page is defined in oca_monitor/pages/example.py
+source = "buttons_controlroom"  # page source - page is defined in oca_monitor/pages/example.py
 
 
 #----------dev----------
