@@ -39,7 +39,7 @@ class WindDataWidget(QWidget):
         # Matplotlib setup
         self.figure = Figure(facecolor='lightgrey')
         self.canvas = FigureCanvas(self.figure)
-        if vertical:
+        if self.vertical:
             self.ax_wind = self.figure.add_subplot(221)
             self.ax_temp = self.figure.add_subplot(222)
             self.ax_hum = self.figure.add_subplot(223)
