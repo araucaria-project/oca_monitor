@@ -4,7 +4,7 @@
 #---------------------------default - controlroom---------------------
 
 [default]  # global configuration is used by all environments, setting from here override all other settings
-window_size = [2000, 1000]
+window_size = [1900, 1020]
 panel_columns = [7,3,1]  # The size ratio of the columns in the panel grid
 panel_rows = [1]   # The size ratio of the rows in the panel grid
 style = "dark"
@@ -20,17 +20,17 @@ log_level = "INFO"
 # Panel page declaration:
 # environment.panels.rowcolumn.tabname
 [default.panels.00.Allsky]
-auto_interval = 10  # seconds, how long to show this page before auto switching to next page
+#auto_interval = 10  # seconds, how long to show this page before auto switching to next page
 source = "allsky"  # page source - page is defined in oca_monitor/pages/example.py
-vertical_screen = "False"
+vertical_screen = 0
 
 [default.panels.01.Weather]
-auto_interval = 10  # seconds, how long to show this page before auto switching to next page
+#auto_interval = 10  # seconds, how long to show this page before auto switching to next page
 source = "wind"  # page source - page is defined in oca_monitor/pages/example.py
-vertical_screen = "False"
+vertical_screen = 0
 
 [default.panels.02.Buttons]
-auto_interval = 10  # seconds, how long to show this page before auto switching to next page
+#auto_interval = 10  # seconds, how long to show this page before auto switching to next page
 source = "buttons_screens"  # page source - page is defined in oca_monitor/pages/example.py
 
 ##--------------------------screens kitchen and salon---------------
@@ -54,12 +54,12 @@ log_level = "INFO"
 [screen.panels.00.Allsky]
 #auto_interval = 10  # seconds, how long to show this page before auto switching to next page
 source = "allsky"  # page source - page is defined in oca_monitor/pages/example.py
-vertical_screen="True"
+vertical_screen=1
 
 [screen.panels.10.Weather]
 #auto_interval = 10  # seconds, how long to show this page before auto switching to next page
 source = "wind"  # page source - page is defined in oca_monitor/pages/example.py
-vertical_screen = "True"
+vertical_screen = 1
 
 [screen.panels.20.Buttons]
 source = "buttons_screens"  # page source - page is defined in oca_monitor/pages/example.py
