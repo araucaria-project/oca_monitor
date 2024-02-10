@@ -18,7 +18,7 @@ class WindDataWidget(QWidget):
         super().__init__()
         self.main_window = main_window
         self.weather_subject = subject
-        self.vertical = vertical_screen
+        self.vertical = bool(vertical_screen)
         self.initUI()
         # async init
         QTimer.singleShot(0, self.async_init)
@@ -49,6 +49,7 @@ class WindDataWidget(QWidget):
             self.ax_temp = self.figure.add_subplot(412)
             self.ax_hum = self.figure.add_subplot(413)
             self.ax_pres = self.figure.add_subplot(414)
+
         self.ax_wind.set_title("Wind [m/s]")
         self.ax_temp.set_title("Temperature [C]")
         self.ax_hum.set_title("Humidity [%]")

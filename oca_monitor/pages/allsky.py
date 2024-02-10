@@ -21,7 +21,7 @@ class AllskyWidget(QWidget):
         self.main_window = main_window
         self.dir = allsky_dir
         self.freq = 500
-        self.vertical = vertical_screen
+        self.vertical = bool(vertical_screen)
         self.initUI()
         
     def initUI(self):
