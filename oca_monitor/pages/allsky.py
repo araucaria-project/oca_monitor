@@ -16,23 +16,30 @@ from PyQt6.QtGui import QPixmap
 logger = logging.getLogger(__name__.rsplit('.')[-1])
 
 class AllskyWidget(QWidget):
-    def __init__(self, main_window, allsky_dir='/data/misc/allsky/', **kwargs):
+    def __init__(self, main_window, allsky_dir='/data/misc/allsky/', screen_vertical = False, **kwargs):
         super().__init__()
         self.main_window = main_window
         self.dir = allsky_dir
         self.freq = 500
+        self.vertical = screen_vertical
         self.initUI()
         
     def initUI(self):
         self.layout = QVBoxLayout(self)
         self.label = QLabel()
-        self.label.resize(self.width(),self.width())
+        if self.vertical:
+            self.label.resize(self.width(),self.width())
+        else:
+            self.label.resize(self.height(),self.height())
         self.layout.addWidget(self.label,1)
         self.update()
         
     def update(self):
         figure = QPixmap(self.dir+'lastimage.jpg')
-        self.label.setPixmap(figure.scaled(self.width(),self.width(), QtCore.Qt.AspectRatioMode.KeepAspectRatio))
+        if self.vertical:
+            self.label.setPixmap(figure.scaled(self.width(),self.width(), QtCore.Qt.AspectRatioMode.KeepAspectRatio))
+        else:
+            self.label.setPixmap(figure.scaled(self.height(),self.height(), QtCore.Qt.AspectRatioMode.KeepAspectRatio))
         QTimer.singleShot(self.freq, self.update)
         self._change_update_time()
 
