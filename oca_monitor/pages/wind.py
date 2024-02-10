@@ -14,10 +14,11 @@ import numpy as np
 logger = logging.getLogger(__name__.rsplit('.')[-1])
 
 class WindDataWidget(QWidget):
-    def __init__(self, main_window, subject='telemetry.weather.davis', **kwargs):
+    def __init__(self, main_window, subject='telemetry.weather.davis', ,vertical_screen = False, **kwargs):
         super().__init__()
         self.main_window = main_window
         self.weather_subject = subject
+        self.vertical = vertical_screen
         self.initUI()
         # async init
         QTimer.singleShot(0, self.async_init)
@@ -38,10 +39,16 @@ class WindDataWidget(QWidget):
         # Matplotlib setup
         self.figure = Figure(facecolor='lightgrey')
         self.canvas = FigureCanvas(self.figure)
-        self.ax_wind = self.figure.add_subplot(221)
-        self.ax_temp = self.figure.add_subplot(222)
-        self.ax_hum = self.figure.add_subplot(223)
-        self.ax_pres = self.figure.add_subplot(224)
+        if vertical:
+            self.ax_wind = self.figure.add_subplot(221)
+            self.ax_temp = self.figure.add_subplot(222)
+            self.ax_hum = self.figure.add_subplot(223)
+            self.ax_pres = self.figure.add_subplot(224)
+        else:
+            self.ax_wind = self.figure.add_subplot(411)
+            self.ax_temp = self.figure.add_subplot(412)
+            self.ax_hum = self.figure.add_subplot(413)
+            self.ax_pres = self.figure.add_subplot(414)
         self.ax_wind.set_title("Wind [m/s]")
         self.ax_temp.set_title("Temperature [C]")
         self.ax_hum.set_title("Humidity [%]")

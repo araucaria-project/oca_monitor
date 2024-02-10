@@ -4,7 +4,7 @@
 #---------------------------default - controlroom---------------------
 
 [default]  # global configuration is used by all environments, setting from here override all other settings
-window_size = [2400, 1200]
+window_size = [2000, 1000]
 panel_columns = [7,3,1]  # The size ratio of the columns in the panel grid
 panel_rows = [1]   # The size ratio of the rows in the panel grid
 style = "dark"
@@ -27,6 +27,7 @@ vertical_screen = "False"
 [default.panels.01.Weather]
 auto_interval = 10  # seconds, how long to show this page before auto switching to next page
 source = "wind"  # page source - page is defined in oca_monitor/pages/example.py
+vertical_screen = "False"
 
 [default.panels.02.Buttons]
 auto_interval = 10  # seconds, how long to show this page before auto switching to next page
@@ -58,6 +59,7 @@ vertical_screen="True"
 [screen.panels.10.Weather]
 #auto_interval = 10  # seconds, how long to show this page before auto switching to next page
 source = "wind"  # page source - page is defined in oca_monitor/pages/example.py
+vertical_screen = "True"
 
 [screen.panels.20.Buttons]
 source = "buttons_screens"  # page source - page is defined in oca_monitor/pages/example.py
