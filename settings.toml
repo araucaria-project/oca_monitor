@@ -22,7 +22,7 @@ log_level = "INFO"
 [default.panels.00.Allsky]
 auto_interval = 10  # seconds, how long to show this page before auto switching to next page
 source = "allsky"  # page source - page is defined in oca_monitor/pages/example.py
-vertical_screen = False
+vertical_screen = "False"
 
 [default.panels.01.Weather]
 auto_interval = 10  # seconds, how long to show this page before auto switching to next page
@@ -53,7 +53,7 @@ log_level = "INFO"
 [screen.panels.00.Allsky]
 #auto_interval = 10  # seconds, how long to show this page before auto switching to next page
 source = "allsky"  # page source - page is defined in oca_monitor/pages/example.py
-vertical_screen=True
+vertical_screen="True"
 
 [screen.panels.10.Weather]
 #auto_interval = 10  # seconds, how long to show this page before auto switching to next page
