@@ -14,7 +14,7 @@ import numpy as np
 logger = logging.getLogger(__name__.rsplit('.')[-1])
 
 class WindDataWidget(QWidget):
-    def __init__(self, main_window, subject='telemetry.weather.davis', ,vertical_screen = False, **kwargs):
+    def __init__(self, main_window, subject='telemetry.weather.davis', vertical_screen = False, **kwargs):
         super().__init__()
         self.main_window = main_window
         self.weather_subject = subject
