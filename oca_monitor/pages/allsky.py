@@ -16,12 +16,12 @@ from PyQt6.QtGui import QPixmap
 logger = logging.getLogger(__name__.rsplit('.')[-1])
 
 class AllskyWidget(QWidget):
-    def __init__(self, main_window, allsky_dir='/data/misc/allsky/', screen_vertical = False, **kwargs):
+    def __init__(self, main_window, allsky_dir='/data/misc/allsky/', vertical_screen = False, **kwargs):
         super().__init__()
         self.main_window = main_window
         self.dir = allsky_dir
         self.freq = 500
-        self.vertical = screen_vertical
+        self.vertical = vertical_screen
         self.initUI()
         
     def initUI(self):
