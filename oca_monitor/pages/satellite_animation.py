@@ -37,7 +37,7 @@ class AllskyAnimationWidget(QWidget):
         self.update()
         
     def update(self):
-        lista = os.popen('ls '+self.dir+'*600x600.jpg').read().split('\n')[:-1]
+        lista = os.popen('ls -tr '+self.dir+'*600x600.jpg').read().split('\n')[:-1]
         if len(lista) > 4:
             lista = lista[-4:]
         try:
