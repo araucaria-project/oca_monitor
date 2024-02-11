@@ -37,11 +37,8 @@ class AllskyAnimationWidget(QWidget):
         self.update()
         
     def update(self):
-        lista = os.popen('ls -tr '+self.dir+'lastimage*.jpg').read().split('\n')[:-1]
-
-       
         try:
-
+            lista = os.popen('ls -tr '+self.dir+'lastimage*.jpg').read().split('\n')[:-1]
             figure = QPixmap(lista[self.counter])
             if self.vertical:
                 self.label.setPixmap(figure.scaled(self.width(),self.width(), QtCore.Qt.AspectRatioMode.KeepAspectRatio))
