@@ -48,9 +48,9 @@ class ButtonsWidgetControlroom(QWidget):
         self.layout.addWidget(self.label)
         self.lightSlides = []
         for i,light in enumerate(config.bbox_led_control_tel):
-            #self.lightSlides.append(lightSlide(light,config.bbox_led_control_tel[light],QSlider(QtCore.Qt.Orientation.Horizontal)))
-            self.lightSlides.append(lightSlide(light,config.bbox_led_control_tel[light],QDial(self)))
-            #self.lightSlides[-1].slide.groove(background="#C9CDD0",height='50px')
+            self.lightSlides.append(lightSlide(light,config.bbox_led_control_tel[light],QSlider(QtCore.Qt.Orientation.Horizontal,image="./Icons/zb08",width="64px",height="64px")))
+            #self.lightSlides.append(lightSlide(light,config.bbox_led_control_tel[light],QDial(self)))
+            #self.lightSlides[-1].slide.groove()
             self.lightSlides[-1].slide.setRange(0,100)
             self.lightSlides[-1].slide.setPageStep(10)
             self.lightSlides[-1].slide.valueChanged.connect(self.lightSlides[-1].changeLight)
