@@ -37,19 +37,22 @@ class AllskyAnimationWidget(QWidget):
         self.update()
         
     def update(self):
-        try:
-            lista = os.popen('ls -tr '+self.dir+'lastimage*.jpg').read().split('\n')[:-1]
-            figure = QPixmap(lista[self.counter])
-            if self.vertical:
-                self.label.setPixmap(figure.scaled(self.width(),self.width(), QtCore.Qt.AspectRatioMode.KeepAspectRatio))
-            else:
-                self.label.setPixmap(figure.scaled(self.height(),self.height(), QtCore.Qt.AspectRatioMode.KeepAspectRatio))
-        except:
-            pass
+        lista = os.popen('ls -tr '+self.dir+'lastimage*.jpg').read().split('\n')[:-1]
+        if len(lista) > 0:
+            try:
+                figure = QPixmap(lista[self.counter])
+                if self.vertical:
+                    self.label.setPixmap(figure.scaled(self.width(),self.width(), QtCore.Qt.AspectRatioMode.KeepAspectRatio))
+                else:
+                    self.label.setPixmap(figure.scaled(self.height(),self.height(), QtCore.Qt.AspectRatioMode.KeepAspectRatio))
 
-        self.counter = self.counter + 1
-        if self.counter == len(lista):
-            self.counter = 0
+                self.counter = self.counter + 1
+                if self.counter == len(lista):
+                    self.counter = 0
+            except:
+                pass
+
+        
 
         QTimer.singleShot(self.freq, self.update)
         self._change_update_time()
