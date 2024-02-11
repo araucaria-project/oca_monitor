@@ -18,6 +18,8 @@ class lightSlide():
         try:
             #if True:
             self.slide.setValue(value)
+            if value <= 10:
+                value == 0
             val = str(hex(int(value*255/100))).replace('0x','',1)
             if len(val) == 1:
                 val = '0'+val
@@ -54,12 +56,13 @@ class ButtonsWidgetControlroom(QWidget):
                     image: url({});
                     width:"150px";
                     height:"250px";
-                }}
-                QSlider::groove:horizontal{{
+                }}'''.format("./Icons/zb08.png"))
+                                                     
+                '''QSlider::groove:horizontal{{
                     image: url({});
                     width:"1500px";
                     height:"150px";
-                }}'''.format("./Icons/zb08.png") .format("./Icons/lightslide.png"))
+                }}.format("./Icons/lightslide.png")).'''
 
             #self.lightSlides.append(lightSlide(light,config.bbox_led_control_tel[light],QDial(self)))
             #self.lightSlides[-1].slide.groove()
