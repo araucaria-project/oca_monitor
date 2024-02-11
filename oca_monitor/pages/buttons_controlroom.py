@@ -58,10 +58,10 @@ class ButtonsWidgetControlroom(QWidget):
                     height:"250px";
                 }}'''.format("./Icons/zb08.png"))
                                                      
-                '''QSlider::groove:horizontal{{
-                    image: url({});
-                    width:"1500px";
-                    height:"150px";
+            '''QSlider::groove:horizontal{{
+                image: url({});
+                width:"1500px";
+                height:"150px";
                 }}.format("./Icons/lightslide.png")).'''
 
             #self.lightSlides.append(lightSlide(light,config.bbox_led_control_tel[light],QDial(self)))
