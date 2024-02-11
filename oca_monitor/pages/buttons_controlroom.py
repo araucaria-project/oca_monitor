@@ -54,8 +54,8 @@ class ButtonsWidgetControlroom(QWidget):
                     image: url({});
                     width:"150px";
                     height:"250px";
-                }
-                QSlider::groove:horizontal{
+                }}
+                QSlider::groove:horizontal{{
                     image: url({});
                     width:"1500px";
                     height:"150px";
