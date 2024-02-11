@@ -5,6 +5,7 @@ from PyQt6.QtWidgets import QApplication, QWidget, QVBoxLayout,QLabel,QSizePolic
 from PyQt6.QtCore import QTimer
 from PyQt6 import QtCore
 from PyQt6.QtGui import QPixmap
+import os
 #from PyQt6 import Qt
 #from matplotlib.backends.backend_qt5agg import FigureCanvasQTAgg as FigureCanvas
 #from matplotlib.figure import Figure
@@ -16,7 +17,7 @@ from PyQt6.QtGui import QPixmap
 logger = logging.getLogger(__name__.rsplit('.')[-1])
 
 class AllskyAnimationWidget(QWidget):
-    def __init__(self, main_window, allsky_dir='/data/misc/GOES_satellite/', vertical_screen = False, **kwargs):
+    def __init__(self, main_window, allsky_dir='/data/misc/allsky/', vertical_screen = False, **kwargs):
         super().__init__()
         self.main_window = main_window
         self.dir = allsky_dir
@@ -36,7 +37,7 @@ class AllskyAnimationWidget(QWidget):
         self.update()
         
     def update(self):
-        lista = os.popen('ls '+self.dir+'600x600.jpg').read().split('\n')[:-1]
+        lista = os.popen('ls '+self.dir+'lastimage*.jpg').read().split('\n')[:-1]
 
         figure = QPixmap(lista[counter])
         if self.vertical:
