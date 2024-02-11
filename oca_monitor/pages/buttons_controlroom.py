@@ -18,8 +18,8 @@ class lightSlide():
         try:
             #if True:
             self.slide.setValue(value)
-            if value <= 10:
-                value == 0
+            #if value <= 10:
+            #    value == 0
             val = str(hex(int(value*255/100))).replace('0x','',1)
             if len(val) == 1:
                 val = '0'+val
