@@ -54,8 +54,8 @@ class ButtonsWidgetControlroom(QWidget):
             self.lightSlides[-1].slide.setStyleSheet('''
                 QSlider::handle:horizontal{{
                     image: url({});
-                    width:"600px";
-                    height:"800px";
+                    width: 100px;
+                    height: 150px;
                 }}'''.format("./Icons/zb08.png"))
                                                      
             '''QSlider::groove:horizontal{{
