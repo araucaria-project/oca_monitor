@@ -48,7 +48,14 @@ class ButtonsWidgetControlroom(QWidget):
         self.layout.addWidget(self.label)
         self.lightSlides = []
         for i,light in enumerate(config.bbox_led_control_tel):
-            self.lightSlides.append(lightSlide(light,config.bbox_led_control_tel[light],QSlider(QtCore.Qt.Orientation.Horizontal,image="./Icons/zb08",width="64px",height="64px")))
+            self.lightSlides.append(lightSlide(light,config.bbox_led_control_tel[light],QSlider(QtCore.Qt.Orientation.Horizontal)))
+            self.lightSlides[-1].slide.setStyleSheet('''
+                QSlider::handle:horizontal{{
+                    image: url({});
+                    width:"64px";
+                    height:"64px";
+                }}
+                '''.format("./Icons/zb08.png"))
             #self.lightSlides.append(lightSlide(light,config.bbox_led_control_tel[light],QDial(self)))
             #self.lightSlides[-1].slide.groove()
             self.lightSlides[-1].slide.setRange(0,100)
