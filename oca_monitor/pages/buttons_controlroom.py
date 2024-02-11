@@ -50,12 +50,12 @@ class ButtonsWidgetControlroom(QWidget):
         for i,light in enumerate(config.bbox_led_control_tel):
             self.lightSlides.append(lightSlide(light,config.bbox_led_control_tel[light],QSlider(QtCore.Qt.Orientation.Horizontal)))
             self.lightSlides[-1].slide.setStyleSheet('''
-                QSlider::handle:horizontal{{}
+                QSlider::handle:horizontal{{
                     image: url({});
                     width:"150px";
                     height:"250px";
                 }}''' .format("./Icons/zb08.png"),
-                '''QSlider::groove:horizontal{{}
+                '''QSlider::groove:horizontal{{
                     image: url({});
                     width:"1500px";
                     height:"150px";
