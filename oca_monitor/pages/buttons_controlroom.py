@@ -54,7 +54,7 @@ class ButtonsWidgetControlroom(QWidget):
                     image: url({});
                     width:"150px";
                     height:"250px";
-                }}''' .format("./Icons/zb08.png")
+                }}''' .format("./Icons/zb08.png"),
                 '''QSlider::groove:horizontal{{}
                     image: url({});
                     width:"1500px";
