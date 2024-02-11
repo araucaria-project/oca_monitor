@@ -37,7 +37,9 @@ class AllskyAnimationWidget(QWidget):
         self.update()
         
     def update(self):
-        lista = os.popen('ls '+self.dir+'600x600.jpg').read().split('\n')[:-1]
+        lista = os.popen('ls '+self.dir+'*600x600.jpg').read().split('\n')[:-1]
+        if len(lista) > 4:
+            lista = lista[-4:]
         try:
             figure = QPixmap(lista[self.counter])
 
@@ -56,6 +58,6 @@ class AllskyAnimationWidget(QWidget):
         self._change_update_time()
 
     def _change_update_time(self):
-        self.freq = 2000
+        self.freq = 1000
 
 widget_class = AllskyAnimationWidget
