@@ -68,16 +68,16 @@ class WindDataWidget(QWidget):
         self.ax_hum.fill_between(x,70,80,color='orange',alpha=0.3)
         self.ax_hum.fill_between(x,80,90,color='red',alpha=0.3)
 
-        self.ln_yesterday_wind = self.ax_wind.plot([],[], '.', color='gray', alpha=0.2, label='Yesterday')[0]
+        self.ln_yesterday_wind = self.ax_wind.plot([],[], '.', color='silver', alpha=0.1, label='Yesterday')[0]
         self.ln_today_wind = self.ax_wind.plot([],[], '.-', color='blue', label='Today')[0]
 
-        self.ln_yesterday_temp = self.ax_temp.plot([],[], '.', color='gray', alpha=0.2, label='Yesterday')[0]
+        self.ln_yesterday_temp = self.ax_temp.plot([],[], '.', color='silver', alpha=0.1, label='Yesterday')[0]
         self.ln_today_temp = self.ax_temp.plot([],[], '.-', color='blue', label='Today')[0]
 
-        self.ln_yesterday_hum = self.ax_hum.plot([],[], '.', color='gray', alpha=0.2, label='Yesterday')[0]
+        self.ln_yesterday_hum = self.ax_hum.plot([],[], '.', color='silver', alpha=0.1, label='Yesterday')[0]
         self.ln_today_hum = self.ax_hum.plot([],[], '.-', color='blue', label='Today')[0]
 
-        self.ln_yesterday_pres = self.ax_pres.plot([],[], '.', color='gray', alpha=0.2, label='Yesterday')[0]
+        self.ln_yesterday_pres = self.ax_pres.plot([],[], '.', color='silver', alpha=0.1, label='Yesterday')[0]
         self.ln_today_pres = self.ax_pres.plot([],[], '.-', color='blue', label='Today')[0]
         self.ax_wind.grid(which='major', axis='both')
         self.ax_temp.grid(which='major', axis='both')

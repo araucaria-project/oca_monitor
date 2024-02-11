@@ -21,7 +21,12 @@ log_level = "INFO"
 # environment.panels.rowcolumn.tabname
 [default.panels.00.Allsky]
 #auto_interval = 10  # seconds, how long to show this page before auto switching to next page
-source = "allsky"  # page source - page is defined in oca_monitor/pages/example.py
+source = "allsky_animation"  # page source - page is defined in oca_monitor/pages/example.py
+vertical_screen = 0
+
+[default.panels.00.Satellite]
+#auto_interval = 10  # seconds, how long to show this page before auto switching to next page
+source = "satellite_animation"  # page source - page is defined in oca_monitor/pages/example.py
 vertical_screen = 0
 
 [default.panels.01.Weather]

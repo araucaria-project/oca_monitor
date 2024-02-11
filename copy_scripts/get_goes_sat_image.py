@@ -43,7 +43,7 @@ def edit_images(images,dates):
 		
 
 def main():
-	dr = './GOES_satellite/'
+	dr = '/data/misc/GOES_satellite/'
 	image_suffix = '_GOES16-ABI-ssa-GEOCOLOR-7200x4320.jpg'
 	image_suffix_2 = '_GOES16-ABI-ssa-GEOCOLOR-600x600.jpg'
 	minutes = ['00','10','20','30','40','50']
@@ -52,19 +52,37 @@ def main():
 
 	day_of_year = str(datetime.datetime.utcnow().timetuple().tm_yday)#day of year now
 	day_of_year_1 = str((datetime.datetime.utcnow()-datetime.timedelta(hours=1)).timetuple().tm_yday)#day of year one hour ago
-	day_of_year_2 = str((datetime.datetime.utcnow()-datetime.timedelta(hours=2)).timetuple().tm_yday)#day of year two hours ago
+	#day_of_year_2 = str((datetime.datetime.utcnow()-datetime.timedelta(hours=2)).timetuple().tm_yday)#day of year two hours ago
+	if int(day_of_year) < 100:
+		day_of_year='0'+day_of_year
+		
+	if int(day_of_year_1) < 100:
+		day_of_year_1='0'+day_of_year_1
+		
+	if int(day_of_year_2)  < 100:
+		day_of_year_2='0'+day_of_year_2
+		if not (os.access(dr+date+minute+image_suffix,os.R_OK)):
+			cmd='wget --timeout=10 -t 1 -P \"'+dr+'\" https://cdn.star.nesdis.noaa.gov/GOES16/ABI/SECTOR/ssa/GEOCOLOR/'+date+minute+image_suffix 
+			os.system(cmd)
+		if (os.access(dr+date+minute+image_suffix,os.R_OK)):
+			edit_images([dr+date+minute+image_suffix],[date_to_display+':'+minute])
+		if not (os.access(dr+date_1+minute+image_suffix,os.R_OK)):
+			cmd='wget --timeout=10 -t 1 -P \"'+dr+'\" https://cdn.star.nesdis.noaa.gov/GOES16/ABI/SECTOR/ssa/GEOCOLOR/'+date_1+minute+image_suffix 
+			os.system(cmd)
+		if (os.access(dr+date_1+minute+image_suffix,os.R_OK)):
+			edit_images([dr+date_1+minute+image_suffix],[date_to_display_1+':'+minute])
 	hour = datetime.datetime.utcnow()#hour now
 	hour_1 = hour - datetime.timedelta(hours=1)#hour 1 hour ago
-	hour_2 = hour - datetime.timedelta(hours=2)#hour 2 hours ago
+	#hour_2 = hour - datetime.timedelta(hours=2)#hour 2 hours ago
 	date_to_display = hour.strftime('%D %H')#change format (YYYY:HH)
 	date_to_display_1 = hour_1.strftime('%D %H')
-	date_to_display_2 = hour_2.strftime('%D %H')
+	#date_to_display_2 = hour_2.strftime('%D %H')
 	hour = hour.strftime('%Y%H')#change format (YYYY:HH)
 	hour_1 = hour_1.strftime('%Y%H')
-	hour_2 = hour_2.strftime('%Y%H')
+	#hour_2 = hour_2.strftime('%Y%H')
 	date = hour[:4]+day_of_year+hour[4:]#change format(YYYYDDDHH)
 	date_1 = hour_1[:4]+day_of_year_1+hour_1[4:]
-	date_2 = hour_2[:4]+day_of_year_2+hour_2[4:]
+	#date_2 = hour_2[:4]+day_of_year_2+hour_2[4:]
 
 	
 	good_files = []
@@ -73,8 +91,8 @@ def main():
 		good_files.append(dr+date+minute+image_suffix_2)
 		good_files.append(dr+date_1+minute+image_suffix)
 		good_files.append(dr+date+minute+image_suffix_2)
-		good_files.append(dr+date_2+minute+image_suffix)
-		good_files.append(dr+date_2+minute+image_suffix_2)
+		#good_files.append(dr+date_2+minute+image_suffix)
+		#good_files.append(dr+date_2+minute+image_suffix_2)
 	
 	
 	
@@ -95,21 +113,14 @@ def main():
 			os.system(cmd)
 		if (os.access(dr+date_1+minute+image_suffix,os.R_OK)):
 			edit_images([dr+date_1+minute+image_suffix],[date_to_display_1+':'+minute])
-		if not (os.access(dr+date_2+minute+image_suffix,os.R_OK)):
+		'''if not (os.access(dr+date_2+minute+image_suffix,os.R_OK)):
 			cmd='wget --timeout=10 -t 1 -P \"'+dr+'\" https://cdn.star.nesdis.noaa.gov/GOES16/ABI/SECTOR/ssa/GEOCOLOR/'+date_2+minute+image_suffix 
 			os.system(cmd)
 		if (os.access(dr+date_2+minute+image_suffix,os.R_OK)):
-			edit_images([dr+date_2+minute+image_suffix],[date_to_display_2+':'+minute])
+			edit_images([dr+date_2+minute+image_suffix],[date_to_display_2+':'+minute])'''
 
 	good_files = os.popen('ls '+dr+'*.jpg*').read().split('\n')[:-1]
-	#edit_images(good_files)
-
-	#ind = np.arange(0,2*size,20)
-	#with imageio.get_writer('satellite.gif', mode='I',fps=5) as writer:
-	#	self.figure.clf()
-	#if os.access('/home/observer/SATELLITE_IMAGES/'+data+minute+'_GOES16-ABI-ssa-GEOCOLOR-900x540.jpg',os.R_OK):
-	#	cmd='convert -draw \"circle 297,154 297,152\" -fill red  /home/observer/SATELLITE_IMAGES/'+data+minute+'_GOES16-ABI-ssa-GEOCOLOR-900x540.jpg /home/observer/SATELLITE_IMAGES/'+data+minute+'_GOES16-ABI-ssa-GEOCOLOR-900x540.jpg'
-	#	os.system(cmd)
+	
 		    
 if __name__== '__main__':
 	main()
