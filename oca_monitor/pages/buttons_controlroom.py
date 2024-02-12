@@ -1,5 +1,5 @@
 import logging
-from PyQt6.QtWidgets import QWidget, QVBoxLayout, QLabel,QSlider,QDial,QScrollBar,QPushButton,QCheckBox
+from PyQt6.QtWidgets import QWidget, QVBoxLayout, QHBoxLayout, QLabel,QSlider,QDial,QScrollBar,QPushButton,QCheckBox
 from PyQt6 import QtCore
 import json,requests
 import oca_monitor.config as config
@@ -11,7 +11,7 @@ logger = logging.getLogger(__name__.rsplit('.')[-1])
 class lightSlide():
     def __init__(self,name,ip,slide):
         self.name = name
-        self.ip = ip
+        self.ip = ip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
         self.slide = slide
 
     def is_avilable(self):
@@ -24,7 +24,7 @@ class lightSlide():
                 self.is_active = True 
         except:
             self.is_active = False
-
+            
     def changeLight(self):
         if self.is_active:
             try:
