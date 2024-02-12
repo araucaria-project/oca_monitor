@@ -93,8 +93,8 @@ class ButtonsWidgetControlroom(QWidget):
             else:
                 self.vbox_buttons_left.addWidget(self.lightSlides[-1].slide)
 
-        self.hbox_buttons.addLayout(self.vbox_tab_buttons_left)
-        self.hbox_buttons.addLayout(self.vbox_tab_buttons_right)
+        self.hbox_buttons.addLayout(self.vbox_buttons_left)
+        self.hbox_buttons.addLayout(self.vbox_buttons_right)
         self.layout.addLayout(self.hbox_buttons)
         # Some async operation
         self._update_lights_status()
