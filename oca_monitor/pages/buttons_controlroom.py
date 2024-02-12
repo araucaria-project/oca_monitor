@@ -67,7 +67,7 @@ class ButtonsWidgetControlroom(QWidget):
 
         self.b_abort = QPushButton(self)#abort button
         self.b_abort.setStyleSheet("background-color : red; color: black")
-        self.b_abort.setText("ABORT OBSERVATIONS\n- not working")
+        self.b_abort.setText("ABORT\n OBSERVATIONS\n- not working")
         self.b_abort.setFixedSize(150, 150)
         self.enable_abort = QCheckBox('Enable abort button')
         self.enable_abort.setStyleSheet("QCheckBox::indicator{width: 60px; height:40px;} QCheckBox::indicator:checked {image: url(./Icons/SwitchOn.png)} QCheckBox::indicator:unchecked {image: url(./Icons/SwitchOff.png)}")
@@ -89,7 +89,7 @@ class ButtonsWidgetControlroom(QWidget):
         self.layout.addLayout(self.hbox_abortButton)
 
         self.label_lights = QLabel(f"LIGHTS", self)
-        self.label_lights.setStyleSheet("color: black")
+        self.label_lights.setStyleSheet("background-color: grey; color: black")
         self.vbox_light_buttons_left = QVBoxLayout()
         self.vbox_light_buttons_right = QVBoxLayout()
         self.hbox_light_buttons = QHBoxLayout()
