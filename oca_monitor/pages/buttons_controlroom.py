@@ -24,7 +24,7 @@ class lightSlide():
                 self.is_active = True 
         except:
             self.is_active = False
-            
+
     def changeLight(self):
         if self.is_active:
             try:
@@ -77,8 +77,8 @@ class ButtonsWidgetControlroom(QWidget):
 
         self.label_lights = QLabel(f"LIGHTS", self)
         self.label_lights.setStyleSheet(("background-color : "))
-        self.vbox_tab_buttons_left = QtWidgets.QVBoxLayout()
-        self.vbox_tab_buttons_right = QtWidgets.QVBoxLayout()
+        self.vbox_tab_buttons_left = QVBoxLayout()
+        self.vbox_tab_buttons_right = QVBoxLayout()
 
 
         self.lightSlides = []
