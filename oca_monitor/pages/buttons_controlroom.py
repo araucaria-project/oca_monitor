@@ -21,7 +21,7 @@ class lightSlide():
         try:
             #if True:
             if self.slide.isChecked():
-                value = 50
+                value = 70
             else:
                 value = 0
           
@@ -51,7 +51,7 @@ class ButtonsWidgetControlroom(QWidget):
 
     def initUI(self, text):
         self.layout = QVBoxLayout(self)
-        self.label = QLabel(f"Telescopes{text}", self)
+        self.label = QLabel(f"Telescopes", self)
         self.layout.addWidget(self.label)
 
         self.b_abort = QPushButton(self)#abort button
