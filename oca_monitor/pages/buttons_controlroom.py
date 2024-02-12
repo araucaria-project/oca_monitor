@@ -54,7 +54,7 @@ class ButtonsWidgetControlroom(QWidget):
         self.label = QLabel(f"Telescopes{text}", self)
         self.layout.addWidget(self.label)
 
-        self.b_abort = QtWidgets.QPushButton(self)#abort button
+        self.b_abort = QPushButton(self)#abort button
         self.b_abort.setStyleSheet("background-color : red")
         self.b_abort.setText("ABORT OBSERVATIONS")
         self.b_abort.setFixedSize(300, 100)
