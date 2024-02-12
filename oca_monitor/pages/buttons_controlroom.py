@@ -69,7 +69,7 @@ class ButtonsWidgetControlroom(QWidget):
         self.b_abort.setText("ABORT OBSERVATIONS- not working")
         self.b_abort.setFixedSize(300, 100)
         self.enable_abort = QCheckBox('Enable abort button')
-        self.enable_abort.slide.setStyleSheet("QCheckBox::indicator{width: 60px; height:40px;} QCheckBox::indicator:checked {image: url(./Icons/SwitchOn.png)} QCheckBox::indicator:unchecked {image: url(./Icons/SwitchOff.png)}")
+        self.enable_abort.setStyleSheet("QCheckBox::indicator{width: 60px; height:40px;} QCheckBox::indicator:checked {image: url(./Icons/SwitchOn.png)} QCheckBox::indicator:unchecked {image: url(./Icons/SwitchOff.png)}")
         self.hbox_abortButton = QHBoxLayout(self)
         self.hbox_abortButton.addWidget(self.b_abort)
         self.hbox_abortButton.addWidget(self.enable_abort)
