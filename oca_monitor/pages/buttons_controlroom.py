@@ -15,11 +15,14 @@ class lightSlide():
         self.slide = slide
 
     def is_avilable(self):
-        req = requests.post('http://'+self.ip+'/info',timeout=1.0)
-        if int(req.status_code) != 200:
+        try:
+            req = requests.post('http://'+self.ip+'/info',timeout=1.0)
+            if int(req.status_code) != 200:
+                self.is_active = False
+            else:
+                self.is_active = True 
+        except:
             self.is_active = False
-        else:
-            self.is_active = True 
 
     def changeLight(self):
         if self.is_active:
