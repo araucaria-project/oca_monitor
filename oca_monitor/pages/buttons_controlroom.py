@@ -22,20 +22,21 @@ class lightSlide():
             self.is_active = True 
 
     def changeLight(self):
-        try:
-            #if True:
-            if self.slide.isChecked():
-                value = 70
-            else:
-                value = 0
-          
-            val = str(hex(int(value*255/100))).replace('0x','',1)
-            if len(val) == 1:
-                val = '0'+val
+        if self.is_active:
+            try:
+                #if True:
+                if self.slide.isChecked():
+                    value = 70
+                else:
+                    value = 0
             
-            self.req(val)
-        except:
-            pass
+                val = str(hex(int(value*255/100))).replace('0x','',1)
+                if len(val) == 1:
+                    val = '0'+val
+                
+                self.req(val)
+            except:
+                pass
 
     def req(self,val):
         requests.post('http://'+self.ip+'/api/rgbw/set',json={"rgbw":{"desiredColor":val}})
@@ -67,22 +68,22 @@ class ButtonsWidgetControlroom(QWidget):
         self.lightSlides = []
         for i,light in enumerate(config.bbox_led_control_tel):
             self.lightSlides.append(lightSlide(light,config.bbox_led_control_tel[light],QCheckBox()))
-            self.lightSlides[-1].slide.setStyleSheet("QCheckBox::indicator{width: 80px; height:70px;} QCheckBox::indicator:checked {image: url(./Icons/"+light+"_lighton.png"+")} QCheckBox::indicator:unchecked {image: url(./Icons/"+light+"_lightoff.png)}")
+            self.lightSlides[-1].slide.setStyleSheet("QCheckBox::indicator{width: 80px; height:70px;} QCheckBox::indicator:checked {image: url(./Icons/"+light+"_lighton.png)} QCheckBox::indicator:unchecked {image: url(./Icons/"+light+"_lightoff.png)}")
             self.lightSlides[-1].slide.setChecked(False)
             self.lightSlides[-1].slide.stateChanged.connect(self.lightSlides[-1].changeLight)
             self.layout.addWidget(self.lightSlides[-1].slide)
 
         # Some async operation
-        self._update_status()
+        self._update_lights_status()
         logger.info("UI setup done")
 
-    def _update_status(self):
+    def _update_lights_status(self):
         for light in self.lightSlides:
             light.is_avilable()
             if light.is_active:
-                self.lightSlides[-1].slide.setStyleSheet("QCheckBox::indicator{width: 80px; height:70px;} QCheckBox::indicator:checked {image: url(./Icons/"+light+"_lighton.png"+")} QCheckBox::indicator:unchecked {image: url(./Icons/"+light+"_lightoff.png)}")
+                light[-1].slide.setStyleSheet("QCheckBox::indicator{width: 80px; height:70px;} QCheckBox::indicator:checked {image: url(./Icons/"+light.name+"_lighton.png)} QCheckBox::indicator:unchecked {image: url(./Icons/"+light.name+"_lightoff.png)}")
             else:
-                self.lightSlides[-1].slide.setStyleSheet("QCheckBox::indicator{width: 80px; height:70px;} QCheckBox::indicator:checked {image: url(./Icons/"+light+"_lightna.png"+")} QCheckBox::indicator:unchecked {image: url(./Icons/"+light+"_lightna.png)}")
+                light[-1].slide.setStyleSheet("QCheckBox::indicator{width: 80px; height:70px;} QCheckBox::indicator:checked {image: url(./Icons/"+light.name+"_lightna.png)} QCheckBox::indicator:unchecked {image: url(./Icons/"+light.name+"_lightna.png)}")
 
         QTimer.singleShot(30000, self._update_status)
     
