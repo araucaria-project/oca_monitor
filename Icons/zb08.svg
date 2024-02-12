@@ -1,0 +1,185 @@
+<?xml version="1.0" encoding="UTF-8" standalone="no"?>
+<!-- Created with Inkscape (http://www.inkscape.org/) -->
+
+<svg
+   width="210mm"
+   height="297mm"
+   viewBox="0 0 210 297"
+   version="1.1"
+   id="svg1"
+   inkscape:version="1.3.2 (091e20e, 2023-11-25)"
+   sodipodi:docname="zb08.svg"
+   xmlns:inkscape="http://www.inkscape.org/namespaces/inkscape"
+   xmlns:sodipodi="http://sodipodi.sourceforge.net/DTD/sodipodi-0.dtd"
+   xmlns:xlink="http://www.w3.org/1999/xlink"
+   xmlns="http://www.w3.org/2000/svg"
+   xmlns:svg="http://www.w3.org/2000/svg">
+  <sodipodi:namedview
+     id="namedview1"
+     pagecolor="#ffffff"
+     bordercolor="#000000"
+     borderopacity="0.25"
+     inkscape:showpageshadow="2"
+     inkscape:pageopacity="0.0"
+     inkscape:pagecheckerboard="0"
+     inkscape:deskcolor="#d1d1d1"
+     inkscape:document-units="mm"
+     inkscape:zoom="3.0312143"
+     inkscape:cx="409.57183"
+     inkscape:cy="981.45485"
+     inkscape:window-width="1850"
+     inkscape:window-height="1016"
+     inkscape:window-x="0"
+     inkscape:window-y="0"
+     inkscape:window-maximized="1"
+     inkscape:current-layer="layer1" />
+  <defs
+     id="defs1">
+    <linearGradient
+       id="linearGradient11"
+       inkscape:collect="always">
+      <stop
+         style="stop-color:#e6e6e6;stop-opacity:1;"
+         offset="0"
+         id="stop11" />
+      <stop
+         style="stop-color:#e6e6e6;stop-opacity:0;"
+         offset="1"
+         id="stop12" />
+    </linearGradient>
+    <linearGradient
+       inkscape:collect="always"
+       xlink:href="#linearGradient11"
+       id="linearGradient12"
+       x1="37.370251"
+       y1="224.57715"
+       x2="55.084919"
+       y2="224.57715"
+       gradientUnits="userSpaceOnUse" />
+  </defs>
+  <g
+     inkscape:label="Warstwa 1"
+     inkscape:groupmode="layer"
+     id="layer1">
+    <rect
+       style="fill:#ff0000;stroke:none;stroke-width:0.854543;stroke-dasharray:none;stroke-opacity:1"
+       id="rect3"
+       width="58.671288"
+       height="27.467642"
+       x="73.896347"
+       y="208.26973"
+       inkscape:export-filename="wg25_lightoff.png"
+       inkscape:export-xdpi="96"
+       inkscape:export-ydpi="96" />
+    <ellipse
+       style="fill:#e6e6e6;stroke:#000000;stroke-width:2.07481;stroke-opacity:1"
+       id="path1-5-7-6"
+       cx="89.675186"
+       cy="206.91341"
+       rx="14.709145"
+       ry="12.333861" />
+    <rect
+       style="fill:#e6e6e6;stroke:#000000;stroke-width:2.1278;stroke-opacity:1"
+       id="rect1-3-0-1"
+       width="29.125164"
+       height="26.069027"
+       x="75.034973"
+       y="208.75552" />
+    <rect
+       style="fill:#808080;stroke:none;stroke-width:0.854543;stroke-dasharray:none;stroke-opacity:1"
+       id="rect3-7"
+       width="58.671288"
+       height="27.467642"
+       x="74.277946"
+       y="159.95667"
+       inkscape:export-filename="wg25_lightna.png"
+       inkscape:export-xdpi="96"
+       inkscape:export-ydpi="96" />
+    <ellipse
+       style="fill:#e6e6e6;stroke:#000000;stroke-width:2.07481;stroke-opacity:1"
+       id="path1-5-7-6-0"
+       cx="90.056778"
+       cy="158.60034"
+       rx="14.709145"
+       ry="12.333861" />
+    <rect
+       style="fill:#e6e6e6;stroke:#000000;stroke-width:2.1278;stroke-opacity:1"
+       id="rect1-3-0-1-9"
+       width="29.125164"
+       height="26.069027"
+       x="75.416573"
+       y="160.44246" />
+    <text
+       xml:space="preserve"
+       style="font-size:14.1111px;line-height:0.9;font-family:sans-serif;-inkscape-font-specification:sans-serif;fill:#e6e6e6;stroke:#000000;stroke-width:1.307;stroke-dasharray:none;stroke-opacity:1"
+       x="77.909904"
+       y="172.2769"
+       id="text1-5-9-8-3"><tspan
+         sodipodi:role="line"
+         style="line-height:0.9;fill:#000000;fill-opacity:1;stroke:none;stroke-width:1.307;stroke-dasharray:none;stroke-opacity:1"
+         x="77.909904"
+         y="172.2769"
+         id="tspan2-2-6-9-6">WG</tspan><tspan
+         sodipodi:role="line"
+         style="line-height:0.9;fill:#000000;fill-opacity:1;stroke:none;stroke-width:1.307;stroke-dasharray:none;stroke-opacity:1"
+         x="77.909904"
+         y="184.9769"
+         id="tspan1">25</tspan></text>
+    <rect
+       style="fill:#00ff00;stroke:none;stroke-width:0.854543;stroke-dasharray:none;stroke-opacity:1"
+       id="rect3-5"
+       width="58.671288"
+       height="27.467642"
+       x="73.56459"
+       y="254.63472"
+       inkscape:export-filename="wg25_lighton.png"
+       inkscape:export-xdpi="96"
+       inkscape:export-ydpi="96" />
+    <ellipse
+       style="fill:#e6e6e6;stroke:#000000;stroke-width:2.07481;stroke-opacity:1"
+       id="path1-5-7-6-3"
+       cx="116.73199"
+       cy="253.08022"
+       rx="14.709145"
+       ry="12.333861" />
+    <rect
+       style="fill:#e6e6e6;stroke:#000000;stroke-width:2.1278;stroke-opacity:1"
+       id="rect1-3-0-1-5"
+       width="29.125164"
+       height="26.069027"
+       x="102.09177"
+       y="254.92235" />
+    <text
+       xml:space="preserve"
+       style="font-size:14.1111px;line-height:0.9;font-family:sans-serif;-inkscape-font-specification:sans-serif;fill:#e6e6e6;stroke:#000000;stroke-width:1.307;stroke-dasharray:none;stroke-opacity:1"
+       x="104.536"
+       y="266.9791"
+       id="text1-5-9-8-6"><tspan
+         sodipodi:role="line"
+         style="line-height:0.9;fill:#000000;fill-opacity:1;stroke:none;stroke-width:1.307;stroke-dasharray:none;stroke-opacity:1"
+         x="104.536"
+         y="266.9791"
+         id="tspan2-2-6-9-2">WG</tspan><tspan
+         sodipodi:role="line"
+         style="line-height:0.9;fill:#000000;fill-opacity:1;stroke:none;stroke-width:1.307;stroke-dasharray:none;stroke-opacity:1"
+         x="104.536"
+         y="279.67908"
+         id="tspan2">25</tspan></text>
+    <text
+       xml:space="preserve"
+       style="font-size:14.1111px;line-height:0.9;font-family:sans-serif;-inkscape-font-specification:sans-serif;fill:#e6e6e6;stroke:#000000;stroke-width:1.307;stroke-dasharray:none;stroke-opacity:1"
+       x="77.367798"
+       y="220.7809"
+       id="text1-5-9-8-3-6"><tspan
+         sodipodi:role="line"
+         style="line-height:0.9;fill:#000000;fill-opacity:1;stroke:none;stroke-width:1.307;stroke-dasharray:none;stroke-opacity:1"
+         x="77.367798"
+         y="220.7809"
+         id="tspan2-2-6-9-6-1">WG</tspan><tspan
+         sodipodi:role="line"
+         style="line-height:0.9;fill:#000000;fill-opacity:1;stroke:none;stroke-width:1.307;stroke-dasharray:none;stroke-opacity:1"
+         x="77.367798"
+         y="233.4809"
+         id="tspan1-8">25</tspan></text>
+  </g>
+</svg>
