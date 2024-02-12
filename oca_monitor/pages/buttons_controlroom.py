@@ -61,13 +61,13 @@ class ButtonsWidgetControlroom(QWidget):
     def initUI(self, text):
         self.layout = QVBoxLayout(self)
         self.label = QLabel(f"STATUS -not working yet", self)
-        self.label.setStyleSheet("background-color : light-green")
+        self.label.setStyleSheet("background-color : lightgreen")
         self.layout.addWidget(self.label)
 
         self.b_abort = QPushButton(self)#abort button
         self.b_abort.setStyleSheet("background-color : red")
-        self.b_abort.setText("ABORT OBSERVATIONS- not working")
-        self.b_abort.setFixedSize(300, 100)
+        self.b_abort.setText("ABORT OBSERVATIONS\n- not working")
+        self.b_abort.setFixedSize(200, 200)
         self.enable_abort = QCheckBox('Enable abort button')
         self.enable_abort.setStyleSheet("QCheckBox::indicator{width: 60px; height:40px;} QCheckBox::indicator:checked {image: url(./Icons/SwitchOn.png)} QCheckBox::indicator:unchecked {image: url(./Icons/SwitchOff.png)}")
         self.hbox_abortButton = QHBoxLayout(self)
@@ -76,10 +76,10 @@ class ButtonsWidgetControlroom(QWidget):
         self.layout.addLayout(self.hbox_abortButton)
 
         self.label_lights = QLabel(f"LIGHTS", self)
-        self.label_lights.setStyleSheet(("background-color : "))
-        self.vbox_tab_buttons_left = QVBoxLayout()
-        self.vbox_tab_buttons_right = QVBoxLayout()
-
+        self.label_lights.setStyleSheet(("background-color : darkgray"))
+        self.vbox_buttons_left = QVBoxLayout()
+        self.vbox_buttons_right = QVBoxLayout()
+        self.hbox_buttons = QHBoxLayout()
 
         self.lightSlides = []
         for i,light in enumerate(config.bbox_led_control_tel):
@@ -89,12 +89,13 @@ class ButtonsWidgetControlroom(QWidget):
             self.lightSlides[-1].slide.stateChanged.connect(self.lightSlides[-1].changeLight)
 
             if i%2==1:
-                self.vbox_tab_buttons_right.addWidget(self.lightSlides[-1].slide)
+                self.vbox_buttons_right.addWidget(self.lightSlides[-1].slide)
             else:
-                self.vbox_tab_buttons_left.addWidget(self.lightSlides[-1].slide)
+                self.vbox_buttons_left.addWidget(self.lightSlides[-1].slide)
 
-        self.layout.addLayout(self.vbox_tab_buttons_left)
-        self.layout.addLayout(self.vbox_tab_buttons_right)
+        self.hbox_buttons.addLayout(self.vbox_tab_buttons_left)
+        self.hbox_buttons.addLayout(self.vbox_tab_buttons_right)
+        self.layout.addLayout(self.hbox_buttons)
         # Some async operation
         self._update_lights_status()
         logger.info("UI setup done")
