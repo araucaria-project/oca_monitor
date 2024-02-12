@@ -110,7 +110,8 @@ class ButtonsWidgetControlroom(QWidget):
 
         self.hbox_light_buttons.addLayout(self.vbox_light_buttons_left)
         self.hbox_light_buttons.addLayout(self.vbox_light_buttons_right)
-        self.layout.addLayout(self.vbox_buttons)
+        self.layout.addLayout(self.hbox_light_buttons)
+
         # Some async operation
         self._update_lights_status()
         logger.info("UI setup done")
