@@ -88,7 +88,7 @@ class ButtonsWidgetControlroom(QWidget):
             else:
                 light.slide.setStyleSheet("QCheckBox::indicator{width: 80px; height:70px;} QCheckBox::indicator:checked {image: url(./Icons/"+light.name+"_lightna.png)} QCheckBox::indicator:unchecked {image: url(./Icons/"+light.name+"_lightna.png)}")
 
-        QtCore.QTimer.singleShot(30000, self.update_lights_status)
+        QtCore.QTimer.singleShot(30000, self._update_lights_status)
     
 
 widget_class = ButtonsWidgetControlroom
