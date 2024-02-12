@@ -46,7 +46,7 @@ class AsyncTabWidget(QTabWidget):
         # super().addTab(QWidget(), ico, '⚙')
 
         self.seconds_counter = 0
-        self.speed = 2 # default speed - second as defined in settings.toml (default 10)
+        self.speed = 20 # default speed - second as defined in settings.toml (default 10)
         self.auto_play = True
         self.timer = QTimer(self)
         self.timer.timeout.connect(self.eachSecond)

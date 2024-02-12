@@ -1,6 +1,6 @@
 import logging
 from PyQt6.QtWidgets import QWidget, QVBoxLayout, QHBoxLayout, QLabel,QSlider,QDial,QScrollBar,QPushButton,QCheckBox
-from PyQt6 import QtCore
+from PyQt6 import QtCore, QtGui
 import json,requests
 import oca_monitor.config as config
 from qasync import asyncSlot
@@ -60,26 +60,41 @@ class ButtonsWidgetControlroom(QWidget):
 
     def initUI(self, text):
         self.layout = QVBoxLayout(self)
-        self.label = QLabel(f"STATUS -not working yet", self)
-        self.label.setStyleSheet("background-color : lightgreen")
+        self.label = QLabel("STATUS -not working yet")
+        self.label.setStyleSheet("background-color : lightgreen; color: black")
+        self.label.setFont(GtGui.QFont('Arial', 20))
         self.layout.addWidget(self.label)
 
         self.b_abort = QPushButton(self)#abort button
-        self.b_abort.setStyleSheet("background-color : red")
+        self.b_abort.setStyleSheet("background-color : red; color: black")
         self.b_abort.setText("ABORT OBSERVATIONS\n- not working")
-        self.b_abort.setFixedSize(200, 200)
+        self.b_abort.setFixedSize(150, 150)
         self.enable_abort = QCheckBox('Enable abort button')
         self.enable_abort.setStyleSheet("QCheckBox::indicator{width: 60px; height:40px;} QCheckBox::indicator:checked {image: url(./Icons/SwitchOn.png)} QCheckBox::indicator:unchecked {image: url(./Icons/SwitchOff.png)}")
+
+        self.enable_warnings = QCheckBox('Enable warnings')
+        self.enable_warnings.setStyleSheet("QCheckBox::indicator{width: 60px; height:40px;} QCheckBox::indicator:checked {image: url(./Icons/SwitchOn.png)} QCheckBox::indicator:unchecked {image: url(./Icons/SwitchOff.png)}")
+
+        self.enable_sounds = QCheckBox('Enable sounds')
+        self.enable_sounds.setStyleSheet("QCheckBox::indicator{width: 60px; height:40px;} QCheckBox::indicator:checked {image: url(./Icons/SwitchOn.png)} QCheckBox::indicator:unchecked {image: url(./Icons/SwitchOff.png)}")
+
+        self.vbox_buttons = QVBoxLayout()
+        self.vbox_buttons.addWidget(self.enable_warnings)
+        self.vbox_buttons.addWidget(self.enable_sounds)
+        self.vbox_buttons.addWidget(self.enable_abort)
+
         self.hbox_abortButton = QHBoxLayout(self)
+        self.hbox_abortButton.addLayout(self.vbox_buttons)
         self.hbox_abortButton.addWidget(self.b_abort)
-        self.hbox_abortButton.addWidget(self.enable_abort)
         self.layout.addLayout(self.hbox_abortButton)
 
         self.label_lights = QLabel(f"LIGHTS", self)
-        self.label_lights.setStyleSheet(("background-color : darkgray"))
-        self.vbox_buttons_left = QVBoxLayout()
-        self.vbox_buttons_right = QVBoxLayout()
-        self.hbox_buttons = QHBoxLayout()
+        self.label_lights.setStyleSheet("color: black")
+        self.vbox_light_buttons_left = QVBoxLayout()
+        self.vbox_light_buttons_right = QVBoxLayout()
+        self.hbox_light_buttons = QHBoxLayout()
+        self.vbox_light_buttons_left.addWidget(self.label_lights)
+
 
         self.lightSlides = []
         for i,light in enumerate(config.bbox_led_control_tel):
@@ -89,12 +104,12 @@ class ButtonsWidgetControlroom(QWidget):
             self.lightSlides[-1].slide.stateChanged.connect(self.lightSlides[-1].changeLight)
 
             if i%2==1:
-                self.vbox_buttons_right.addWidget(self.lightSlides[-1].slide)
+                self.vbox_light_buttons_right.addWidget(self.lightSlides[-1].slide)
             else:
-                self.vbox_buttons_left.addWidget(self.lightSlides[-1].slide)
+                self.vbox_light_buttons_left.addWidget(self.lightSlides[-1].slide)
 
-        self.hbox_buttons.addLayout(self.vbox_buttons_left)
-        self.hbox_buttons.addLayout(self.vbox_buttons_right)
+        self.hbox_light_buttons.addLayout(self.vbox_light_buttons_left)
+        self.hbox_light_buttons.addLayout(self.vbox_light_buttons_right)
         self.layout.addLayout(self.hbox_buttons)
         # Some async operation
         self._update_lights_status()
