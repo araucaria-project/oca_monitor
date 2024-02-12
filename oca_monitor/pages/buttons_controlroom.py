@@ -1,5 +1,5 @@
 import logging
-from PyQt6.QtWidgets import QWidget, QVBoxLayout, QLabel,QSlider,QDial,QScrollBar
+from PyQt6.QtWidgets import QWidget, QVBoxLayout, QLabel,QSlider,QDial,QScrollBar,QPushButton,QCheckBox
 from PyQt6 import QtCore
 import json,requests
 import oca_monitor.config as config
@@ -14,12 +14,17 @@ class lightSlide():
         self.ip = ip
         self.slide = slide
 
-    def changeLight(self,value):
+    def _is_avilable(self):
+        requests.post('http://'+self.ip+'/api/rgbw/set',json={"rgbw":{"desiredColor":val}})
+
+    def changeLight(self):
         try:
             #if True:
-            self.slide.setValue(value)
-            #if value <= 10:
-            #    value == 0
+            if self.slide.isChecked():
+                value = 50
+            else:
+                value = 0
+          
             val = str(hex(int(value*255/100))).replace('0x','',1)
             if len(val) == 1:
                 val = '0'+val
@@ -29,7 +34,7 @@ class lightSlide():
             pass
 
     def req(self,val):
-        requests.post('http://'+self.ip+'/api/rgbw/set',json={"rgbw":{"desiredColor":val}}),"setLight"
+        requests.post('http://'+self.ip+'/api/rgbw/set',json={"rgbw":{"desiredColor":val}})
         
 
 
@@ -46,29 +51,21 @@ class ButtonsWidgetControlroom(QWidget):
 
     def initUI(self, text):
         self.layout = QVBoxLayout(self)
-        self.label = QLabel(f"Secret message: {text}", self)
+        self.label = QLabel(f"Telescopes{text}", self)
         self.layout.addWidget(self.label)
+
+        self.b_abort = QtWidgets.QPushButton(self)#abort button
+        self.b_abort.setStyleSheet("background-color : red")
+        self.b_abort.setText("ABORT OBSERVATIONS")
+        self.b_abort.setFixedSize(300, 100)
+        self.layout.addWidget(self.b_abort)
+
         self.lightSlides = []
         for i,light in enumerate(config.bbox_led_control_tel):
-            self.lightSlides.append(lightSlide(light,config.bbox_led_control_tel[light],QSlider(QtCore.Qt.Orientation.Horizontal)))
-            self.lightSlides[-1].slide.setStyleSheet('''
-                QSlider::handle:horizontal{{
-                    image: url({});
-                    width: 100px;
-                    height: 150px;
-                }}'''.format("./Icons/zb08.png"))
-                                                     
-            '''QSlider::groove:horizontal{{
-                image: url({});
-                width:"1500px";
-                height:"150px";
-                }}.format("./Icons/lightslide.png")).'''
-
-            #self.lightSlides.append(lightSlide(light,config.bbox_led_control_tel[light],QDial(self)))
-            #self.lightSlides[-1].slide.groove()
-            self.lightSlides[-1].slide.setRange(0,100)
-            self.lightSlides[-1].slide.setPageStep(10)
-            self.lightSlides[-1].slide.valueChanged.connect(self.lightSlides[-1].changeLight)
+            self.lightSlides.append(lightSlide(light,config.bbox_led_control_tel[light],QCheckBox()))
+            self.lightSlides[-1].slide.setStyleSheet("QCheckBox::indicator:checked {image: url(unchecked)}::indicator:unchecked {image: url(checked))}".format(unchecked='./Icons/'+light+"_lightoff.png",checked='./Icons/'+light+"_lighton"))
+            self.lightSlides[-1].setChecked(False)
+            self.lightSlides[-1].slide.stateChanged().connect(self.lightSlides[-1].changeLight)
             self.layout.addWidget(self.lightSlides[-1].slide)
 
         # Some async operation
