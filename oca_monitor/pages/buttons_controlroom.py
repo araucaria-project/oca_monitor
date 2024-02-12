@@ -63,7 +63,7 @@ class ButtonsWidgetControlroom(QWidget):
         self.label = QLabel(f"STATUS -not working yet", self)
         self.label.setStyleSheet("background-color : light-green")
         self.layout.addWidget(self.label)
-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
+
         self.b_abort = QPushButton(self)#abort button
         self.b_abort.setStyleSheet("background-color : red")
         self.b_abort.setText("ABORT OBSERVATIONS- not working")
