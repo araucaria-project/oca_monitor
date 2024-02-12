@@ -62,8 +62,8 @@ class ButtonsWidgetControlroom(QWidget):
 
         self.lightSlides = []
         for i,light in enumerate(config.bbox_led_control_tel):
-            self.lightSlides.append(lightSlide(light,config.bbox_led_control_tel[light],QCheckBox(light)))
-            self.lightSlides[-1].slide.setStyleSheet("QCheckBox::indicator{width: 70px; height:60px;} :checked {image: url(./Icons/zb08_lighton.png)}:unchecked {image: url(./Icons/zb08_lightoff.png)}")
+            self.lightSlides.append(lightSlide(light,config.bbox_led_control_tel[light],QCheckBox()))
+            self.lightSlides[-1].slide.setStyleSheet("QCheckBox::indicator{width: 70px; height:60px;} QCheckBox::indicator:checked {image: url(./Icons/zb08_lighton.png)} QCheckBox::indicator:unchecked {image: url(./Icons/zb08_lightoff.png)}")
             #.format('./Icons/'+light+"_lightoff.png",'./Icons/'+light+"_lighton.png"))
             self.lightSlides[-1].slide.setChecked(False)
             self.lightSlides[-1].slide.stateChanged.connect(self.lightSlides[-1].changeLight)
