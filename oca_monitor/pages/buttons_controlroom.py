@@ -62,7 +62,7 @@ class ButtonsWidgetControlroom(QWidget):
         self.layout = QVBoxLayout(self)
         self.label = QLabel("STATUS -not working yet")
         self.label.setStyleSheet("background-color : lightgreen; color: black")
-        self.label.setFont(GtGui.QFont('Arial', 20))
+        self.label.setFont(QtGui.QFont('Arial', 20))
         self.layout.addWidget(self.label)
 
         self.b_abort = QPushButton(self)#abort button
