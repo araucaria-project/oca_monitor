@@ -16,7 +16,7 @@ class lightSlide():
 
     def is_avilable(self):
         req = requests.post('http://'+self.ip+'/info',timeout=1.0)
-        if int(req,status_code) != 200:
+        if int(req.status_code) != 200:
             self.is_active = False
         else:
             self.is_active = True 
