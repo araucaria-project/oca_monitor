@@ -20,7 +20,7 @@ class lightSlide():
     def changeLight(self):
         try:
             #if True:
-            if self.slide.checkState():
+            if self.slide.isChecked():
                 value = 50
             else:
                 value = 0
@@ -64,7 +64,7 @@ class ButtonsWidgetControlroom(QWidget):
         for i,light in enumerate(config.bbox_led_control_tel):
             self.lightSlides.append(lightSlide(light,config.bbox_led_control_tel[light],QCheckBox()))
             #self.lightSlides[-1].slide.setStyleSheet("QCheckBox::indicator:checked {image: url(unchecked)}::indicator:unchecked {image: url(checked))}".format(unchecked='./Icons/'+light+"_lightoff.png",checked='./Icons/'+light+"_lighton"))
-            self.lightSlides[-1].CheckStateSet(False)
+            self.lightSlides[-1].slide.setChecked(False)
             self.lightSlides[-1].slide.stateChanged().connect(self.lightSlides[-1].changeLight)
             self.layout.addWidget(self.lightSlides[-1].slide)
 
