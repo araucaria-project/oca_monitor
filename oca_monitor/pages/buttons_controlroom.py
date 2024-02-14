@@ -59,7 +59,7 @@ class ButtonsWidgetControlroom(QWidget):
                  **kwargs  # other parameters
                  ):
         super().__init__()
-        
+        self.main_window = main_window
         self.initUI(example_parameter,subject)
 
     def initUI(self, text,subject):
