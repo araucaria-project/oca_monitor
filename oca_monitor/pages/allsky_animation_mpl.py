@@ -5,7 +5,7 @@ from PyQt6.QtWidgets import QApplication, QWidget, QVBoxLayout,QLabel,QSizePolic
 from PyQt6.QtCore import QTimer
 from PyQt6 import QtCore
 from PyQt6.QtGui import QPixmap
-from matplotlib.backends.backend_qt4agg import FigureCanvasQTAgg as FigureCanvas
+from matplotlib.backends.backend_qtagg import FigureCanvasQTAgg as FigureCanvas
 from matplotlib.figure import Figure
 from matplotlib.patches import Arrow
 import matplotlib.pyplot as plt
@@ -37,7 +37,7 @@ class AllskyAnimationMplWidget(QWidget):
         self.figure = Figure()
         self.canvas = FigureCanvas(self.figure)
         if self.vertical:
-            self.label.resize(self.width(),self.width())
+            self.label.resize(self.w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idth(),self.width())
         else:
             self.label.resize(self.height(),self.height())
         self.label.addWidget(self.canvas)
