@@ -96,7 +96,7 @@ class ButtonsWidgetControlroom(QWidget):
         self.ephem.setStyleSheet("background-color : silver; color: black")
         self.ephem.setFont(QtGui.QFont('Arial', 20))
 
-        self.label = QLabel("STATUS -not working yet")
+        self.label = QLabel("TEL STATUS -not working yet")
         self.label.setStyleSheet("background-color : lightgreen; color: black")
         self.label.setFont(QtGui.QFont('Arial', 20))
         self.layout.addWidget(self.ephem)
@@ -227,6 +227,12 @@ class ButtonsWidgetControlroom(QWidget):
             self.main_window.skytemp = '0'
 
             warning = 'Wind: '+str(self.wind)+' m/s\n'+'Temperature: '+str(self.temp)+' C\n'+'Humidity: '+str(self.hum)+' %\n'+'Wind dir: '+str(self.main_window.winddir)+'\n'
+            if self.wind > 11. or self.hum > 70.:
+                self.label.setStyleSheet("background-color : yellow; color: black")
+            elif self.wind > 14. or self.hum > 75.:
+                self.label.setStyleSheet("background-color : orangered; color: black")
+            else:
+                self.label.setStyleSheet("background-color : lightgreen; color: black")
             self.label.setText(warning)
 
 
