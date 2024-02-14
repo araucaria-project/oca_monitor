@@ -129,7 +129,7 @@ class ButtonsWidgetControlroom(QWidget):
         self.hum = '0.0'
         self.pres = '0.0'
         await create_task(self.reader_loop(), "weather reader")
-        warning = 'Wind: '+str(self.wind)+' m/s\n'+'Temperature: '+str(self.temp)+' C\n'+'Humidity: '+str(self.hum)+' %\n'
+        warning = 'Wind: '+str(self.wind)+' m/s\n'+'Temperature: '+str(self.temp)+' C\n'+'Humidity: '+str(self.hum)+' %\n'+'Wind dir: '+str(self.main_window.winddir)+'\n'
         self.label.setText(warning)
 
     
