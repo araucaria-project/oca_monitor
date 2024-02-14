@@ -117,7 +117,7 @@ class ButtonsWidgetControlroom(QWidget):
 
         # Some async operation
         self._update_lights_status()
-        QTimer.singleShot(0, self._update_warningWindow)
+        QtCore.QTimer.singleShot(0, self._update_warningWindow)
         logger.info("UI setup done")
 
     @asyncSlot()
@@ -177,6 +177,9 @@ class ButtonsWidgetControlroom(QWidget):
             self.temp = measurement['temperature_C']
             self.hum = measurement['humidity']
             self.pres = measurement['pressure_Pa']
+
+            warning = 'Wind: '+str(self.wind)+' m/n\n'+'Temperature: '+str(self.temp)+' C\n'+'Humidity: '+str(self.hum)+' %\n'
+            self.label.setText(warning)
 
 
 widget_class = ButtonsWidgetControlroom
