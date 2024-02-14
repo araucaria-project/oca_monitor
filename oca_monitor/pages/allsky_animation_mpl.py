@@ -36,10 +36,10 @@ class AllskyAnimationMplWidget(QWidget):
         #self.label = QLabel()
         self.figure = Figure()
         self.canvas = FigureCanvas(self.figure)
-        if self.vertical:
-            self.label.resize(self.w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idth(),self.width())
-        else:
-            self.label.resize(self.height(),self.height())
+        #if self.vertical:
+        #    self.label.resize(self.width(),self.width())
+        #else:
+        #    self.label.resize(self.height(),self.height())
         #self.label.addWidget(self.canvas)
         self.layout.addWidget(self.canvas,1)
         self.update()
