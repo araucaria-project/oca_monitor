@@ -65,23 +65,23 @@ class AllskyAnimationMplWidget(QWidget):
     def update(self):
         lista = os.popen('ls -tr '+self.dir+'lastimage*.jpg').read().split('\n')[:-1]
         if len(lista) > 0:
-            #try:
-            if True:
+            try:
+            #if True:
                 self.figure.clf()
                 ax = self.figure.add_subplot(111)
                 image = plt.imread(lista[self.counter])
                 ax.imshow(image)
 
-                x_arrow,y_arrow,dx_arrow,dy_arrow = self.calc_wind_arrow(1000,1000,420.,370.)
-                wind_arrow = Arrow(x_arrow,y_arrow,dx_arrow,dy_arrow,width=20.,color="pink")
+                x_arrow,y_arrow,dx_arrow,dy_arrow = self.calc_wind_arrow(600,600,550.,500.)
+                wind_arrow = Arrow(x_arrow,y_arrow,dx_arrow,dy_arrow,width=20.,color="green")
                 ax.add_artist(wind_arrow)
                 self.canvas.draw()
 
                 self.counter = self.counter + 1
                 if self.counter == len(lista):
                     self.counter = 0
-            #except:
-            #    pass
+            except:
+                pass
 
         
 
