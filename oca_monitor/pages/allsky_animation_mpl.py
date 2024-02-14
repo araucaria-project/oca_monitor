@@ -33,15 +33,15 @@ class AllskyAnimationMplWidget(QWidget):
         
     def initUI(self):
         self.layout = QVBoxLayout(self)
-        self.label = QLabel()
+        #self.label = QLabel()
         self.figure = Figure()
         self.canvas = FigureCanvas(self.figure)
         if self.vertical:
             self.label.resize(self.w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idth(),self.width())
         else:
             self.label.resize(self.height(),self.height())
-        self.label.addWidget(self.canvas)
-        self.layout.addWidget(self.label,1)
+        #self.label.addWidget(self.canvas)
+        self.layout.addWidget(self.canvas,1)
         self.update()
     
     def calc_wind_arrow(self,x_0,y_0,r,r_prim):
@@ -74,7 +74,7 @@ class AllskyAnimationMplWidget(QWidget):
                 x_arrow,y_arrow,dx_arrow,dy_arrow = self.calc_wind_arrow(1000,1000,420.,370.)
                 wind_arrow = Arrow(x_arrow,y_arrow,dx_arrow,dy_arrow,width=20.,color="pink")
                 ax.add_artist(wind_arrow)
-
+                self.canvas.draw()
 
                 self.counter = self.counter + 1
                 if self.counter == len(lista):
