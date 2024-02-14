@@ -7,6 +7,7 @@ from qasync import asyncSlot
 from serverish.base import dt_ensure_datetime
 from serverish.base.task_manager import create_task_sync, create_task
 from serverish.messenger import Messenger
+import ephem
 # please use logging like here, it will name the log record with the name of the module
 logger = logging.getLogger(__name__.rsplit('.')[-1])
 
