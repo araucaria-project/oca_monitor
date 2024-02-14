@@ -47,7 +47,7 @@ class AllskyAnimationMplWidget(QWidget):
     def calc_wind_arrow(self,x_0,y_0,r,r_prim):
         pi = 3.14159
         try:
-            winddir = self.main_window.wind_dir_deg
+            winddir = self.main_window.winddir
             x = x_0+r*math.cos((270.-winddir)*pi/180.)
             y = y_0+r*math.sin((270.-winddir)*pi/180.)
             x_prim = x_0+r_prim*math.cos((270.-winddir)*pi/180.)
