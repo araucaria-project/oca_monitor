@@ -129,7 +129,7 @@ class ButtonsWidgetControlroom(QWidget):
         self.hum = '0.0'
         self.pres = '0.0'
         await create_task(self.reader_loop(), "weather reader")
-        warning = 'Wind: '+str(self.wind)+' m/\n'+'Temperature: '+str(self.temp)+' C\n'+'Humidity: '+str(self.hum)+' %\n'
+        warning = 'Wind: '+str(self.wind)+' m/s\n'+'Temperature: '+str(self.temp)+' C\n'+'Humidity: '+str(self.hum)+' %\n'
         self.label.setText(warning)
 
     
@@ -176,12 +176,12 @@ class ButtonsWidgetControlroom(QWidget):
             ts = dt_ensure_datetime(data['ts']).astimezone()
             hour = ts.hour + ts.minute / 60 + ts.second / 3600
             measurement = data['measurements']
-            self.wind = measurement['wind_10min_ms']
-            self.temp = int(measurement['temperature_C'])
-            self.hum = measurement['humidity']
-            self.pres = measurement['pressure_Pa']
+            self.wind = "{:.1f}".format(measurement['wind_10min_ms'])
+            self.temp = "{:.1f}".format(measurement['temperature_C'])
+            self.hum = int(measurement['humidity'])
+            self.pres = int(measurement['pressure_Pa'])
 
-            warning = 'Wind: '+str(self.wind)+' m/n\n'+'Temperature: '+str(self.temp)+' C\n'+'Humidity: '+str(self.hum)+' %\n'
+            warning = 'Wind: '+str(self.wind)+' m/s\n'+'Temperature: '+str(self.temp)+' C\n'+'Humidity: '+str(self.hum)+' %\n'
             self.label.setText(warning)
 
 
