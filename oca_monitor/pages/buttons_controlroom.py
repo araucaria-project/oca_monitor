@@ -87,6 +87,8 @@ class ButtonsWidgetControlroom(QWidget):
         self.weather_subject=subject
         self.layout = QVBoxLayout(self)
         self.ephem = QLabel("init")
+        self.ephem.setStyleSheet("background-color : lightgreen; color: white")
+
         self.label = QLabel("STATUS -not working yet")
         self.label.setStyleSheet("background-color : lightgreen; color: black")
         self.label.setFont(QtGui.QFont('Arial', 20))
@@ -141,6 +143,7 @@ class ButtonsWidgetControlroom(QWidget):
         self.layout.addLayout(self.hbox_light_buttons)
 
         # Some async operation
+        self._update_ephem()
         self._update_lights_status()
         QtCore.QTimer.singleShot(0, self._update_warningWindow)
         logger.info("UI setup done")
