@@ -31,7 +31,7 @@ def ephemeris():
     sun.compute(arm)
     moon.compute(arm)
     lst = arm.sidereal_time()
-    text = 'UT:\t\t'+ut+'\nLOC TIME:\t'+lt+'\nSID TIME:\t'+str(lst)+'\nJD:\t\t'+str("{:.1f}".format(float(jd)))+'\nSUNSET(UT):\t'+sunset+'\nSUNRISE(UT):\t'+sunrise+'\nSUN ALT:\t'+str(int(sun.alt))
+    text = 'UT:\t\t'+ut+'\nLT:\t'+lt+'\nSIDT:\t'+str(lst)+'\nJD:\t\t'+str("{:.1f}".format(float(jd)))+'\nSUNSET(UT):\t'+sunset+'\nSUNRISE(UT):\t'+sunrise+'\nSUN ALT:\t'+str(sun.alt)
     return text
 
 class lightSlide():
@@ -90,8 +90,8 @@ class ButtonsWidgetControlroom(QWidget):
         self.weather_subject=subject
         self.layout = QVBoxLayout(self)
         self.ephem = QLabel("init")
-        self.ephem.setStyleSheet("background-color : grey; color: black")
-        self.ephem.setFont(QtGui.QFont('Arial', 15))
+        self.ephem.setStyleSheet("background-color : silver; color: black")
+        self.ephem.setFont(QtGui.QFont('Arial', 16))
 
         self.label = QLabel("STATUS -not working yet")
         self.label.setStyleSheet("background-color : lightgreen; color: black")
