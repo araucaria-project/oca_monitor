@@ -31,7 +31,10 @@ def ephemeris():
     sun.compute(arm)
     moon.compute(arm)
     lst = arm.sidereal_time()
-    text = 'UT:\t\t'+ut+'\nLT:\t'+lt+'\nSIDT:\t'+str(lst)+'\nJD:\t\t'+str("{:.1f}".format(float(jd)))+'\nSUNSET(UT):\t'+sunset+'\nSUNRISE(UT):\t'+sunrise+'\nSUN ALT:\t'+str(sun.alt)
+    if str(sun.alt[0]) == '-':
+        text = 'UT:\t'+ut+'\nLT:\t'+lt+'\nSIDT:\t'+str(lst)+'\nJD:\t\t'+str("{:.2f}".format(float(jd)))+'\nSUNRISE(UT):\t'+sunrise[-8:]+'\nSUN ALT:\t'+str(sun.alt)
+    else:
+        text = 'UT:\t'+ut+'\nLT:\t'+lt+'\nSIDT:\t'+str(lst)+'\nJD:\t\t'+str("{:.2f}".format(float(jd)))+'\nSUNSET(UT):\t'+sunset[-8:]+'\nSUN ALT:\t'+str(sun.alt)
     return text
 
 class lightSlide():
@@ -91,7 +94,7 @@ class ButtonsWidgetControlroom(QWidget):
         self.layout = QVBoxLayout(self)
         self.ephem = QLabel("init")
         self.ephem.setStyleSheet("background-color : silver; color: black")
-        self.ephem.setFont(QtGui.QFont('Arial', 16))
+        self.ephem.setFont(QtGui.QFont('Arial', 20))
 
         self.label = QLabel("STATUS -not working yet")
         self.label.setStyleSheet("background-color : lightgreen; color: black")
