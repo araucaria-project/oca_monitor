@@ -48,16 +48,16 @@ class AllskyAnimationMplWidget(QWidget):
         pi = 3.14159
         try:
             winddir = self.main_window.winddir
-            x = -1.*(x_0+r*math.cos((270.-winddir)*pi/180.))
+            x = x_0-r*math.cos((270.-winddir)*pi/180.)
             y = y_0+r*math.sin((270.-winddir)*pi/180.)
-            x_prim = -1.*(x_0+r_prim*math.cos((270.-winddir)*pi/180.))
+            x_prim = x_0-r_prim*math.cos((270.-winddir)*pi/180.)
             y_prim = y_0+r_prim*math.sin((270.-winddir)*pi/180.)
 
         except:
             winddir = 180.
-            x = -1.*(x_0+r*math.cos((270.-winddir)*pi/180.))
+            x = x_0-r*math.cos((270.-winddir)*pi/180.)
             y = y_0+r*math.sin((270.-winddir)*pi/180.)
-            x_prim = -1.*(x_0+r_prim*math.cos((270.-winddir)*pi/180.))
+            x_prim = x_0-r_prim*math.cos((270.-winddir)*pi/180.)
             y_prim = y_0+r_prim*math.sin((270.-winddir)*pi/180.)
 
         return x,y,x_prim-x,y_prim-y
@@ -72,7 +72,7 @@ class AllskyAnimationMplWidget(QWidget):
                 image = plt.imread(lista[self.counter])
                 ax.imshow(image)
 
-                x_arrow,y_arrow,dx_arrow,dy_arrow = self.calc_wind_arrow(620,620,550.,500.)
+                x_arrow,y_arrow,dx_arrow,dy_arrow = self.calc_wind_arrow(600,600,550.,500.)
                 wind_arrow = Arrow(x_arrow,y_arrow,dx_arrow,dy_arrow,width=20.,color="magenta")
                 ax.add_artist(wind_arrow)
                 ax.axis('off')
