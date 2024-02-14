@@ -70,7 +70,7 @@ class AllskyAnimationMplWidget(QWidget):
                 self.figure.clf()
                 ax = self.figure.add_subplot(111)
                 image = plt.imread(lista[self.counter])
-                plt.imshow(image)
+                ax.imshow(image)
 
                 x_arrow,y_arrow,dx_arrow,dy_arrow = self.calc_wind_arrow(1000,1000,420.,370.)
                 wind_arrow = Arrow(x_arrow,y_arrow,dx_arrow,dy_arrow,width=20.,color="pink")

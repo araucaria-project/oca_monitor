@@ -180,8 +180,15 @@ class ButtonsWidgetControlroom(QWidget):
             self.temp = "{:.1f}".format(measurement['temperature_C'])
             self.hum = int(measurement['humidity'])
             self.pres = int(measurement['pressure_Pa'])
+            self.winddir = int(measurement['wind_dir_deg'])
 
-            warning = 'Wind: '+str(self.wind)+' m/s\n'+'Temperature: '+str(self.temp)+' C\n'+'Humidity: '+str(self.hum)+' %\n'
+            self.main_window.wind = self.wind
+            self.main_window.temp = self.temp
+            self.main_window.hum = self.hum
+            self.main_window.winddir = self.winddir
+            self.main_window.skytemp = '0'
+
+            warning = 'Wind: '+str(self.wind)+' m/s\n'+'Temperature: '+str(self.temp)+' C\n'+'Humidity: '+str(self.hum)+' %\n'+'Wind dir: '+str(self.main_window.winddir)+'\n'
             self.label.setText(warning)
 
 
