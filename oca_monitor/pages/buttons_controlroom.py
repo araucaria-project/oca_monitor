@@ -55,13 +55,15 @@ class ButtonsWidgetControlroom(QWidget):
     def __init__(self,
                  main_window, # always passed
                  example_parameter: str = "Hello OCM!",  # parameters from settings
+                 subject='telemetry.weather.davis',#weather subject
                  **kwargs  # other parameters
                  ):
         super().__init__()
         
-        self.initUI(example_parameter)
+        self.initUI(example_parameter,subject)
 
-    def initUI(self, text):
+    def initUI(self, text,subject):
+        self.weather_subject=subject
         self.layout = QVBoxLayout(self)
         self.label = QLabel("STATUS -not working yet")
         self.label.setStyleSheet("background-color : lightgreen; color: black")
