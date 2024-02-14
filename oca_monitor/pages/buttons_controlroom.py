@@ -10,6 +10,27 @@ from serverish.messenger import Messenger
 # please use logging like here, it will name the log record with the name of the module
 logger = logging.getLogger(__name__.rsplit('.')[-1])
 
+def ephemeris():
+    arm=ephem.Observer()
+    arm.lon=str(-70.183515)
+    arm.lat=str(-24.58917)
+    arm.elev=2800
+    date = time.strftime('%Y%m%d',time.gmtime() )
+    ut = time.strftime('%Y/%m/%d %H:%M:%S',time.gmtime() )
+    t = czas_astro([ut.replace('/','-',2).replace(' ','T',1)])
+    jd = str(t.jd[0])[:12]
+    lt = time.strftime('%Y/%m/%d %H:%M:%S',time.localtime() )
+    arm.date = ut
+    sunset=str(arm.next_setting(ephem.Sun()))
+    sunrise=str(arm.next_rising(ephem.Sun()))
+    sun = ephem.Sun()
+    moon = ephem.Moon()
+    sun.compute(arm)
+    moon.compute(arm)
+    lst = arm.sidereal_time()
+    text = 'UT:\t\t\t'+ut+'\nLOC TIME:\t\t'+lt+'\nSID TIME:\t'+str(lst)+'\nJD:\t\t\t'+"{:.1f}".format(jd)+'\nNEXT SUNSET(UT):\t'+sunset+'\nNEXT SUNRISE(UT):\t'+sunrise+'\nSUN ALTITUDE:\t\t'+str(int(sun.alt))
+    return text
+
 class lightSlide():
     def __init__(self,name,ip,slide):
         self.name = name
@@ -65,9 +86,11 @@ class ButtonsWidgetControlroom(QWidget):
     def initUI(self, text,subject):
         self.weather_subject=subject
         self.layout = QVBoxLayout(self)
+        self.ephem = QLabel("init")
         self.label = QLabel("STATUS -not working yet")
         self.label.setStyleSheet("background-color : lightgreen; color: black")
         self.label.setFont(QtGui.QFont('Arial', 20))
+        self.layout.addWidget(self.ephem)
         self.layout.addWidget(self.label)
 
         self.b_abort = QPushButton(self)#abort button
@@ -121,6 +144,11 @@ class ButtonsWidgetControlroom(QWidget):
         self._update_lights_status()
         QtCore.QTimer.singleShot(0, self._update_warningWindow)
         logger.info("UI setup done")
+
+    def _update_ephem(self):
+        text = ephemeris()
+        self.ephem.setText(text)
+        QtCore.QTimer.singleShot(1000, self._update_ephem)
 
     @asyncSlot()
     async def _update_warningWindow(self):
