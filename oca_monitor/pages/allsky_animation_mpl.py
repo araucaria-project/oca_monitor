@@ -65,7 +65,8 @@ class AllskyAnimationMplWidget(QWidget):
     def update(self):
         lista = os.popen('ls -tr '+self.dir+'lastimage*.jpg').read().split('\n')[:-1]
         if len(lista) > 0:
-            try:
+            #try:
+            if True:
                 self.figure.clf()
                 ax = self.figure.add_subplot(111)
                 image = plt.imread(lista[self.counter])
@@ -79,8 +80,8 @@ class AllskyAnimationMplWidget(QWidget):
                 self.counter = self.counter + 1
                 if self.counter == len(lista):
                     self.counter = 0
-            except:
-                pass
+            #except:
+            #    pass
 
         
 
