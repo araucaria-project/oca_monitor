@@ -173,6 +173,7 @@ class ButtonsWidgetControlroom(QWidget):
                 "indoor_humidity": 50,
         }
         async for data, meta in rdr:
+            ts = dt_ensure_datetime(data['ts']).astimezone()
             hour = ts.hour + ts.minute / 60 + ts.second / 3600
             measurement = data['measurements']
             self.wind_speed10 = measurement['wind_10min_ms']
