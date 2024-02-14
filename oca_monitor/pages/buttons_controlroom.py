@@ -160,18 +160,6 @@ class ButtonsWidgetControlroom(QWidget):
         self.ephem.setText(text)
         QtCore.QTimer.singleShot(1000, self._update_ephem)
 
-    @asyncSlot()
-    async def _update_warningWindow(self):
-        self.wind = '0.0'
-        self.temp = '0.0'
-        self.hum = '0.0'
-        self.pres = '0.0'
-        await create_task(self.reader_loop(), "weather reader")
-        warning = 'Wind: '+str(self.wind)+' m/s\n'+'Temperature: '+str(self.temp)+' C\n'+'Humidity: '+str(self.hum)+' %\n'+'Wind dir: '+str(self.main_window.winddir)+'\n'
-        self.label.setText(warning)
-
-    
-
     def _update_lights_status(self):
         for light in self.lightSlides:
             light.is_avilable()
@@ -182,7 +170,15 @@ class ButtonsWidgetControlroom(QWidget):
 
         QtCore.QTimer.singleShot(30000, self._update_lights_status)
 
-    
+    @asyncSlot()
+    async def _update_warningWindow(self):
+        self.wind = '0.0'
+        self.temp = '0.0'
+        self.hum = '0.0'
+        self.pres = '0.0'
+        await create_task(self.reader_loop(), "weather reader")
+        #warning = 'Wind: '+str(self.wind)+' m/s\n'+'Temperature: '+str(self.temp)+' C\n'+'Humidity: '+str(self.hum)+' %\n'+'Wind dir: '+str(self.main_window.winddir)+'\n'
+        #self.label.setText(warning)
     
 
     async def reader_loop(self):
@@ -233,6 +229,7 @@ class ButtonsWidgetControlroom(QWidget):
                 self.label.setStyleSheet("background-color : orangered; color: black")
             else:
                 self.label.setStyleSheet("background-color : lightgreen; color: black")
+
             self.label.setText(warning)
 
 
