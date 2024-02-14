@@ -54,7 +54,7 @@ class AllskyAnimationMplWidget(QWidget):
             y_prim = y_0+r_prim*math.sin((270.-winddir)*pi/180.)
 
         except:
-            self.wind_dir = 180.
+            winddir = 180.
             x = x_0+r*math.cos((270.-winddir)*pi/180.)
             y = y_0+r*math.sin((270.-winddir)*pi/180.)
             x_prim = x_0+r_prim*math.cos((270.-winddir)*pi/180.)

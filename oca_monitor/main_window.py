@@ -46,6 +46,10 @@ class AsyncTabWidget(QTabWidget):
         # super().addTab(QWidget(), ico, '⚙')
 
         self.seconds_counter = 0
+
+        #parameters which will be used by different tabs (e.g. weather)
+        
+
         self.speed = 20 # default speed - second as defined in settings.toml (default 10)
         self.auto_play = True
         self.timer = QTimer(self)
@@ -169,6 +173,11 @@ class MainWindow(QMainWindow):
         self._config = None
 
     def initUI(self):
+        self.wind = 0
+        self.hum = 0
+        self.temp = 0
+        self.skytemp = 0
+        self.winddir = 0
         self.central_widget = QWidget()
         # We will divide the window into a grid of panels
         self.grid_layout = QGridLayout(self.central_widget)
