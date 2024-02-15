@@ -19,6 +19,7 @@ class ConditionsWidget(QWidget):
         self.main_window = main_window
         self.water_subject = subject
         self.vertical = bool(vertical_screen)
+        self.water_level = 0
         QTimer.singleShot(0, self.async_init)
         self.initUI()
         # async init
@@ -78,7 +79,7 @@ class ConditionsWidget(QWidget):
                 self.ts = dt_ensure_datetime(data['ts'])
                 measurement = data['measurements']
                 self.water_level = measurement['water_level']
-                logger.info(f"Subscribed to {self.water_level}")
+                logger.info(f"Measured water level {self.water_level}")
                                 
             #except:
             #    pass
