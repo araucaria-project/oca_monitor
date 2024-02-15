@@ -78,6 +78,7 @@ class ConditionsWidget(QWidget):
                 self.ts = dt_ensure_datetime(data['ts'])
                 measurement = data['measurements']
                 self.water_level = measurement['water_level']
+                logger.info(f"Subscribed to {self.water_level}")
                                 
             #except:
             #    pass
