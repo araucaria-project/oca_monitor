@@ -27,7 +27,7 @@ class ConditionsWidget(QWidget):
     @asyncSlot()
     async def async_init(self):
         #obs_config = await self.main_window.observatory_config()
-        await create_task(self.reader_loop(), "reader")
+        await create_task(self.reader_loop(), "reader_water")
 
 
 
@@ -39,7 +39,7 @@ class ConditionsWidget(QWidget):
         self.label = QLabel()
         try:
         #if True:
-            self.label.setText(str(self.ts[0])+'\n'+str(self.water_level))
+            self.label.setText(str(self.water_level))
         except:
             self.label.setText('No data')
         # Matplotlib setup
