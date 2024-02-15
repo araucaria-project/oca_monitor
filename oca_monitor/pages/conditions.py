@@ -36,10 +36,11 @@ class ConditionsWidget(QWidget):
         # Layout
         self.layout = QVBoxLayout(self)
         self.label = QLabel()
-        try:
+        #try:
+        if True:
             self.label.setText(str(self.ts)+'\n'+str(self.water_level))
-        except:
-            self.label.setText('No data')
+        #except:
+        #    self.label.setText('No data')
         # Matplotlib setup
         '''self.figure = Figure(facecolor='lightgrey')
         self.canvas = FigureCanvas(self.figure)
