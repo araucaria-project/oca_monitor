@@ -38,11 +38,7 @@ class ConditionsWidget(QWidget):
         # Layout
         self.layout = QVBoxLayout(self)
         self.label = QLabel()
-        #try:
-        if True:
-            self.label.setText(str(self.water_level))
-        #except:
-        #    self.label.setText('No data')
+        
         # Matplotlib setup
         '''self.figure = Figure(facecolor='lightgrey')
         self.canvas = FigureCanvas(self.figure)
@@ -72,7 +68,7 @@ class ConditionsWidget(QWidget):
 
         
         async for data, meta in rdr:
-            #try:
+            
             if True:
                 # if we crossed the midnight, we want to copy today's data to yesterday's and start today from scratch
                 
@@ -80,8 +76,13 @@ class ConditionsWidget(QWidget):
                 measurement = data['measurements']
                 self.water_level = measurement['water_level']
                 logger.info(f"Measured water level {self.water_level}")
+
+        try:
+        #if True:
+            self.label.setText(str(self.water_level))
+        except:
+            self.label.setText('No data')
                                 
-            #except:
-            #    pass
+            s
 
 widget_class = ConditionsWidget
