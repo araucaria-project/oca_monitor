@@ -62,7 +62,7 @@ class ConditionsWidget(QWidget):
 
         rdr = msg.get_reader(
             self.water_subject,
-            deliver_policy='last',
+            deliver_policy='all',
         )
         logger.info(f"Subscribed to {self.water_subject}")
 
