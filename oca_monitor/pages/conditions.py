@@ -19,9 +19,10 @@ class ConditionsWidget(QWidget):
         self.main_window = main_window
         self.water_subject = subject
         self.vertical = bool(vertical_screen)
+        QTimer.singleShot(0, self.async_init)
         self.initUI()
         # async init
-        QTimer.singleShot(0, self.async_init)
+        
 
     @asyncSlot()
     async def async_init(self):
@@ -45,17 +46,6 @@ class ConditionsWidget(QWidget):
         '''self.figure = Figure(facecolor='lightgrey')
         self.canvas = FigureCanvas(self.figure)
         if self.vertical:
-            self.ax_wind = self.figure.add_subplot(111)
-            
-        else:
-            self.ax_wind = self.figure.add_subplot(111)
-            
-
-        self.ax_wind.set_title("Water [1000 l]")
-        
-        # setting a limits
-        self.ax_wind.set_xlim([0, 24])
-        self.ax_wind.set_ylim([0, 20])
         
         x = [0,1,2,3,4,5,6,7,8,9,10,11,12,13,14,15,16,17,18,19,20,21,22,23,24]
         self.ax_wind.fill_between(x,10,13,color='orange',alpha=0.3)
@@ -74,7 +64,7 @@ class ConditionsWidget(QWidget):
         # We want the data from the midnight of yesterday
 
         rdr = msg.get_reader(
-            self.weather_subject,
+            self.water_subject,
             deliver_policy='last',
         )
         logger.info(f"Subscribed to {self.water_subject}")
