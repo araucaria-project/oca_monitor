@@ -169,8 +169,8 @@ class ConfigurableTabWidget(QWidget):
 class MainWindow(QMainWindow):
     def __init__(self):
         super().__init__()
-        self.initUI()
         self._config = None
+        self.initUI()
 
     def initUI(self):
         self.wind = 0

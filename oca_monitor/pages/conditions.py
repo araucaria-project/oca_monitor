@@ -26,7 +26,7 @@ class ConditionsWidget(QWidget):
 
     @asyncSlot()
     async def async_init(self):
-        obs_config = await self.main_window.observatory_config()
+        #obs_config = await self.main_window.observatory_config()
         await create_task(self.reader_loop(), "reader")
 
 
@@ -71,14 +71,15 @@ class ConditionsWidget(QWidget):
 
         
         async for data, meta in rdr:
-            try:
+            #try:
+            if True:
                 # if we crossed the midnight, we want to copy today's data to yesterday's and start today from scratch
                 
                 self.ts = dt_ensure_datetime(data['ts'])
                 measurement = data['measurements']
                 self.water_level = measurement['water_level']
                                 
-            except:
-                pass
+            #except:
+            #    pass
 
 widget_class = ConditionsWidget
