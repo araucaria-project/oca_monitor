@@ -83,6 +83,5 @@ class ConditionsWidget(QWidget):
         except:
             self.label.setText('No data')
                                 
-            s
 
 widget_class = ConditionsWidget
