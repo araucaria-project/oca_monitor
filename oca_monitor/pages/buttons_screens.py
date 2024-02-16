@@ -88,6 +88,7 @@ class ButtonsWidget(QWidget):
         self.label = QLabel(f"Secret message: {text}", self)
         self.layout.addWidget(self.label)
         self.lights = []
+        vlayout = QVBoxLayout()
         for i,light in enumerate(config.bbox_led_control):
             self.lights.append(light_point(light,config.bbox_led_control[light],QPushButton('+'),QPushButton('-'),QLabel('LIGHT '+light)))
             vbox = QVBoxLayout()
@@ -98,6 +99,22 @@ class ButtonsWidget(QWidget):
             vbox.addLayout(hbox)
             self.layout.addLayout(vbox)
 
+        self.label = QLabel("TEL STATUS -not working yet")
+        self.label.setStyleSheet("background-color : lightgreen; color: black")
+        self.label.setFont(QtGui.QFont('Arial', 20))
+        
+        vlayout.addLayout(vbox,1)
+        vlayout.addWidget(self.label,3)
+        
+
+        self.b_abort = QPushButton(self)#abort button
+        self.b_abort.setStyleSheet("background-color : red; color: black")
+        self.b_abort.setText("ABORT\n OBSERVATIONS\n- not working")
+        self.b_abort.setFixedSize(80, 80)
+        self.enable_abort = QCheckBox('Enable abort button')
+        self.enable_abort.setStyleSheet("QCheckBox::indicator{width: 60px; height:40px;} QCheckBox::indicator:checked {image: url(./Icons/SwitchOn.png)} QCheckBox::indicator:unchecked {image: url(./Icons/SwitchOff.png)}")
+        vlayout.addWidget(self.b_abort)
+        vlayout.addWidget(self.enable_abort)
         # Some async operation
         logger.info("UI setup done")
 
