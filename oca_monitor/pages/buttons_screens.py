@@ -1,6 +1,6 @@
 import logging
 from PyQt6.QtWidgets import QWidget, QVBoxLayout, QHBoxLayout, QLabel,QSlider,QDial,QScrollBar,QPushButton
-from PyQt6 import QtCore
+from PyQt6 import QtCore,QtGui
 import json,requests
 import oca_monitor.config as config
 from qasync import asyncSlot
@@ -15,6 +15,8 @@ class light_point():
         self.label = label
         self.b_bright = button_brighter
         self.b_faint = button_fainter
+        self.b_bright.setStyleSheet("background-color : silver")
+        self.b_faint.setStyleSheet("background-color : silver")
         self.b_bright.clicked.connect(self.brightLight)
         self.b_faint.clicked.connect(self.dimLight)
         self.label.setStyleSheet("background-color : silver; color: black")
@@ -78,7 +80,7 @@ class ButtonsWidget(QWidget):
     def __init__(self,
                  main_window, # always passed
                  example_parameter: str = "Hello OCM!",  # parameters from settings
-                 **kwargs  # other parameters
+                 **kwargs  # other parameters.setStyleSheet("background-color : silver
                  ):
         super().__init__()
         self.initUI(example_parameter)
