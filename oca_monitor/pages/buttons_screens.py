@@ -17,7 +17,7 @@ class light_point():
         self.b_faint = button_fainter
         self.b_bright.clicked.connect(self.brightLight)
         self.b_faint.clicked.connect(self.dimLight)
-        self.label.setStyleSheet("background-color : orangered; color: silver")
+        self.label.setStyleSheet("background-color : silver; color: black")
 
     def brightLight(self):
         try:
@@ -57,8 +57,8 @@ class light_point():
         requests.post('http://'+self.ip+'/api/rgbw/set',json={"rgbw":{"desiredColor":val}})
 
     def status(self):
-        try:
-        #if True:
+        #try:
+        if True:
             req = requests.get('http://'+self.ip+'/api/rgbw/state',timeout=0.5)
             
             if int(req.status_code) != 200:
@@ -66,8 +66,8 @@ class light_point():
             else:
                 self.is_active = True 
                 self.curr_value = int(req["rgbw"]["desiredColor"],16)
-        except:
-            self.is_active = False
+        #except:
+        #    self.is_active = False
         
 
 
@@ -88,7 +88,7 @@ class ButtonsWidget(QWidget):
         self.layout.addWidget(self.label)
         self.lights = []
         for i,light in enumerate(config.bbox_led_control):
-            self.lights.append(light_point(light,config.bbox_led_control[light],QPushButton('+'),QPushButton('-'),QLabel(light)))
+            self.lights.append(light_point(light,config.bbox_led_control[light],QPushButton('+'),QPushButton('-'),QLabel('LIGHT '+light)))
             vbox = QVBoxLayout()
             hbox = QHBoxLayout()
             hbox.addWidget(self.lights[-1].b_faint)
