@@ -1,5 +1,5 @@
 import logging
-from PyQt6.QtWidgets import QWidget, QVBoxLayout, QLabel,QSlider,QDial,QScrollBar,QPushButton
+from PyQt6.QtWidgets import QWidget, QVBoxLayout, QHBoxLayout, QLabel,QSlider,QDial,QScrollBar,QPushButton
 from PyQt6 import QtCore
 import json,requests
 import oca_monitor.config as config
