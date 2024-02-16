@@ -1,5 +1,5 @@
 import logging
-from PyQt6.QtWidgets import QWidget, QVBoxLayout, QLabel,QSlider,QDial,QScrollBar
+from PyQt6.QtWidgets import QWidget, QVBoxLayout, QLabel,QSlider,QDial,QScrollBar,QPushButton
 from PyQt6 import QtCore
 import json,requests
 import oca_monitor.config as config
@@ -8,26 +8,66 @@ from serverish.base.task_manager import create_task_sync, create_task
 # please use logging like here, it will name the log record with the name of the module
 logger = logging.getLogger(__name__.rsplit('.')[-1])
 
-class lightSlide():
-    def __init__(self,name,ip,slide):
+class light_point():
+    def __init__(self,name,ip,button_brighter,button_fainter,label):
         self.name = name
         self.ip = ip
-        self.slide = slide
+        self.label = label
+        self.b_bright = button_brighter
+        self.b_faint = button_fainter
+        self.b_bright.clicked.connect(self.brightLight)
+        self.b_faint.clicked.connect(self.dimLight)
+        self.label.setStyleSheet("background-color : orangered; color: silver")
 
-    def changeLight(self,value):
+    def brightLight(self):
         try:
+            self.status()
             #if True:
-            self.slide.setValue(value)
-            val = str(hex(int(value*255/100))).replace('0x','',1)
-            if len(val) == 1:
-                val = '0'+val
-            
-            self.req(val)
+            if self.is_active:
+                new_value = self.curr_value + 25
+                if new_value > 255:
+                    new_value = 255
+
+                val = str(hex(int(new_value))).replace('0x','',1)
+                if len(val) == 1:
+                    val = '0'+val
+                
+                self.req(val)
+        except:
+            pass
+
+    def dimLight(self):
+        try:
+            self.status()
+            #if True:
+            if self.is_active:
+                new_value = self.curr_value - 25
+                if new_value < 0:
+                    new_value = 0
+
+                val = str(hex(int(new_value))).replace('0x','',1)
+                if len(val) == 1:
+                    val = '0'+val
+                
+                self.req(val)
         except:
             pass
 
     def req(self,val):
         requests.post('http://'+self.ip+'/api/rgbw/set',json={"rgbw":{"desiredColor":val}})
+
+    def status(self):
+        try:
+        #if True:
+            req = requests.get('http://'+self.ip+'/api/rgbw/state',timeout=0.5)
+            
+            if int(req.status_code) != 200:
+                self.is_active = False
+            else:
+                self.is_active = True 
+                self.curr_value = int(req["rgbw"]["desiredColor"],16)
+        except:
+            self.is_active = False
         
 
 
@@ -46,14 +86,17 @@ class ButtonsWidget(QWidget):
         self.layout = QVBoxLayout(self)
         self.label = QLabel(f"Secret message: {text}", self)
         self.layout.addWidget(self.label)
-        self.lightSlides = []
+        self.lights = []
         for i,light in enumerate(config.bbox_led_control):
-            self.lightSlides.append(lightSlide(light,config.bbox_led_control[light],QSlider(QtCore.Qt.Orientation.Horizontal)))
-            #self.lightSlides[-1].slide.groove(background="#C9CDD0",height='50px')
-            self.lightSlides[-1].slide.setRange(0,100)
-            self.lightSlides[-1].slide.setPageStep(10)
-            self.lightSlides[-1].slide.valueChanged.connect(self.lightSlides[-1].changeLight)
-            self.layout.addWidget(self.lightSlides[-1].slide)
+            self.lights.append(light_point(light,config.bbox_led_control[light],QPushButton('+'),QPushButton('-'),QLabel(light)))
+            vbox = QVBoxLayout()
+            hbox = QHBoxLayout()
+            hbox.addWidget(self.lights.b_)
+            self.layout.addWidget(self.lightSlides[-1].b_faint)
+            self.layout.addWidget(self.lightSlides[-1].b_bright)
+            vbox.addWidget(self.lightSlides[-1].label)
+            vbox.addLayout(hbox)
+            self.layout.addLayout(vbox)
 
         # Some async operation
         logger.info("UI setup done")
