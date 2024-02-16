@@ -66,7 +66,7 @@ class light_point():
                 self.is_active = False
             else:
                 self.is_active = True 
-                self.curr_value = int(req["rgbw"]["desiredColor"],16)
+                self.curr_value = int(req.json()["rgbw"]["desiredColor"],16)
         #except:
         #    self.is_active = False
         
