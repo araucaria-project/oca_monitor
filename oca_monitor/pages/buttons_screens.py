@@ -91,10 +91,9 @@ class ButtonsWidget(QWidget):
             self.lights.append(light_point(light,config.bbox_led_control[light],QPushButton('+'),QPushButton('-'),QLabel(light)))
             vbox = QVBoxLayout()
             hbox = QHBoxLayout()
-            hbox.addWidget(self.lights.b_)
-            self.layout.addWidget(self.lightSlides[-1].b_faint)
-            self.layout.addWidget(self.lightSlides[-1].b_bright)
-            vbox.addWidget(self.lightSlides[-1].label)
+            hbox.addWidget(self.lights[-1].b_faint)
+            hbox.addWidget(self.lights[-1].b_bright)
+            vbox.addWidget(self.lights[-1].label)
             vbox.addLayout(hbox)
             self.layout.addLayout(vbox)
 
