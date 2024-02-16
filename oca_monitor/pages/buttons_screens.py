@@ -20,7 +20,8 @@ class light_point():
         self.label.setStyleSheet("background-color : silver; color: black")
 
     def brightLight(self):
-        try:
+        #try:
+        if True:
             self.status()
             #if True:
             if self.is_active:
@@ -33,8 +34,8 @@ class light_point():
                     val = '0'+val
                 
                 self.req(val)
-        except:
-            pass
+        #except:
+        #    pass
 
     def dimLight(self):
         try:
