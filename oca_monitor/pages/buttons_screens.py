@@ -90,6 +90,7 @@ class ButtonsWidget(QWidget):
         self.label = QLabel(f"Secret message: {text}", self)
         self.layout.addWidget(self.label)
         self.lights = []
+        hlayout_lights = QHBoxLayout()
         hlayout = QHBoxLayout()
         for i,light in enumerate(config.bbox_led_control):
             self.lights.append(light_point(light,config.bbox_led_control[light],QPushButton('+'),QPushButton('-'),QLabel('LIGHT '+light)))
@@ -99,7 +100,7 @@ class ButtonsWidget(QWidget):
             hbox.addWidget(self.lights[-1].b_bright)
             vbox.addWidget(self.lights[-1].label)
             vbox.addLayout(hbox)
-            self.layout.addLayout(vbox)
+            hlayout_lights.addLayout(vbox)
 
         self.label = QLabel("TEL STATUS -not working yet")
         self.label.setStyleSheet("background-color : lightgreen; color: black")
@@ -117,6 +118,7 @@ class ButtonsWidget(QWidget):
         self.enable_abort.setStyleSheet("QCheckBox::indicator{width: 60px; height:40px;} QCheckBox::indicator:checked {image: url(./Icons/SwitchOn.png)} QCheckBox::indicator:unchecked {image: url(./Icons/SwitchOff.png)}")
         hlayout.addWidget(self.b_abort)
         hlayout.addWidget(self.enable_abort)
+        self.layout.addLayout(hlayout_lights)
         self.layout.addLayout(hlayout)
         # Some async operation
         logger.info("UI setup done")
