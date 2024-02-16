@@ -15,8 +15,8 @@ class light_point():
         self.label = label
         self.b_bright = button_brighter
         self.b_faint = button_fainter
-        self.b_bright.setStyleSheet("background-color : silver")
-        self.b_faint.setStyleSheet("background-color : silver")
+        self.b_bright.setStyleSheet("background-color : silver; color: black")
+        self.b_faint.setStyleSheet("background-color : silver; color: black")
         self.b_bright.clicked.connect(self.brightLight)
         self.b_faint.clicked.connect(self.dimLight)
         self.label.setStyleSheet("background-color : silver; color: black")
@@ -112,7 +112,7 @@ class ButtonsWidget(QWidget):
         self.b_abort = QPushButton(self)#abort button
         self.b_abort.setStyleSheet("background-color : red; color: black")
         self.b_abort.setText("ABORT\n OBSERVATIONS\n- not working")
-        self.b_abort.setFixedSize(80, 80)
+        self.b_abort.setFixedSize(140, 80)
         self.enable_abort = QCheckBox('Enable abort button')
         self.enable_abort.setStyleSheet("QCheckBox::indicator{width: 60px; height:40px;} QCheckBox::indicator:checked {image: url(./Icons/SwitchOn.png)} QCheckBox::indicator:unchecked {image: url(./Icons/SwitchOff.png)}")
         hlayout.addWidget(self.b_abort)
