@@ -112,8 +112,9 @@ class ButtonsWidget(QWidget):
 
         self.b_abort = QPushButton(self)#abort button
         self.b_abort.setStyleSheet("background-color : red; color: black")
-        self.b_abort.setText("ABORT\n OBSERVATIONS\n- not working")
+        self.b_abort.setText("ALARM\n ")
         self.b_abort.setFixedSize(140, 80)
+        self.b_abort.clicked.connect(self.raise_alarm)
         self.enable_abort = QCheckBox('Enable abort button')
         self.enable_abort.setStyleSheet("QCheckBox::indicator{width: 60px; height:40px;} QCheckBox::indicator:checked {image: url(./Icons/SwitchOn.png)} QCheckBox::indicator:unchecked {image: url(./Icons/SwitchOff.png)}")
         hlayout.addWidget(self.b_abort)
@@ -123,6 +124,14 @@ class ButtonsWidget(QWidget):
         # Some async operation
         logger.info("UI setup done")
 
-    
+    def raise_alarm(self):
+        pars = {'token':'adcte9qacd6jhmhch8dyw4e4ykuod2','user':'uacjyhka7d75k5i3gmfhdg9pc2vqyf','message':'blablabla'}
+        requests.post('https://api.pushover.net/1/messages.json',data=pars)
+
+        
+        
+        
+        
+
 
 widget_class = ButtonsWidget
