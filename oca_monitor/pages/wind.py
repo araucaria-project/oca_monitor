@@ -56,14 +56,14 @@ class WindDataWidget(QWidget):
         self.ax_pres.set_title("Pressure [hPa]")
         # setting a limits
         self.ax_wind.set_xlim([0, 24])
-        self.ax_wind.set_ylim([0, 20])
+        #self.ax_wind.set_ylim([0, 20])
         self.ax_temp.set_xlim([0, 24])
         self.ax_hum.set_xlim([0, 24])
-        self.ax_hum.set_ylim([0, 90])
+        #self.ax_hum.set_ylim([0, 90])
         self.ax_pres.set_xlim([0, 24])
         x = [0,1,2,3,4,5,6,7,8,9,10,11,12,13,14,15,16,17,18,19,20,21,22,23,24]
-        self.ax_wind.fill_between(x,10,13,color='orange',alpha=0.3)
-        self.ax_wind.fill_between(x,13,20,color='red',alpha=0.3)
+        self.ax_wind.fill_between(x,11,14,color='orange',alpha=0.3)
+        self.ax_wind.fill_between(x,14,30,color='red',alpha=0.3)
 
         self.ax_hum.fill_between(x,70,80,color='orange',alpha=0.3)
         self.ax_hum.fill_between(x,80,90,color='red',alpha=0.3)
