@@ -732,10 +732,10 @@ async def run_qt_app():
 
 
 def main():
-    try:
-        qasync.run(run_qt_app())
-    except asyncio.exceptions.CancelledError:
-        sys.exit(0)
+    #try:
+    qasync.run(run_qt_app())
+    #except asyncio.exceptions.CancelledError:
+    #    sys.exit(0)
 
 
 if __name__ == '__main__':
