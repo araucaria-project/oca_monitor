@@ -15,10 +15,10 @@ logger = logging.getLogger(__name__.rsplit('.')[-1])
 
 def ephemeris():
     arm=ephem.Observer()
-    arm.pressure=0
-    arm.horizon = '-0:34'
-    arm.lon=str(-70.183515)
-    arm.lat=str(-24.58917)
+    arm.pressure=0.
+    arm.horizon = '-0.5'
+    arm.lon='-70.201266'
+    arm.lat='-24.598616'
     arm.elev=2800
     date = time.strftime('%Y%m%d',time.gmtime() )
     ut = time.strftime('%Y/%m/%d %H:%M:%S',time.gmtime() )
@@ -162,9 +162,9 @@ class ButtonsWidgetControlroom(QWidget):
     def _update_ephem(self):
         text,sunalt = ephemeris()
         self.ephem.setText(text)
-        if sunalt <0. and sunalt > -17.:
+        if float(sunalt.split(':')[0]) <0. and float(sunalt.split(':')[0])  > -17.:
             self.ephem.setStyleSheet("background-color : yellow; color: black")
-        elif sunalt <= -17.:
+        elif float(sunalt.split(':')[0])  <= -17.:
             self.ephem.setStyleSheet("background-color : lightgreen; color: black")
         else:
             self.ephem.setStyleSheet("background-color : silver; color: black")
