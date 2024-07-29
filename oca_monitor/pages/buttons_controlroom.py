@@ -15,6 +15,8 @@ logger = logging.getLogger(__name__.rsplit('.')[-1])
 
 def ephemeris():
     arm=ephem.Observer()
+    arm.pressure=0
+    arm.horizon = '-0:34'
     arm.lon=str(-70.183515)
     arm.lat=str(-24.58917)
     arm.elev=2800
@@ -30,12 +32,14 @@ def ephemeris():
     moon = ephem.Moon()
     sun.compute(arm)
     moon.compute(arm)
+    arm.horizon = '-18'
+    
     lst = arm.sidereal_time()
     if str(sun.alt)[0] == '-':
         text = 'UT:\t'+ut+'\nLT:\t'+lt+'\nSIDT:\t'+str(lst)+'\nJD:\t\t'+str("{:.2f}".format(float(jd)))+'\nSUNRISE(UT):\t'+sunrise[-8:]+'\nSUN ALT:\t'+str(sun.alt)
     else:
         text = 'UT:\t'+ut+'\nLT:\t'+lt+'\nSIDT:\t'+str(lst)+'\nJD:\t\t'+str("{:.2f}".format(float(jd)))+'\nSUNSET(UT):\t'+sunset[-8:]+'\nSUN ALT:\t'+str(sun.alt)
-    return text
+    return text,sun.alt
 
 class lightSlide():
     def __init__(self,name,ip,slide):
@@ -156,8 +160,15 @@ class ButtonsWidgetControlroom(QWidget):
         logger.info("UI setup done")
 
     def _update_ephem(self):
-        text = ephemeris()
+        text,sunalt = ephemeris()
         self.ephem.setText(text)
+        if sunalt <0. and sunalt > -17.:
+            self.ephem.setStyleSheet("background-color : yellow; color: black")
+        elif sunalt <= -17.:
+            self.ephem.setStyleSheet("background-color : lightgreen; color: black")
+        else:
+            self.ephem.setStyleSheet("background-color : silver; color: black")
+
         QtCore.QTimer.singleShot(1000, self._update_ephem)
 
     def _update_lights_status(self):
@@ -226,7 +237,7 @@ class ButtonsWidgetControlroom(QWidget):
             if float(self.wind) > 11. or float(self.hum) > 70.:
                 self.label.setStyleSheet("background-color : yellow; color: black")
             elif float(self.wind) > 14. or float(self.hum) > 75.:
-                self.label.setStyleSheet("background-color : orangered; color: black")
+                self.label.setStyleSheet("background-color : red; color: black")
             else:
                 self.label.setStyleSheet("background-color : lightgreen; color: black")
 

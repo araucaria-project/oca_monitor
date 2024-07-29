@@ -6,6 +6,7 @@ from PyQt6.QtCore import QTimer
 from PyQt6 import QtCore
 from PyQt6.QtGui import QPixmap
 import os
+import math
 #from PyQt6 import Qt
 #from matplotlib.backends.backend_qt5agg import FigureCanvasQTAgg as FigureCanvas
 #from matplotlib.figure import Figure
@@ -35,7 +36,9 @@ class AllskyAnimationWidget(QWidget):
             self.label.resize(self.height(),self.height())
         self.layout.addWidget(self.label,1)
         self.update()
-        
+    
+   
+
     def update(self):
         lista = os.popen('ls -tr '+self.dir+'lastimage*.jpg').read().split('\n')[:-1]
         if len(lista) > 0:
