@@ -239,7 +239,7 @@ class ButtonsWidgetControlroom(QWidget):
             elif float(self.wind) > 14. or float(self.hum) > 75.:
                 self.label.setStyleSheet("background-color : red; color: black")
             else:
-                self.label.setStyleSheet("background-color : red; color: black")
+                self.label.setStyleSheet("background-color : lightgreen; color: black")
 
             self.label.setText(warning)
 

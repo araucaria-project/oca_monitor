@@ -10,6 +10,7 @@ import sys
 import argparse
 from importlib import import_module
 
+from PyQt6.QtWidgets import QMainWindow
 from qasync import QEventLoop, QApplication
 from serverish.messenger import Messenger
 
