@@ -175,7 +175,7 @@ class ButtonsWidgetControlroom(QWidget):
         for light in self.lightSlides:
             light.is_avilable()
             if light.is_active:
-                light.slide.setStyleSheet("QCheckBox::indicator{width: 80px; height:70px;} QCheckBox::indicator:checked {image: url(./Icons/"+light.name+"_lighton.png)} QCheckBox::indicator:unchecked {image: url(./Icons/"+light.name+"_lightoff.png)}")
+                light.slide.setStyleSheet("QCheckBox::indicator{width: 80px; height:70px;} QCheckBox::indicator:checked {image: url(./Icons/"+light.name+"_lighton.png)} QCheckBox::indicator:unchecked {image: url(./Iconslightgreen/"+light.name+"_lightoff.png)}")
             else:
                 light.slide.setStyleSheet("QCheckBox::indicator{width: 80px; height:70px;} QCheckBox::indicator:checked {image: url(./Icons/"+light.name+"_lightna.png)} QCheckBox::indicator:unchecked {image: url(./Icons/"+light.name+"_lightna.png)}")
 
@@ -239,7 +239,7 @@ class ButtonsWidgetControlroom(QWidget):
             elif float(self.wind) > 14. or float(self.hum) > 75.:
                 self.label.setStyleSheet("background-color : red; color: black")
             else:
-                self.label.setStyleSheet("background-color : lightgreen; color: black")
+                self.label.setStyleSheet("background-color : red; color: black")
 
             self.label.setText(warning)
 
