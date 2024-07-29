@@ -161,6 +161,7 @@ class ButtonsWidgetControlroom(QWidget):
 
     def _update_ephem(self):
         text,sunalt = ephemeris()
+        sunalt = str(sunalt)
         self.ephem.setText(text)
         if float(sunalt.split(':')[0]) <0. and float(sunalt.split(':')[0])  > -17.:
             self.ephem.setStyleSheet("background-color : yellow; color: black")
