@@ -13,13 +13,18 @@ from astropy.time import Time as czas_astro
 # please use logging like here, it will name the log record with the name of the module
 logger = logging.getLogger(__name__.rsplit('.')[-1])
 
+def raise_alarm(mess):
+    pars = {'token':'adcte9qacd6jhmhch8dyw4e4ykuod2','user':'uacjyhka7d75k5i3gmfhdg9pc2vqyf','message':mess}
+    requests.post('https://api.pushover.net/1/messages.json',data=pars)
+
 def ephemeris():
     arm=ephem.Observer()
-    arm.pressure=0.
-    arm.horizon = '-0.5'
+    arm.pressure=730
+    #arm.horizon = '-0.5'
     arm.lon='-70.201266'
     arm.lat='-24.598616'
     arm.elev=2800
+    arm.pressure=730
     date = time.strftime('%Y%m%d',time.gmtime() )
     ut = time.strftime('%Y/%m/%d %H:%M:%S',time.gmtime() )
     t = czas_astro([ut.replace('/','-',2).replace(' ','T',1)])
@@ -94,6 +99,7 @@ class ButtonsWidgetControlroom(QWidget):
         self.initUI(example_parameter,subject)
 
     def initUI(self, text,subject):
+        self.alarm_weather_kontrolka = 0
         self.weather_subject=subject
         self.layout = QVBoxLayout(self)
         self.ephem = QLabel("init")
@@ -235,12 +241,17 @@ class ButtonsWidgetControlroom(QWidget):
             self.main_window.skytemp = '0'
 
             warning = 'Wind: '+str(self.wind)+' m/s\n'+'Temperature: '+str(self.temp)+' C\n'+'Humidity: '+str(self.hum)+' %\n'+'Wind dir: '+str(self.main_window.winddir)+'\n'
-            if float(self.wind) > 11. or float(self.hum) > 70.:
+            if float(self.wind) > 1. or float(self.hum) > 70.:
                 self.label.setStyleSheet("background-color : yellow; color: black")
-            elif float(self.wind) > 14. or float(self.hum) > 75.:
+                self.alarm_weather_kontrolka = 0
+            elif float(self.wind) > 8. or float(self.hum) > 75.:
+                if self.alarm_weather_kontrolka == 0:
+                    raise_alarm('weather alarm')
+                    self.alarm_weather_kontrolka = 1
                 self.label.setStyleSheet("background-color : red; color: black")
             else:
                 self.label.setStyleSheet("background-color : lightgreen; color: black")
+                self.alarm_weather_kontrolka = 0
 
             self.label.setText(warning)
 
