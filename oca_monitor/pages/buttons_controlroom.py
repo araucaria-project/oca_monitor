@@ -241,10 +241,10 @@ class ButtonsWidgetControlroom(QWidget):
             self.main_window.skytemp = '0'
 
             warning = 'Wind: '+str(self.wind)+' m/s\n'+'Temperature: '+str(self.temp)+' C\n'+'Humidity: '+str(self.hum)+' %\n'+'Wind dir: '+str(self.main_window.winddir)+'\n'
-            if float(self.wind) > 1. or float(self.hum) > 70.:
+            if (float(self.wind) >= 1. and float(self.wind) < 8.) or float(self.hum) > 70.:
                 self.label.setStyleSheet("background-color : yellow; color: black")
                 self.alarm_weather_kontrolka = 0
-            elif float(self.wind) > 8. or float(self.hum) > 75.:
+            elif float(self.wind) >= 8. or float(self.hum) > 75.:
                 if self.alarm_weather_kontrolka == 0:
                     raise_alarm('weather alarm')
                     self.alarm_weather_kontrolka = 1
