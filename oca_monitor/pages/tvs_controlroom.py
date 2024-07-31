@@ -86,7 +86,7 @@ class lightSlide():
 
 
 
-class ButtonsWidgetControlroom(QWidget):
+class WidgetTvsControlroom(QWidget):
     # You can use just def __init__(self, **kwargs) if you don't want to bother with the arguments
     def __init__(self,
                  main_window, # always passed
@@ -256,4 +256,4 @@ class ButtonsWidgetControlroom(QWidget):
             self.label.setText(warning)
 
 
-widget_class = ButtonsWidgetControlroom
+widget_class = WidgetTvsControlroom
