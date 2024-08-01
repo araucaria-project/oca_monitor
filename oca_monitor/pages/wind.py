@@ -257,6 +257,7 @@ class WindDataWidget(QWidget):
 
     @asyncSlot()
     async def _update_warningWindow(self):
+        self._update_ephem()
         self.wind = '0.0'
         self.temp = '0.0'
         self.hum = '0.0'
@@ -267,7 +268,7 @@ class WindDataWidget(QWidget):
     
 
     async def reader_loop_2(self):
-        self._update_ephem()
+        
         msg = Messenger()
 
         # We want the data from the midnight of yesterday
