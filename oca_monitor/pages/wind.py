@@ -111,12 +111,13 @@ class WindDataWidget(QWidget):
         self.ax_pres.grid(which='major', axis='both')
         self.figure.tight_layout()
         if self.vertical:
-            self.layout.addWidget(self.label)
-            self.layout.addWidget(self.canvas)
-        else:
             hbox = self.QHBoxLayout(self)
             hbox.addWidget(self.label)
             hbox.addWidget(self.canvas)
+            self.layout.addLayout(hbox)
+        else:
+            self.layout.addWidget(self.label)
+            self.layout.addWidget(self.canvas)
 
         QtCore.QTimer.singleShot(0, self._update_warningWindow)
 
