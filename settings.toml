@@ -41,6 +41,28 @@ vertical_screen = 0
 
 [default.panels.02.Buttons]
 #auto_interval = 10  # seconds, how long to show this page before auto switching to next page
+source = "tvs_controlroom"  # page source - page is defined in oca_monitor/pages/example.py
+
+##--------------------------touchpanel controlroom---------------
+
+[touch_controlroom]  # global configuration is used by all environments, setting from here override all other settings
+window_size = [1000, 600]
+panel_columns = [1]  # The size ratio of the columns in the panel grid
+panel_rows = [1]   # The size ratio of the rows in the panel grid
+style = "dark"
+#style = "white"
+
+nats_host = "nats.oca.lan"
+nats_port = 4222
+
+#log_level = "DEBUG"
+log_level = "INFO"
+#log_level = "WARNING"
+
+# Panel page declaration:
+# environment.panels.rowcolumn.tabname
+
+[screen.panels.00.Buttons]
 source = "buttons_controlroom"  # page source - page is defined in oca_monitor/pages/example.py
 
 ##--------------------------screens kitchen and salon---------------
