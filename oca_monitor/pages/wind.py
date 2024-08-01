@@ -11,6 +11,7 @@ from serverish.base import dt_ensure_datetime
 from serverish.base.task_manager import create_task_sync, create_task
 from serverish.messenger import Messenger
 import numpy as np
+import ephem
 
 logger = logging.getLogger(__name__.rsplit('.')[-1])
 
