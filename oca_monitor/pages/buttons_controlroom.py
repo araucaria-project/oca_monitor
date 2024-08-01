@@ -71,10 +71,18 @@ class ButtonsWidgetControlroom(QWidget):
         self.initUI(example_parameter,subject)
 
     def initUI(self, text,subject):
+        self.alarm_weather_kontrolka = 0
+        self.weather_subject=subject
         self.layout = QVBoxLayout(self)
-        
+        self.ephem = QLabel("init")
+        self.ephem.setStyleSheet("background-color : silver; color: black")
+        self.ephem.setFont(QtGui.QFont('Arial', 20))
 
-        
+        self.label = QLabel("TEL STATUS -not working yet")
+        self.label.setStyleSheet("background-color : lightgreen; color: black")
+        self.label.setFont(QtGui.QFont('Arial', 20))
+        self.layout.addWidget(self.ephem)
+        self.layout.addWidget(self.label)
 
         self.b_abort = QPushButton(self)#abort button
         self.b_abort.setStyleSheet("background-color : red; color: black")
@@ -129,7 +137,19 @@ class ButtonsWidgetControlroom(QWidget):
         QtCore.QTimer.singleShot(0, self._update_warningWindow)
         logger.info("UI setup done")
 
-    
+    def _update_ephem(self):
+        text,sunalt = ephemeris()
+        sunalt = str(sunalt)
+        self.ephem.setText(text)
+        if float(sunalt.split(':')[0]) <0. and float(sunalt.split(':')[0])  > -17.:
+            self.ephem.setStyleSheet("background-color : yellow; color: black")
+        elif float(sunalt.split(':')[0])  <= -17.:
+            self.ephem.setStyleSheet("background-color : lightgreen; color: black")
+        else:
+            self.ephem.setStyleSheet("background-color : silver; color: black")
+
+        QtCore.QTimer.singleShot(1000, self._update_ephem)
+
     def _update_lights_status(self):
         for light in self.lightSlides:
             light.is_avilable()

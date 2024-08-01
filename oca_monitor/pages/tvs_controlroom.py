@@ -106,11 +106,7 @@ class WidgetTvsControlroom(QWidget):
         self.ephem.setStyleSheet("background-color : silver; color: black")
         self.ephem.setFont(QtGui.QFont('Arial', 20))
 
-        self.label = QLabel("TEL STATUS -not working yet")
-        self.label.setStyleSheet("background-color : lightgreen; color: black")
-        self.label.setFont(QtGui.QFont('Arial', 20))
-        self.layout.addWidget(self.ephem)
-        self.layout.addWidget(self.label)
+        
 
         self.b_abort = QPushButton(self)#abort button
         self.b_abort.setStyleSheet("background-color : red; color: black")
@@ -174,7 +170,7 @@ class WidgetTvsControlroom(QWidget):
         elif float(sunalt.split(':')[0])  <= -17.:
             self.ephem.setStyleSheet("background-color : lightgreen; color: black")
         else:
-            self.ephem.setStyleSheet("background-color : silver; color: black")
+            self.ephem.setStyleSheet("background-color : pink; color: black")
 
         QtCore.QTimer.singleShot(1000, self._update_ephem)
 
