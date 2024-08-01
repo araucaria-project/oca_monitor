@@ -62,7 +62,7 @@ log_level = "INFO"
 # Panel page declaration:
 # environment.panels.rowcolumn.tabname
 
-[screen.panels.00.Buttons]
+[touch_controlroom.panels.00.Buttons]
 source = "buttons_controlroom"  # page source - page is defined in oca_monitor/pages/example.py
 
 ##--------------------------screens kitchen and salon---------------
