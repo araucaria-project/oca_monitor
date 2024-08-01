@@ -61,6 +61,8 @@ class WindDataWidget(QWidget):
 
     def initUI(self):
         # Layout
+        self.weather_subject=subject
+
         self.layout = QVBoxLayout(self)
         self.label = QLabel("weather")
         self.label.setStyleSheet("background-color : silver; color: black")
