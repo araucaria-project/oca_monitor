@@ -112,8 +112,8 @@ class WindDataWidget(QWidget):
         self.figure.tight_layout()
         if self.vertical:
             hbox = QHBoxLayout(self)
-            hbox.addWidget(self.label)
-            hbox.addWidget(self.canvas)
+            hbox.addWidget(self.label,2)
+            hbox.addWidget(self.canvas,7)
             self.layout.addLayout(hbox)
         else:
             self.layout.addWidget(self.label)
@@ -303,7 +303,7 @@ class WindDataWidget(QWidget):
             self.main_window.winddir = self.winddir
             self.main_window.skytemp = '0'
 
-            warning = self.text_ephem+'\n\nWind: '+str(self.wind)+' m/s\n'+'Temperature: '+str(self.temp)+' C\n'+'Humidity: '+str(self.hum)+' %\n'+'Wind dir: '+str(self.main_window.winddir)+'\n'
+            warning = self.ephem_text+'\n\nWind: '+str(self.wind)+' m/s\n'+'Temperature: '+str(self.temp)+' C\n'+'Humidity: '+str(self.hum)+' %\n'+'Wind dir: '+str(self.main_window.winddir)+'\n'
             if (float(self.wind) >= 11. and float(self.wind) < 14.) or float(self.hum) > 70.:
                 self.label.setStyleSheet("background-color : yellow; color: black")
             elif float(self.wind) >= 14. or float(self.hum) > 75.:
