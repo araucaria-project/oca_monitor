@@ -1,7 +1,7 @@
 import logging
 import datetime
 
-from PyQt6.QtWidgets import QApplication, QWidget, QVBoxLayout, QLabel
+from PyQt6.QtWidgets import QApplication, QWidget, QVBoxLayout, QHBoxLayout,QLabel
 from PyQt6.QtCore import QTimer
 from PyQt6 import QtCore, QtGui
 from matplotlib.backends.backend_qt5agg import FigureCanvasQTAgg as FigureCanvas
@@ -111,7 +111,7 @@ class WindDataWidget(QWidget):
         self.ax_pres.grid(which='major', axis='both')
         self.figure.tight_layout()
         if self.vertical:
-            hbox = self.QHBoxLayout(self)
+            hbox = QHBoxLayout(self)
             hbox.addWidget(self.label)
             hbox.addWidget(self.canvas)
             self.layout.addLayout(hbox)
