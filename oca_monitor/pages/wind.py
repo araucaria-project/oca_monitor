@@ -263,6 +263,7 @@ class WindDataWidget(QWidget):
     
 
     async def reader_loop(self):
+        self._update_ephem()
         msg = Messenger()
 
         # We want the data from the midnight of yesterday
