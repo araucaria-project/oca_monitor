@@ -188,6 +188,73 @@ class ButtonsWidgetControlroom(QWidget):
 
         QtCore.QTimer.singleShot(30000, self._update_lights_status)
 
+    @asyncSlot()
+    async def _update_warningWindow(self):
+        self.wind = '0.0'
+        self.temp = '0.0'
+        self.hum = '0.0'
+        self.pres = '0.0'
+        await create_task(self.reader_loop(), "weather reader")
+        #warning = 'Wind: '+str(self.wind)+' m/s\n'+'Temperature: '+str(self.temp)+' C\n'+'Humidity: '+str(self.hum)+' %\n'+'Wind dir: '+str(self.main_window.winddir)+'\n'
+        #self.label.setText(warning)
+    
+
+    async def reader_loop(self):
+        msg = Messenger()
+
+        # We want the data from the midnight of yesterday
+        
+
+        rdr = msg.get_reader(
+            self.weather_subject,
+            deliver_policy='last',
+        )
+        logger.info(f"Subscribed to {self.weather_subject}")
+
+        sample_measurement = {
+                "temperature_C": 10,
+                "humidity": 50,
+                "wind_dir_deg": 180,
+                "wind_ms": 5,
+                "wind_10min_ms": 5,
+                "pressure_Pa": 101325,
+                "bar_trend": 0,
+                "rain_mm": 0,
+                "rain_day_mm": 0,
+                "indoor_temperature_C": 20,
+                "indoor_humidity": 50,
+        }
+        async for data, meta in rdr:
+            ts = dt_ensure_datetime(data['ts']).astimezone()
+            hour = ts.hour + ts.minute / 60 + ts.second / 3600
+            measurement = data['measurements']
+            self.wind = "{:.1f}".format(measurement['wind_10min_ms'])
+            self.temp = "{:.1f}".format(measurement['temperature_C'])
+            self.hum = int(measurement['humidity'])
+            self.pres = int(measurement['pressure_Pa'])
+            self.winddir = int(measurement['wind_dir_deg'])
+
+            self.main_window.wind = self.wind
+            self.main_window.temp = self.temp
+            self.main_window.hum = self.hum
+            self.main_window.winddir = self.winddir
+            self.main_window.skytemp = '0'
+
+            warning = 'Wind: '+str(self.wind)+' m/s\n'+'Temperature: '+str(self.temp)+' C\n'+'Humidity: '+str(self.hum)+' %\n'+'Wind dir: '+str(self.main_window.winddir)+'\n'
+            if (float(self.wind) >= 11. and float(self.wind) < 14.) or float(self.hum) > 70.:
+                self.label.setStyleSheet("background-color : yellow; color: black")
+                self.alarm_weather_kontrolka = 0
+            elif float(self.wind) >= 14. or float(self.hum) > 75.:
+                if self.alarm_weather_kontrolka == 0:
+                    raise_alarm('weather alarm')
+                    self.alarm_weather_kontrolka = 1
+                self.label.setStyleSheet("background-color : red; color: black")
+            else:
+                self.label.setStyleSheet("background-color : lightgreen; color: black")
+                self.alarm_weather_kontrolka = 0
+
+            self.label.setText(warning)
+
     
 
 
