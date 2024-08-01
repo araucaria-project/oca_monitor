@@ -35,7 +35,7 @@ def ephemeris():
     sun = ephem.Sun()
     sun.compute(arm)
     
-    text = 'LT:\t'+lt+'\nSUN ALT:\t'+str(sun.alt)
+    text = 'LT: '+lt+'\nSUN ALT: '+str(sun.alt)
     
     return text,sun.alt
 
@@ -116,7 +116,7 @@ class WindDataWidget(QWidget):
         self.figure.tight_layout()
         if self.vertical:
             hbox = QHBoxLayout(self)
-            hbox.addWidget(self.label,2)
+            hbox.addWidget(self.label,1)
             hbox.addWidget(self.canvas,7)
             self.layout.addLayout(hbox)
         else:
@@ -261,12 +261,12 @@ class WindDataWidget(QWidget):
         self.temp = '0.0'
         self.hum = '0.0'
         self.pres = '0.0'
-        await create_task(self.reader_loop(), "weather reader")
+        await create_task(self.reader_loop_2(), "weather reader")
         #warning = 'Wind: '+str(self.wind)+' m/s\n'+'Temperature: '+str(self.temp)+' C\n'+'Humidity: '+str(self.hum)+' %\n'+'Wind dir: '+str(self.main_window.winddir)+'\n'
         #self.label.setText(warning)
     
 
-    async def reader_loop(self):
+    async def reader_loop_2(self):
         self._update_ephem()
         msg = Messenger()
 
