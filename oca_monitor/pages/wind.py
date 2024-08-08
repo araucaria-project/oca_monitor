@@ -28,14 +28,14 @@ def ephemeris():
     date = time.strftime('%Y%m%d',time.gmtime() )
     ut = time.strftime('%Y/%m/%d %H:%M:%S',time.gmtime() )
     t = czas_astro([ut.replace('/','-',2).replace(' ','T',1)])
-    lt = time.strftime('%Y/%m/%d %H:%M:%S',time.localtime() )
+    lt = time.strftime('%H:%M:%S',time.localtime() )
     arm.date = ut
     sunset=str(arm.next_setting(ephem.Sun()))
     sunrise=str(arm.next_rising(ephem.Sun()))
     sun = ephem.Sun()
     sun.compute(arm)
     
-    text = 'LT: '+lt+'\nSUN ALT: '+str(sun.alt)
+    text = 'LT: '+lt+'\nSUN ALT: '+str(sun.alt).split(':')[0]
     
     return text,float(sun.alt)
 
@@ -274,6 +274,7 @@ class WindDataWidget(QWidget):
             self.label_ephem.setStyleSheet("background-color : silver; color: yellow")
         elif self.sunalt <= -18.:
             self.label_ephem.setStyleSheet("background-color : silver; color: green")
+        self.label_ephem.setText(self.ephem_text)
         QtCore.QTimer.singleShot(1000, self._update_ephem)
 
 
