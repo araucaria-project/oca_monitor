@@ -45,43 +45,6 @@ def ephemeris():
     else:
         text = 'UT:\t'+ut+'\nLT:\t'+lt+'\nSIDT:\t'+str(lst)+'\nJD:\t\t'+str("{:.2f}".format(float(jd)))+'\nSUNSET(UT):\t'+sunset[-8:]+'\nSUN ALT:\t'+str(sun.alt)
     return text,sun.alt
-
-class lightSlide():
-    def __init__(self,name,ip,slide):
-        self.name = name
-        self.ip = ip
-        self.slide = slide
-
-    def is_avilable(self):
-        try:
-        #if True:
-            req = requests.get('http://'+self.ip+'/info',timeout=0.5)
-            if int(req.status_code) != 200:
-                self.is_active = False
-            else:
-                self.is_active = True 
-        except:
-            self.is_active = False
-
-    def changeLight(self):
-        if self.is_active:
-            try:
-                #if True:
-                if self.slide.isChecked():
-                    value = 70
-                else:
-                    value = 0
-            
-                val = str(hex(int(value*255/100))).replace('0x','',1)
-                if len(val) == 1:
-                    val = '0'+val
-                
-                self.req(val)
-            except:
-                pass
-
-    def req(self,val):
-        requests.post('http://'+self.ip+'/api/rgbw/set',json={"rgbw":{"desiredColor":val}})
         
 
 
@@ -108,52 +71,10 @@ class WidgetTvsControlroom(QWidget):
 
         
 
-        self.b_abort = QPushButton(self)#abort button
-        self.b_abort.setStyleSheet("background-color : red; color: black")
-        self.b_abort.setText("ABORT\n OBSERVATIONS\n- not working")
-        self.b_abort.setFixedSize(150, 150)
-        self.enable_abort = QCheckBox('Enable abort button')
-        self.enable_abort.setStyleSheet("QCheckBox::indicator{width: 60px; height:40px;} QCheckBox::indicator:checked {image: url(./Icons/SwitchOn.png)} QCheckBox::indicator:unchecked {image: url(./Icons/SwitchOff.png)}")
-
-        self.enable_warnings = QCheckBox('Enable warnings')
-        self.enable_warnings.setStyleSheet("QCheckBox::indicator{width: 60px; height:40px;} QCheckBox::indicator:checked {image: url(./Icons/SwitchOn.png)} QCheckBox::indicator:unchecked {image: url(./Icons/SwitchOff.png)}")
-
-        self.enable_sounds = QCheckBox('Enable sounds')
-        self.enable_sounds.setStyleSheet("QCheckBox::indicator{width: 60px; height:40px;} QCheckBox::indicator:checked {image: url(./Icons/SwitchOn.png)} QCheckBox::indicator:unchecked {image: url(./Icons/SwitchOff.png)}")
-
-        self.vbox_buttons = QVBoxLayout()
-        self.vbox_buttons.addWidget(self.enable_warnings)
-        self.vbox_buttons.addWidget(self.enable_sounds)
-        self.vbox_buttons.addWidget(self.enable_abort)
-
-        self.hbox_abortButton = QHBoxLayout(self)
-        self.hbox_abortButton.addLayout(self.vbox_buttons)
-        self.hbox_abortButton.addWidget(self.b_abort)
-        self.layout.addLayout(self.hbox_abortButton)
+        
 
         self.label_lights = QLabel(f"LIGHTS", self)
         self.label_lights.setStyleSheet("background-color: grey; color: black")
-        self.vbox_light_buttons_left = QVBoxLayout()
-        self.vbox_light_buttons_right = QVBoxLayout()
-        self.hbox_light_buttons = QHBoxLayout()
-        self.vbox_light_buttons_left.addWidget(self.label_lights)
-
-
-        self.lightSlides = []
-        for i,light in enumerate(config.bbox_led_control_tel):
-            self.lightSlides.append(lightSlide(light,config.bbox_led_control_tel[light],QCheckBox()))
-            self.lightSlides[-1].slide.setStyleSheet("QCheckBox::indicator{width: 80px; height:70px;} QCheckBox::indicator:checked {image: url(./Icons/"+light+"_lighton.png)} QCheckBox::indicator:unchecked {image: url(./Icons/"+light+"_lightoff.png)}")
-            self.lightSlides[-1].slide.setChecked(False)
-            self.lightSlides[-1].slide.stateChanged.connect(self.lightSlides[-1].changeLight)
-
-            if i%2==1:
-                self.vbox_light_buttons_right.addWidget(self.lightSlides[-1].slide)
-            else:
-                self.vbox_light_buttons_left.addWidget(self.lightSlides[-1].slide)
-
-        self.hbox_light_buttons.addLayout(self.vbox_light_buttons_left)
-        self.hbox_light_buttons.addLayout(self.vbox_light_buttons_right)
-        self.layout.addLayout(self.hbox_light_buttons)
 
         # Some async operation
         self._update_ephem()
@@ -174,15 +95,6 @@ class WidgetTvsControlroom(QWidget):
 
         QtCore.QTimer.singleShot(1000, self._update_ephem)
 
-    def _update_lights_status(self):
-        for light in self.lightSlides:
-            light.is_avilable()
-            if light.is_active:
-                light.slide.setStyleSheet("QCheckBox::indicator{width: 80px; height:70px;} QCheckBox::indicator:checked {image: url(./Icons/"+light.name+"_lighton.png)} QCheckBox::indicator:unchecked {image: url(./Iconslightgreen/"+light.name+"_lightoff.png)}")
-            else:
-                light.slide.setStyleSheet("QCheckBox::indicator{width: 80px; height:70px;} QCheckBox::indicator:checked {image: url(./Icons/"+light.name+"_lightna.png)} QCheckBox::indicator:unchecked {image: url(./Icons/"+light.name+"_lightna.png)}")
-
-        QtCore.QTimer.singleShot(30000, self._update_lights_status)
 
     @asyncSlot()
     async def _update_warningWindow(self):
