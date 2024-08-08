@@ -73,7 +73,7 @@ class TouchButtonsControlroom(QWidget):
 
     def initUI(self, text,subject):
         
-
+        self.layout = QHBoxLayout(self)
         self.b_abort = QPushButton(self)#abort button
         self.b_abort.setStyleSheet("background-color : red; color: black")
         self.b_abort.setText("ABORT\n OBSERVATIONS\n- not working")
