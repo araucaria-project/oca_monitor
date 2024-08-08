@@ -81,9 +81,9 @@ class WidgetTvsControlroom(QWidget):
         self.jk15.setStyleSheet("background-color : silver; color: black")
         self.jk15.setFont(QtGui.QFont('Arial', 26))
 
-        self.jk15 = QLabel("Energy:init")
-        self.jk15.setStyleSheet("background-color : silver; color: black")
-        self.jk15.setFont(QtGui.QFont('Arial', 26))
+        self.energy = QLabel("Energy:init")
+        self.energy.setStyleSheet("background-color : silver; color: black")
+        self.energy.setFont(QtGui.QFont('Arial', 26))
 
         
 
