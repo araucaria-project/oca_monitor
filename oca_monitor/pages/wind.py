@@ -37,7 +37,7 @@ def ephemeris():
     
     text = 'LT: '+lt+'\nSUN ALT: '+str(sun.alt)
     
-    return text,sun.alt
+    return text,float(sun.alt)
 
 
 class WindDataWidget(QWidget):
