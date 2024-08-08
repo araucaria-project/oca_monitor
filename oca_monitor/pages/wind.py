@@ -260,7 +260,7 @@ class WindDataWidget(QWidget):
 
     def _update_ephem(self):
         self.ephem_text,sunalt = ephemeris()
-        self.sunalt = str(sunalt)
+        self.sunalt = sunalt
         if self.sunalt > -2.:
             self.label_ephem.setStyleSheet("background-color : silver; color: coral")
         elif self.sunalt <= -2. and self.sunalt > -18.:
