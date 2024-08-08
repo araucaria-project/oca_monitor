@@ -119,7 +119,10 @@ class WindDataWidget(QWidget):
         self.figure.tight_layout()
         if self.vertical:
             hbox = QHBoxLayout(self)
-            hbox.addWidget(self.label,1)
+            vbox_labels = QVBoxLayout()
+            vbox_labels.addWidget(self.label_ephem,1)
+            vbox_labels.addWidget(self.label,2)
+            hbox.addLayout(vbox_labels)
             hbox.addWidget(self.canvas,7)
             self.layout.addLayout(hbox)
         else:
