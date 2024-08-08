@@ -100,11 +100,7 @@ class TouchButtonsControlroom(QWidget):
         self.vbox_emergency_buttons.addWidget(self.b_alarm)
         self.vbox_emergency_buttons.addWidget(self.b_abort)
         
-        self.hbox_abortButton.addLayout(self.vbox_buttons)
-        self.hbox_abortButton.addWidget(self.b_abort)
-        
-
-        
+                
         self.vbox_light_buttons_left = QVBoxLayout()
         self.vbox_light_buttons_right = QVBoxLayout()
         self.hbox_light_buttons = QHBoxLayout()
