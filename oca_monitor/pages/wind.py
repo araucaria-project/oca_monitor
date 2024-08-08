@@ -331,7 +331,7 @@ class WindDataWidget(QWidget):
             self.main_window.winddir = self.winddir
             self.main_window.skytemp = '0'
             if self.vertical:
-                warning = 'Wind:\t\t'+str(self.wind)+' m/s\n'+'   Temp:\t'+str(self.temp)+' C\n'+'   Hum:\t'+str(self.hum)+' %\n'+'   Wind_d:\t'+str(self.main_window.winddir)+' deg'
+                warning = 'Wind:\t'+str(self.wind)+' m/s\n'+'Temp:\t'+str(self.temp)+' C\n'+'Hum:\t'+str(self.hum)+' %\n'+'Wdir:\t'+str(self.main_window.winddir)+' deg'
             else:
                 warning = '   Wind:\t\t'+str(self.wind)+' m/s\n'+'   Temperature:\t'+str(self.temp)+' C\n'+'   Humidity:\t'+str(self.hum)+' %\n'+'   Wind dir:\t'+str(self.main_window.winddir)+' deg'
             if (float(self.wind) >= 11. and float(self.wind) < 14.) or float(self.hum) > 70.:
