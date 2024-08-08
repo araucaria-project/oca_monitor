@@ -102,13 +102,13 @@ class TouchButtonsControlroom(QWidget):
         self.vbox_light_buttons_left = QVBoxLayout()
         self.vbox_light_buttons_right = QVBoxLayout()
         self.hbox_light_buttons = QHBoxLayout()
-        self.vbox_light_buttons_left.addWidget(self.label_lights)
+        #self.vbox_light_buttons_left.addWidget(self.label_lights)
 
 
         self.lightSlides = []
         for i,light in enumerate(config.bbox_led_control_tel):
             self.lightSlides.append(lightSlide(light,config.bbox_led_control_tel[light],QCheckBox()))
-            self.lightSlides[-1].slide.setStyleSheet("QCheckBox::indicator{width: 100px; height:100px;} QCheckBox::indicator:checked {image: url(./Icons/"+light+"_lighton.png)} QCheckBox::indicator:unchecked {image: url(./Icons/"+light+"_lightoff.png)}")
+            self.lightSlides[-1].slide.setStyleSheet("QCheckBox::indicator{width: 200px; height:200px;} QCheckBox::indicator:checked {image: url(./Icons/"+light+"_lighton.png)} QCheckBox::indicator:unchecked {image: url(./Icons/"+light+"_lightoff.png)}")
             self.lightSlides[-1].slide.setChecked(False)
             self.lightSlides[-1].slide.stateChanged.connect(self.lightSlides[-1].changeLight)
 
