@@ -74,31 +74,37 @@ class TouchButtonsControlroom(QWidget):
     def initUI(self, text,subject):
         
         self.layout = QHBoxLayout(self)
-        self.b_abort = QPushButton(self)#abort button
-        self.b_abort.setStyleSheet("background-color : red; color: black")
-        self.b_abort.setText("ABORT\n OBSERVATIONS\n- not working")
-        self.b_abort.setFixedSize(150, 150)
+        self.b_abort = QCheckBox(self)#abort button
+        self.b_abort.setStyleSheet("QCheckBox::indicator{width: 250px; height:250px;} QCheckBox::indicator:checked {image: url(./Icons/closedomeson.png)} QCheckBox::indicator:unchecked {image: url(./Icons/closedomeson.png)}")
+        self.b_abort.checkStateChanged.connect(self.abort_observations)
+        
+        self.b_alarm = QCheckBox(self)#abort button
+        self.b_alarm.setStyleSheet("QCheckBox::indicator{width: 250px; height:250px;} QCheckBox::indicator:checked {image: url(./Icons/alarmon.png)} QCheckBox::indicator:unchecked {image: url(./Icons/alarmoff.png)}")
+        self.b_alarm.checkStateChanged.connect(self.send_alarm)
+
         self.enable_abort = QCheckBox('Enable abort button')
-        self.enable_abort.setStyleSheet("QCheckBox::indicator{width: 60px; height:40px;} QCheckBox::indicator:checked {image: url(./Icons/SwitchOn.png)} QCheckBox::indicator:unchecked {image: url(./Icons/SwitchOff.png)}")
+        self.enable_abort.setStyleSheet("QCheckBox::indicator{width: 120px; height:80px;} QCheckBox::indicator:checked {image: url(./Icons/SwitchOn.png)} QCheckBox::indicator:unchecked {image: url(./Icons/SwitchOff.png)}")
 
         self.enable_warnings = QCheckBox('Enable warnings')
-        self.enable_warnings.setStyleSheet("QCheckBox::indicator{width: 60px; height:40px;} QCheckBox::indicator:checked {image: url(./Icons/SwitchOn.png)} QCheckBox::indicator:unchecked {image: url(./Icons/SwitchOff.png)}")
+        self.enable_warnings.setStyleSheet("QCheckBox::indicator{width: 120px; height:80px;} QCheckBox::indicator:checked {image: url(./Icons/SwitchOn.png)} QCheckBox::indicator:unchecked {image: url(./Icons/SwitchOff.png)}")
 
         self.enable_sounds = QCheckBox('Enable sounds')
-        self.enable_sounds.setStyleSheet("QCheckBox::indicator{width: 60px; height:40px;} QCheckBox::indicator:checked {image: url(./Icons/SwitchOn.png)} QCheckBox::indicator:unchecked {image: url(./Icons/SwitchOff.png)}")
+        self.enable_sounds.setStyleSheet("QCheckBox::indicator{width: 120px; height:80px;} QCheckBox::indicator:checked {image: url(./Icons/SwitchOn.png)} QCheckBox::indicator:unchecked {image: url(./Icons/SwitchOff.png)}")
 
-        self.vbox_buttons = QVBoxLayout()
-        self.vbox_buttons.addWidget(self.enable_warnings)
-        self.vbox_buttons.addWidget(self.enable_sounds)
-        self.vbox_buttons.addWidget(self.enable_abort)
+        self.vbox_enable_buttons = QVBoxLayout()
+        self.vbox_enable_buttons.addWidget(self.enable_warnings)
+        self.vbox_enable_buttons.addWidget(self.enable_sounds)
+        self.vbox_enable_buttons.addWidget(self.enable_abort)
 
-        self.hbox_abortButton = QHBoxLayout(self)
+        self.vbox_emergency_buttons = QVBoxLayout()
+        self.vbox_emergency_buttons.addWidget(self.b_alarm)
+        self.vbox_emergency_buttons.addWidget(self.b_abort)
+        
         self.hbox_abortButton.addLayout(self.vbox_buttons)
         self.hbox_abortButton.addWidget(self.b_abort)
         
 
-        self.label_lights = QLabel(f"LIGHTS", self)
-        self.label_lights.setStyleSheet("background-color: grey; color: black")
+        
         self.vbox_light_buttons_left = QVBoxLayout()
         self.vbox_light_buttons_right = QVBoxLayout()
         self.hbox_light_buttons = QHBoxLayout()
@@ -122,7 +128,8 @@ class TouchButtonsControlroom(QWidget):
 
         self.hbox_main = QHBoxLayout()
         self.hbox_main.addLayout(self.hbox_light_buttons)
-        self.hbox_main.addLayout(self.hbox_abortButton)
+        self.hbox_main.addLayout(self.vbox_enable_buttons)
+        self.hbox_main.addLayout(self.vbox_emergency_buttons)
         self.layout.addLayout(self.hbox_main)
 
         # Some async operation
@@ -140,6 +147,18 @@ class TouchButtonsControlroom(QWidget):
                 light.slide.setStyleSheet("QCheckBox::indicator{width: 200px; height:200px;} QCheckBox::indicator:checked {image: url(./Icons/"+light.name+"_lightna.png)} QCheckBox::indicator:unchecked {image: url(./Icons/"+light.name+"_lightna.png)}")
 
         QtCore.QTimer.singleShot(15000, self._update_lights_status)
+
+    def send_alarm(self):
+        if self.b_alarm.isChecked:
+            raise_alarm('HELP OCM!')
+            time.sleep(2)
+            self.b_alarm.setChecked(False)
+
+    def abort_observations(self):
+        if self.b_abort.isChecked:
+            raise_alarm('EMERGENCY STOP OBS!')
+            time.sleep(2)
+            self.b_alarm.setChecked(False)
 
    
 
