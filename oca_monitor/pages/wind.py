@@ -78,14 +78,14 @@ class WindDataWidget(QWidget):
             self.ax_temp = self.figure.add_subplot(222)
             self.ax_hum = self.figure.add_subplot(223)
             self.ax_pres = self.figure.add_subplot(224)
-            self.figure.subplots_adjust(wspace=0.1,hspace=0.1)
+            self.figure.subplots_adjust(wspace=0.4,hspace=0.4)
         else:
             
             self.ax_wind = self.figure.add_subplot(411)
             self.ax_temp = self.figure.add_subplot(412)
             self.ax_hum = self.figure.add_subplot(413)
             self.ax_pres = self.figure.add_subplot(414)
-            self.figure.subplots_adjust(wspace=0.1,hspace=0.1)
+            self.figure.subplots_adjust(wspace=0.4,hspace=0.4)
 
         self.ax_wind.tick_params(axis='both', which='both', labelsize=15)
         self.ax_temp.tick_params(axis='both', which='both', labelsize=15)
