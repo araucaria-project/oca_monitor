@@ -65,10 +65,10 @@ class WindDataWidget(QWidget):
         self.layout = QVBoxLayout(self)
         self.label_ephem = QLabel("ephem")
         self.label_ephem.setStyleSheet("background-color : silver; color: black")
-        self.label_ephem.setFont(QtGui.QFont('Arial', 32))
+        self.label_ephem.setFont(QtGui.QFont('Arial', 28))
         self.label = QLabel("weather")
         self.label.setStyleSheet("background-color : silver; color: black")
-        self.label.setFont(QtGui.QFont('Arial', 32))
+        self.label.setFont(QtGui.QFont('Arial', 28))
         # Matplotlib setup
         self.figure = Figure(facecolor='lightgrey')
         self.canvas = FigureCanvas(self.figure)
