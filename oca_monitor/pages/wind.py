@@ -78,13 +78,13 @@ class WindDataWidget(QWidget):
             self.ax_temp = self.figure.add_subplot(222)
             self.ax_hum = self.figure.add_subplot(223)
             self.ax_pres = self.figure.add_subplot(224)
-            self.figure.subplots_adjust(wspace=0.6,hspace=0.6)
+            self.figure.subplots_adjust(wspace=0.3,hspace=0.6)
         else:
             self.ax_wind = self.figure.add_subplot(411)
             self.ax_temp = self.figure.add_subplot(412)
             self.ax_hum = self.figure.add_subplot(413)
             self.ax_pres = self.figure.add_subplot(414)
-            self.figure.subplots_adjust(wspace=0.6,hspace=0.6)
+            self.figure.subplots_adjust(wspace=0.3,hspace=0.6)
 
         self.ax_wind.tick_params(axis='both', which='both', labelsize=13)
         self.ax_temp.tick_params(axis='both', which='both', labelsize=13)
@@ -269,11 +269,11 @@ class WindDataWidget(QWidget):
         self.ephem_text,sunalt = ephemeris()
         self.sunalt = sunalt
         if self.sunalt > -2.:
-            self.label_ephem.setStyleSheet("background-color : silver; color: coral")
+            self.label_ephem.setStyleSheet("background-color : coral; color: black")
         elif self.sunalt <= -2. and self.sunalt > -18.:
-            self.label_ephem.setStyleSheet("background-color : silver; color: yellow")
+            self.label_ephem.setStyleSheet("background-color : yellow; color: black")
         elif self.sunalt <= -18.:
-            self.label_ephem.setStyleSheet("background-color : silver; color: green")
+            self.label_ephem.setStyleSheet("background-color : lightgreen; color: black")
         self.label_ephem.setText(self.ephem_text)
         QtCore.QTimer.singleShot(1000, self._update_ephem)
 
@@ -330,8 +330,10 @@ class WindDataWidget(QWidget):
             self.main_window.hum = self.hum
             self.main_window.winddir = self.winddir
             self.main_window.skytemp = '0'
-
-            warning = '   Wind:\t\t'+str(self.wind)+' m/s\n'+'   Temperature:\t'+str(self.temp)+' C\n'+'   Humidity:\t'+str(self.hum)+' %\n'+'   Wind dir:\t'+str(self.main_window.winddir)+' deg'
+            if self.vertical:
+                warning = 'Wind:\t\t'+str(self.wind)+' m/s\n'+'   Temp:\t'+str(self.temp)+' C\n'+'   Hum:\t'+str(self.hum)+' %\n'+'   Wind_d:\t'+str(self.main_window.winddir)+' deg'
+            else:
+                warning = '   Wind:\t\t'+str(self.wind)+' m/s\n'+'   Temperature:\t'+str(self.temp)+' C\n'+'   Humidity:\t'+str(self.hum)+' %\n'+'   Wind dir:\t'+str(self.main_window.winddir)+' deg'
             if (float(self.wind) >= 11. and float(self.wind) < 14.) or float(self.hum) > 70.:
                 self.label.setStyleSheet("background-color : yellow; color: black")
             elif float(self.wind) >= 14. or float(self.hum) > 75.  or float(self.temp) < 0.:
