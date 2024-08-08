@@ -37,7 +37,7 @@ def ephemeris():
     
     text = 'LT: '+lt+'\nSUN ALT: '+str(sun.alt).split(':')[0]
     
-    return text,float(sun.alt)
+    return text,float(str(sun.alt).split(':')[0])
 
 
 class WindDataWidget(QWidget):
@@ -267,7 +267,7 @@ class WindDataWidget(QWidget):
 
     def _update_ephem(self):
         self.ephem_text,sunalt = ephemeris()
-        self.sunalt = sunalt
+        self.sunalt = float(sunalt)
         if self.sunalt > -2.:
             self.label_ephem.setStyleSheet("background-color : coral; color: black")
         elif self.sunalt <= -2. and self.sunalt > -18.:
