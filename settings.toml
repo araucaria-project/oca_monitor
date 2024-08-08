@@ -41,6 +41,10 @@ vertical_screen = 0
 
 [default.panels.02.Buttons]
 #auto_interval = 10  # seconds, how long to show this page before auto switching to next page
+source = "tvs_controlroom"  # page source - page is defined in oca_monitor/pages/example.py
+
+[default.panels.02.Buttons]
+#auto_interval = 10  # seconds, how long to show this page before auto switching to next page
 source = "buttons_controlroom"  # page source - page is defined in oca_monitor/pages/example.py
 
 ##--------------------------touchpanel controlroom---------------
