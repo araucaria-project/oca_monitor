@@ -26,7 +26,7 @@ def ephemeris():
     arm.elev=2800
     arm.pressure=730
     date = time.strftime('%Y%m%d',time.gmtime() )
-    ut = time.strftime('%H:%M:%S',time.gmtime() )
+    ut = time.strftime('%Y%m%d %H:%M:%S',time.gmtime() )
     t = czas_astro([ut.replace('/','-',2).replace(' ','T',1)])
     lt = time.strftime('%H:%M:%S',time.localtime() )
     arm.date = ut
