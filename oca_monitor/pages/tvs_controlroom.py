@@ -95,7 +95,6 @@ class WidgetTvsControlroom(QWidget):
 
         # Some async operation
         self._update_ephem()
-        QtCore.QTimer.singleShot(0, self._update_warningWindow)
         logger.info("UI setup done")
 
     def _update_ephem(self):
