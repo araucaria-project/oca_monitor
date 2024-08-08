@@ -75,11 +75,11 @@ class TouchButtonsControlroom(QWidget):
         
         self.layout = QHBoxLayout(self)
         self.b_abort = QCheckBox(self)#abort button
-        self.b_abort.setStyleSheet("QCheckBox::indicator{width: 250px; height:250px;} QCheckBox::indicator:checked {image: url(./Icons/closedomeson.png)} QCheckBox::indicator:unchecked {image: url(./Icons/closedomeson.png)}")
+        self.b_abort.setStyleSheet("QCheckBox::indicator{width: 300px; height:300px;} QCheckBox::indicator:checked {image: url(./Icons/closedomeson.png)} QCheckBox::indicator:unchecked {image: url(./Icons/closedomesoff.png)}")
         self.b_abort.stateChanged.connect(self.abort_observations)
         
         self.b_alarm = QCheckBox(self)#abort button
-        self.b_alarm.setStyleSheet("QCheckBox::indicator{width: 250px; height:250px;} QCheckBox::indicator:checked {image: url(./Icons/alarmon.png)} QCheckBox::indicator:unchecked {image: url(./Icons/alarmoff.png)}")
+        self.b_alarm.setStyleSheet("QCheckBox::indicator{width: 300px; height:300px;} QCheckBox::indicator:checked {image: url(./Icons/alarmon.png)} QCheckBox::indicator:unchecked {image: url(./Icons/alarmoff.png)}")
         self.b_alarm.stateChanged.connect(self.send_alarm)
 
         self.enable_abort = QCheckBox('Enable abort button')
@@ -147,14 +147,14 @@ class TouchButtonsControlroom(QWidget):
     def send_alarm(self):
         if self.b_alarm.isChecked:
             raise_alarm('HELP OCM!')
-            time.sleep(2)
+            #time.sleep(2)
             self.b_alarm.setChecked(False)
 
     def abort_observations(self):
         if self.b_abort.isChecked:
             raise_alarm('EMERGENCY STOP OBS!')
-            time.sleep(2)
-            self.b_alarm.setChecked(False)
+            #time.sleep(2)
+            self.b_abort.setChecked(False)
 
    
 
