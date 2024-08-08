@@ -26,7 +26,7 @@ def ephemeris():
     arm.elev=2800
     arm.pressure=730
     date = time.strftime('%Y%m%d',time.gmtime() )
-    ut = time.strftime('%Y/%m/%d %H:%M:%S',time.gmtime() )
+    ut = time.strftime('%H:%M:%S',time.gmtime() )
     t = czas_astro([ut.replace('/','-',2).replace(' ','T',1)])
     lt = time.strftime('%H:%M:%S',time.localtime() )
     arm.date = ut
@@ -34,9 +34,8 @@ def ephemeris():
     sunrise=str(arm.next_rising(ephem.Sun()))
     sun = ephem.Sun()
     sun.compute(arm)
-    
-    text = 'LT: '+lt+'\nSUN ALT: '+str(sun.alt).split(':')[0]
-    
+    if sun.alt > 0:
+        text = 'LT: '+lt+'\nUT: '+ut+'\nSUN ALT: '+str(sun.alt).split(':')[0]    
     return text,float(sun.alt)
 
 
@@ -73,7 +72,7 @@ class WindDataWidget(QWidget):
         self.figure = Figure(facecolor='lightgrey')
         self.canvas = FigureCanvas(self.figure)
         if self.vertical:
-            self.label.setFont(QtGui.QFont('Arial', 20))
+            #self.label.setFont(QtGui.QFont('Arial', 20))
             self.ax_wind = self.figure.add_subplot(221)
             self.ax_temp = self.figure.add_subplot(222)
             self.ax_hum = self.figure.add_subplot(223)
