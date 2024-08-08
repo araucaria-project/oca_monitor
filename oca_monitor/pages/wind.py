@@ -124,7 +124,7 @@ class WindDataWidget(QWidget):
         self.ax_temp.grid(which='major', axis='both')
         self.ax_hum.grid(which='major', axis='both')
         self.ax_pres.grid(which='major', axis='both')
-        self.figure.tight_layout()
+        #self.figure.tight_layout()
         if self.vertical:
             hbox = QHBoxLayout(self)
             vbox_labels = QVBoxLayout()
