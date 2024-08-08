@@ -63,6 +63,9 @@ class WindDataWidget(QWidget):
         # Layout
 
         self.layout = QVBoxLayout(self)
+        self.label_ephem = QLabel("ephem")
+        self.label_ephem.setStyleSheet("background-color : silver; color: black")
+        self.label_ephem.setFont(QtGui.QFont('Arial', 20))
         self.label = QLabel("weather")
         self.label.setStyleSheet("background-color : silver; color: black")
         self.label.setFont(QtGui.QFont('Arial', 20))
@@ -120,10 +123,11 @@ class WindDataWidget(QWidget):
             hbox.addWidget(self.canvas,7)
             self.layout.addLayout(hbox)
         else:
-            self.layout.addWidget(self.label)
-            self.layout.addWidget(self.canvas)
+            self.layout.addWidget(self.label,1)
+            self.layout.addWidget(self.canvas,7)
 
         QtCore.QTimer.singleShot(0, self._update_warningWindow)
+        QtCore.QTimer.singleShot(1000, self._update_ephem)
 
     async def reader_loop(self):
         msg = Messenger()
@@ -254,10 +258,17 @@ class WindDataWidget(QWidget):
     def _update_ephem(self):
         self.ephem_text,sunalt = ephemeris()
         self.sunalt = str(sunalt)
+        if self.sunalt > -2.:
+            self.label_ephem.setStyleSheet("background-color : silver; color: coral")
+        elif self.sunalt <= -2. and self.sunalt > -18.:
+            self.label_ephem.setStyleSheet("background-color : silver; color: yellow")
+        elif self.sunalt <= -18.:
+            self.label_ephem.setStyleSheet("background-color : silver; color: green")
+        QtCore.QTimer.singleShot(1000, self._update_ephem)
+
 
     @asyncSlot()
     async def _update_warningWindow(self):
-        self._update_ephem()
         self.wind = '0.0'
         self.temp = '0.0'
         self.hum = '0.0'
