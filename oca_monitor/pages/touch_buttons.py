@@ -76,11 +76,11 @@ class TouchButtonsControlroom(QWidget):
         self.layout = QHBoxLayout(self)
         self.b_abort = QCheckBox(self)#abort button
         self.b_abort.setStyleSheet("QCheckBox::indicator{width: 250px; height:250px;} QCheckBox::indicator:checked {image: url(./Icons/closedomeson.png)} QCheckBox::indicator:unchecked {image: url(./Icons/closedomeson.png)}")
-        self.b_abort.checkStateChanged.connect(self.abort_observations)
+        self.b_abort.stateChanged.connect(self.abort_observations)
         
         self.b_alarm = QCheckBox(self)#abort button
         self.b_alarm.setStyleSheet("QCheckBox::indicator{width: 250px; height:250px;} QCheckBox::indicator:checked {image: url(./Icons/alarmon.png)} QCheckBox::indicator:unchecked {image: url(./Icons/alarmoff.png)}")
-        self.b_alarm.checkStateChanged.connect(self.send_alarm)
+        self.b_alarm.stateChanged.connect(self.send_alarm)
 
         self.enable_abort = QCheckBox('Enable abort button')
         self.enable_abort.setStyleSheet("QCheckBox::indicator{width: 120px; height:80px;} QCheckBox::indicator:checked {image: url(./Icons/SwitchOn.png)} QCheckBox::indicator:unchecked {image: url(./Icons/SwitchOff.png)}")
