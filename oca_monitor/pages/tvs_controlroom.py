@@ -78,7 +78,6 @@ class WidgetTvsControlroom(QWidget):
 
         # Some async operation
         self._update_ephem()
-        self._update_lights_status()
         QtCore.QTimer.singleShot(0, self._update_warningWindow)
         logger.info("UI setup done")
 
@@ -91,7 +90,7 @@ class WidgetTvsControlroom(QWidget):
         elif float(sunalt.split(':')[0])  <= -17.:
             self.ephem.setStyleSheet("background-color : lightgreen; color: black")
         else:
-            self.ephem.setStyleSheet("background-color : pink; color: black")
+            self.ephem.setStyleSheet("background-color : coral; color: black")
 
         QtCore.QTimer.singleShot(1000, self._update_ephem)
 
