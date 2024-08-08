@@ -65,10 +65,10 @@ class WindDataWidget(QWidget):
         self.layout = QVBoxLayout(self)
         self.label_ephem = QLabel("ephem")
         self.label_ephem.setStyleSheet("background-color : silver; color: black")
-        self.label_ephem.setFont(QtGui.QFont('Arial', 28))
+        self.label_ephem.setFont(QtGui.QFont('Arial', 26))
         self.label = QLabel("weather")
         self.label.setStyleSheet("background-color : silver; color: black")
-        self.label.setFont(QtGui.QFont('Arial', 28))
+        self.label.setFont(QtGui.QFont('Arial', 26))
         # Matplotlib setup
         self.figure = Figure(facecolor='lightgrey')
         self.canvas = FigureCanvas(self.figure)
@@ -78,14 +78,14 @@ class WindDataWidget(QWidget):
             self.ax_temp = self.figure.add_subplot(222)
             self.ax_hum = self.figure.add_subplot(223)
             self.ax_pres = self.figure.add_subplot(224)
-            self.figure.subplots_adjust(wspace=0.6,hspace=0.6)
+            self.figure.subplots_adjust(wspace=0.6,hspace=0.6,bottom=0.2,top=0.2)
         else:
             
             self.ax_wind = self.figure.add_subplot(411)
             self.ax_temp = self.figure.add_subplot(412)
             self.ax_hum = self.figure.add_subplot(413)
             self.ax_pres = self.figure.add_subplot(414)
-            self.figure.subplots_adjust(wspace=0.6,hspace=0.6)
+            self.figure.subplots_adjust(wspace=0.6,hspace=0.6,bottom=0.2,top=0.2)
 
         self.ax_wind.tick_params(axis='both', which='both', labelsize=13)
         self.ax_temp.tick_params(axis='both', which='both', labelsize=13)
@@ -135,7 +135,7 @@ class WindDataWidget(QWidget):
             self.layout.addLayout(hbox)
         else:
             self.layout.addWidget(self.label,1)
-            self.layout.addWidget(self.canvas,7)
+            self.layout.addWidget(self.canvas,8)
 
         QtCore.QTimer.singleShot(0, self._update_warningWindow)
         QtCore.QTimer.singleShot(1000, self._update_ephem)
