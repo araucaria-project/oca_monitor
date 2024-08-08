@@ -65,10 +65,10 @@ class WindDataWidget(QWidget):
         self.layout = QVBoxLayout(self)
         self.label_ephem = QLabel("ephem")
         self.label_ephem.setStyleSheet("background-color : silver; color: black")
-        self.label_ephem.setFont(QtGui.QFont('Arial', 24))
+        self.label_ephem.setFont(QtGui.QFont('Arial', 26))
         self.label = QLabel("weather")
         self.label.setStyleSheet("background-color : silver; color: black")
-        self.label.setFont(QtGui.QFont('Arial', 24))
+        self.label.setFont(QtGui.QFont('Arial', 26))
         # Matplotlib setup
         self.figure = Figure(facecolor='lightgrey')
         self.canvas = FigureCanvas(self.figure)
@@ -323,7 +323,7 @@ class WindDataWidget(QWidget):
             self.main_window.winddir = self.winddir
             self.main_window.skytemp = '0'
 
-            warning = 'Wind: '+str(self.wind)+' m/s\n'+'Temperature: '+str(self.temp)+' C\n'+'Humidity: '+str(self.hum)+' %\n'+'Wind dir: '+str(self.main_window.winddir)+'\n'
+            warning = '   Wind:\t'+str(self.wind)+' m/s\n'+'   Temperature:\t'+str(self.temp)+' C\n'+'   Humidity:\t'+str(self.hum)+' %\n'+'   Wind dir:\t'+str(self.main_window.winddir)+'\n'
             if (float(self.wind) >= 11. and float(self.wind) < 14.) or float(self.hum) > 70.:
                 self.label.setStyleSheet("background-color : yellow; color: black")
             elif float(self.wind) >= 14. or float(self.hum) > 75.:
