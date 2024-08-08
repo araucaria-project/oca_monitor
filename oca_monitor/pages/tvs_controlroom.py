@@ -67,14 +67,31 @@ class WidgetTvsControlroom(QWidget):
         self.layout = QVBoxLayout(self)
         self.ephem = QLabel("init")
         self.ephem.setStyleSheet("background-color : silver; color: black")
-        self.ephem.setFont(QtGui.QFont('Arial', 20))
+        self.ephem.setFont(QtGui.QFont('Arial', 26))
+
+        self.zb08= QLabel("ZB08:init")
+        self.zb08.setStyleSheet("background-color : silver; color: black")
+        self.zb08.setFont(QtGui.QFont('Arial', 26))
+
+        self.wk06 = QLabel("WK06:init")
+        self.wk06.setStyleSheet("background-color : silver; color: black")
+        self.wk06.setFont(QtGui.QFont('Arial', 26))
+
+        self.jk15 = QLabel("JK15init")
+        self.jk15.setStyleSheet("background-color : silver; color: black")
+        self.jk15.setFont(QtGui.QFont('Arial', 26))
+
+        self.jk15 = QLabel("Energy:init")
+        self.jk15.setStyleSheet("background-color : silver; color: black")
+        self.jk15.setFont(QtGui.QFont('Arial', 26))
 
         
 
-        
-
-        self.label_lights = QLabel(f"LIGHTS", self)
-        self.label_lights.setStyleSheet("background-color: grey; color: black")
+        self.layout.addWidget(self.ephem)
+        self.layout.addWidget(self.zb08)
+        self.layout.addWidget(self.wk06)
+        self.layout.addWidget(self.jk15)
+        self.layout.addWidget(self.energy)
 
         # Some async operation
         self._update_ephem()
@@ -95,72 +112,7 @@ class WidgetTvsControlroom(QWidget):
         QtCore.QTimer.singleShot(1000, self._update_ephem)
 
 
-    @asyncSlot()
-    async def _update_warningWindow(self):
-        self.wind = '0.0'
-        self.temp = '0.0'
-        self.hum = '0.0'
-        self.pres = '0.0'
-        await create_task(self.reader_loop(), "weather reader")
-        #warning = 'Wind: '+str(self.wind)+' m/s\n'+'Temperature: '+str(self.temp)+' C\n'+'Humidity: '+str(self.hum)+' %\n'+'Wind dir: '+str(self.main_window.winddir)+'\n'
-        #self.label.setText(warning)
     
-
-    async def reader_loop(self):
-        msg = Messenger()
-
-        # We want the data from the midnight of yesterday
-        
-
-        rdr = msg.get_reader(
-            self.weather_subject,
-            deliver_policy='last',
-        )
-        logger.info(f"Subscribed to {self.weather_subject}")
-
-        sample_measurement = {
-                "temperature_C": 10,
-                "humidity": 50,
-                "wind_dir_deg": 180,
-                "wind_ms": 5,
-                "wind_10min_ms": 5,
-                "pressure_Pa": 101325,
-                "bar_trend": 0,
-                "rain_mm": 0,
-                "rain_day_mm": 0,
-                "indoor_temperature_C": 20,
-                "indoor_humidity": 50,
-        }
-        async for data, meta in rdr:
-            ts = dt_ensure_datetime(data['ts']).astimezone()
-            hour = ts.hour + ts.minute / 60 + ts.second / 3600
-            measurement = data['measurements']
-            self.wind = "{:.1f}".format(measurement['wind_10min_ms'])
-            self.temp = "{:.1f}".format(measurement['temperature_C'])
-            self.hum = int(measurement['humidity'])
-            self.pres = int(measurement['pressure_Pa'])
-            self.winddir = int(measurement['wind_dir_deg'])
-
-            self.main_window.wind = self.wind
-            self.main_window.temp = self.temp
-            self.main_window.hum = self.hum
-            self.main_window.winddir = self.winddir
-            self.main_window.skytemp = '0'
-
-            warning = 'Wind: '+str(self.wind)+' m/s\n'+'Temperature: '+str(self.temp)+' C\n'+'Humidity: '+str(self.hum)+' %\n'+'Wind dir: '+str(self.main_window.winddir)+'\n'
-            if (float(self.wind) >= 11. and float(self.wind) < 14.) or float(self.hum) > 70.:
-                self.label.setStyleSheet("background-color : yellow; color: black")
-                self.alarm_weather_kontrolka = 0
-            elif float(self.wind) >= 14. or float(self.hum) > 75.:
-                if self.alarm_weather_kontrolka == 0:
-                    raise_alarm('weather alarm')
-                    self.alarm_weather_kontrolka = 1
-                self.label.setStyleSheet("background-color : red; color: black")
-            else:
-                self.label.setStyleSheet("background-color : lightgreen; color: black")
-                self.alarm_weather_kontrolka = 0
-
-            self.label.setText(warning)
 
 
 widget_class = WidgetTvsControlroom

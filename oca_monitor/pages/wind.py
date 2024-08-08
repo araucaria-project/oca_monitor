@@ -334,7 +334,7 @@ class WindDataWidget(QWidget):
             warning = '   Wind:\t\t'+str(self.wind)+' m/s\n'+'   Temperature:\t'+str(self.temp)+' C\n'+'   Humidity:\t'+str(self.hum)+' %\n'+'   Wind dir:\t'+str(self.main_window.winddir)+' deg'
             if (float(self.wind) >= 11. and float(self.wind) < 14.) or float(self.hum) > 70.:
                 self.label.setStyleSheet("background-color : yellow; color: black")
-            elif float(self.wind) >= 14. or float(self.hum) > 75.:
+            elif float(self.wind) >= 14. or float(self.hum) > 75.  or float(self.temp) < 0.:
                 self.label.setStyleSheet("background-color : red; color: black")
             else:
                 self.label.setStyleSheet("background-color : lightgreen; color: black")
