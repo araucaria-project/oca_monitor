@@ -34,7 +34,9 @@ def ephemeris():
     sunrise=str(arm.next_rising(ephem.Sun()))
     sun = ephem.Sun()
     sun.compute(arm)
-    text = 'LT: '+lt+'\nUT: '+ut+'\nSUN ALT: '+str(sun.alt).split(':')[0]    
+    
+    text = 'LT: '+lt+'\nSUN ALT: '+str(sun.alt).split(':')[0]
+    
     return text,float(sun.alt)
 
 
