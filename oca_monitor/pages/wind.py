@@ -73,14 +73,13 @@ class WindDataWidget(QWidget):
         self.figure = Figure(facecolor='lightgrey')
         self.canvas = FigureCanvas(self.figure)
         if self.vertical:
-            
+            self.label.setFont(QtGui.QFont('Arial', 20))
             self.ax_wind = self.figure.add_subplot(221)
             self.ax_temp = self.figure.add_subplot(222)
             self.ax_hum = self.figure.add_subplot(223)
             self.ax_pres = self.figure.add_subplot(224)
             self.figure.subplots_adjust(wspace=0.6,hspace=0.6)
         else:
-            
             self.ax_wind = self.figure.add_subplot(411)
             self.ax_temp = self.figure.add_subplot(412)
             self.ax_hum = self.figure.add_subplot(413)
@@ -130,7 +129,7 @@ class WindDataWidget(QWidget):
             vbox_labels = QVBoxLayout()
             vbox_labels.addWidget(self.label_ephem,1)
             vbox_labels.addWidget(self.label,2)
-            hbox.addLayout(vbox_labels)
+            hbox.addLayout(vbox_labels,1)
             hbox.addWidget(self.canvas,7)
             self.layout.addLayout(hbox)
         else:
