@@ -67,23 +67,23 @@ class WidgetTvsControlroom(QWidget):
         self.layout = QVBoxLayout(self)
         self.ephem = QLabel("init")
         self.ephem.setStyleSheet("background-color : silver; color: black")
-        self.ephem.setFont(QtGui.QFont('Arial', 26))
+        self.ephem.setFont(QtGui.QFont('Arial', 22))
 
         self.zb08= QLabel("ZB08:init")
         self.zb08.setStyleSheet("background-color : silver; color: black")
-        self.zb08.setFont(QtGui.QFont('Arial', 26))
+        self.zb08.setFont(QtGui.QFont('Arial', 22))
 
         self.wk06 = QLabel("WK06:init")
         self.wk06.setStyleSheet("background-color : silver; color: black")
-        self.wk06.setFont(QtGui.QFont('Arial', 26))
+        self.wk06.setFont(QtGui.QFont('Arial', 22))
 
         self.jk15 = QLabel("JK15init")
         self.jk15.setStyleSheet("background-color : silver; color: black")
-        self.jk15.setFont(QtGui.QFont('Arial', 26))
+        self.jk15.setFont(QtGui.QFont('Arial', 22))
 
         self.energy = QLabel("Energy:init")
         self.energy.setStyleSheet("background-color : silver; color: black")
-        self.energy.setFont(QtGui.QFont('Arial', 26))
+        self.energy.setFont(QtGui.QFont('Arial', 22))
 
         
 
