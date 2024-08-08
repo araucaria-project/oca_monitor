@@ -16,12 +16,12 @@ python = "^3.9, <3.12"
 # to install it from PyPI on **other** platforms, use `poetry update --extras pyqt`
 # on ARM follwo the instruction from the manual
 pyqt6 = {version="*",optional = true}
-astropy = "^6.0.0"
+astropy = "*"
 ephem = "^4.1.4"
-matplotlib = "^3.8.2"
+matplotlib = "*"
 requests = "^2.28.1"
 serverish = {version="^1.1.0", extras=["messenger"]}
-numpy = "^1.24.1, <1.26.0"
+numpy = "^*"
 #numpy = "^1.26.4"
 qasync = "^0.27.1"
 dynaconf = "^3.2.4"
