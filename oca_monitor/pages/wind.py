@@ -73,6 +73,7 @@ class WindDataWidget(QWidget):
         self.figure = Figure(facecolor='lightgrey')
         self.canvas = FigureCanvas(self.figure)
         if self.vertical:
+            self.figure.subplots_adjust(wspace=0.4)
             self.ax_wind = self.figure.add_subplot(221)
             self.ax_temp = self.figure.add_subplot(222)
             self.ax_hum = self.figure.add_subplot(223)
@@ -323,7 +324,7 @@ class WindDataWidget(QWidget):
             self.main_window.winddir = self.winddir
             self.main_window.skytemp = '0'
 
-            warning = '   Wind:\t'+str(self.wind)+' m/s\n'+'   Temperature:\t'+str(self.temp)+' C\n'+'   Humidity:\t'+str(self.hum)+' %\n'+'   Wind dir:\t'+str(self.main_window.winddir)+'\n'
+            warning = '   Wind:\t'+str(self.wind)+' m/s\n'+'   Temperature:\t'+str(self.temp)+' C\n'+'   Humidity:\t'+str(self.hum)+' %\n'+'   Wind dir:\t'+str(self.main_window.winddir)
             if (float(self.wind) >= 11. and float(self.wind) < 14.) or float(self.hum) > 70.:
                 self.label.setStyleSheet("background-color : yellow; color: black")
             elif float(self.wind) >= 14. or float(self.hum) > 75.:
