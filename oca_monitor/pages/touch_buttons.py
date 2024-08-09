@@ -73,12 +73,12 @@ class TouchButtonsControlroom(QWidget):
 
     def initUI(self, text,subject):
         
-        self.layout = QHBoxLayout(self)
+        self.layout = QHBoxLayout()
         self.b_abort = QCheckBox(self)#abort button
         self.b_abort.setStyleSheet("QCheckBox::indicator{width: 300px; height:300px;} QCheckBox::indicator:checked {image: url(./Icons/closedomeson.png)} QCheckBox::indicator:unchecked {image: url(./Icons/closedomesoff.png)}")
         self.b_abort.stateChanged.connect(self.abort_observations)
         
-        self.b_alarm = QCheckBox(self)#abort button
+        self.b_alarm = QCheckBox()#abort button
         self.b_alarm.setStyleSheet("QCheckBox::indicator{width: 300px; height:300px;} QCheckBox::indicator:checked {image: url(./Icons/alarmon.png)} QCheckBox::indicator:unchecked {image: url(./Icons/alarmoff.png)}")
         self.b_alarm.stateChanged.connect(self.send_alarm)
 
