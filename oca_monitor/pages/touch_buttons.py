@@ -146,15 +146,17 @@ class TouchButtonsControlroom(QWidget):
 
     def send_alarm(self):
         if self.b_alarm.isChecked:
+            time.sleep(1)
             raise_alarm('OCM: HELP!')
-            #time.sleep(2)
-            #self.b_alarm.setChecked(False)
+            time.sleep(5)
+            self.b_alarm.setChecked(False)
 
     def abort_observations(self):
         if self.b_abort.isChecked:
+            time.sleep(1)
             raise_alarm('EMERGENCY STOP OBS!')
-            #time.sleep(2)
-            #self.b_abort.setChecked(False)
+            time.sleep(5)
+            self.b_abort.setChecked(False)
 
    
 
