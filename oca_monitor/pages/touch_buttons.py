@@ -145,15 +145,15 @@ class TouchButtonsControlroom(QWidget):
     async def send_alarm(self):
         if self.b_alarm.isChecked:
             await self.raise_alarm('OCM: HELP!')
-            #time.sleep(3)
-            self.b_alarm.setChecked(False)
+
+        self.b_alarm.setChecked(False)
 
     @asyncSlot()
     async def abort_observations(self):
         if self.b_abort.isChecked:
             await self.raise_alarm('EMERGENCY STOP OBS!')
-            #time.sleep(3)
-            self.b_abort.setChecked(False)
+            
+        self.b_abort.setChecked(False)
 
     async def raise_alarm(self,mess):
         pars = {'token':'adcte9qacd6jhmhch8dyw4e4ykuod2','user':'uacjyhka7d75k5i3gmfhdg9pc2vqyf','message':mess}
