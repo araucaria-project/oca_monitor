@@ -22,8 +22,8 @@ class light_point():
         self.label.setStyleSheet("background-color : silver; color: black")
 
     def brightLight(self):
-        #try:
-        if True:
+        try:
+        #if True:
             self.status()
             #if True:
             if self.is_active:
@@ -36,8 +36,8 @@ class light_point():
                     val = '0'+val
                 
                 self.req(val)
-        #except:
-        #    pass
+        except:
+            pass
 
     def dimLight(self):
         try:
@@ -110,26 +110,29 @@ class ButtonsWidget(QWidget):
         hlayout.addWidget(self.label,3)
         
 
-        self.b_abort = QPushButton(self)#abort button
-        self.b_abort.setStyleSheet("background-color : red; color: black")
-        self.b_abort.setText("ALARM\n ")
-        self.b_abort.setFixedSize(140, 80)
-        self.b_abort.clicked.connect(self.raise_alarm)
-        self.enable_abort = QCheckBox('Enable abort button')
-        self.enable_abort.setStyleSheet("QCheckBox::indicator{width: 60px; height:40px;} QCheckBox::indicator:checked {image: url(./Icons/SwitchOn.png)} QCheckBox::indicator:unchecked {image: url(./Icons/SwitchOff.png)}")
-        hlayout.addWidget(self.b_abort)
-        hlayout.addWidget(self.enable_abort)
+        
+        self.b_alarm = QCheckBox()#abort button
+        self.b_alarm.setStyleSheet("QCheckBox::indicator{width: 300px; height:300px;} QCheckBox::indicator:checked {image: url(./Icons/alarmon.png)} QCheckBox::indicator:unchecked {image: url(./Icons/alarmoff.png)}")
+        self.b_alarm.stateChanged.connect(self.send_alarm)
+        hlayout.addWidget(self.b_alarm)
         self.layout.addLayout(hlayout_lights)
         self.layout.addLayout(hlayout)
         # Some async operation
         logger.info("UI setup done")
 
-    def raise_alarm(self):
-        pars = {'token':'adcte9qacd6jhmhch8dyw4e4ykuod2','user':'uacjyhka7d75k5i3gmfhdg9pc2vqyf','message':'blablabla'}
+    @asyncSlot()
+    async def send_alarm(self):
+        if self.b_alarm.isChecked:
+            await self.raise_alarm('OCM: HELP!')
+
+        self.b_alarm.setChecked(False)
+
+    async def raise_alarm(self,mess):
+        pars = {'token':'adcte9qacd6jhmhch8dyw4e4ykuod2','user':'uacjyhka7d75k5i3gmfhdg9pc2vqyf','message':mess}
         requests.post('https://api.pushover.net/1/messages.json',data=pars)
 
-        
-        
+
+
         
         
 
