@@ -16,7 +16,7 @@ import os
 
 logger = logging.getLogger(__name__.rsplit('.')[-1])
 
-class AllskyAnimationWidget(QWidget):
+class SatelliteAnimationWidget(QWidget):
     def __init__(self, main_window, allsky_dir='/data/misc/GOES_satellite/', vertical_screen = False, **kwargs):
         super().__init__()
         self.main_window = main_window
@@ -42,17 +42,19 @@ class AllskyAnimationWidget(QWidget):
             lista = os.popen('ls -tr '+self.dir+'*600x600.jpg').read().split('\n')[:-1]
             if len(lista) > 4:
                 lista = lista[-4:]
-            figure = QPixmap(lista[self.counter])
 
-            if self.vertical:
-                self.label.setPixmap(figure.scaled(self.width(),self.width(), QtCore.Qt.AspectRatioMode.KeepAspectRatio))
-            else:
-                self.label.setPixmap(figure.scaled(self.height(),self.height(), QtCore.Qt.AspectRatioMode.KeepAspectRatio))
+            if len(lista)> 0:
+                figure = QPixmap(lista[self.counter])
+
+                if self.vertical:
+                    self.label.setPixmap(figure.scaled(self.width(),self.width(), QtCore.Qt.AspectRatioMode.KeepAspectRatio))
+                else:
+                    self.label.setPixmap(figure.scaled(self.height(),self.height(), QtCore.Qt.AspectRatioMode.KeepAspectRatio))
+
+                self.counter = self.counter + 1
+                if self.counter == len(lista):
+                    self.counter = 0
         except:
-            pass
-
-        self.counter = self.counter + 1
-        if self.counter == len(lista):
             self.counter = 0
 
         QTimer.singleShot(self.freq, self.update)
@@ -61,4 +63,4 @@ class AllskyAnimationWidget(QWidget):
     def _change_update_time(self):
         self.freq = 1000
 
-widget_class = AllskyAnimationWidget
+widget_class = SatelliteAnimationWidget
