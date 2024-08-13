@@ -125,7 +125,7 @@ class TouchButtonsControlroom(QWidget):
         self.b_alarm.setStyleSheet("QCheckBox::indicator{width: 300px; height:300px;} QCheckBox::indicator:checked {image: url(./Icons/alarmon.png)} QCheckBox::indicator:unchecked {image: url(./Icons/alarmoff.png)}")
         self.b_alarm.stateChanged.connect(self.send_alarm)
 
-        self.enable_abort = QCheckBox('Enable abort button')
+        self.enable_abort = QCheckBox('Enable close button')
         self.enable_abort.setStyleSheet("QCheckBox::indicator{width: 120px; height:80px;} QCheckBox::indicator:checked {image: url(./Icons/SwitchOn.png)} QCheckBox::indicator:unchecked {image: url(./Icons/SwitchOff.png)}")
 
         self.enable_warnings = QCheckBox('Enable warnings')
@@ -135,9 +135,9 @@ class TouchButtonsControlroom(QWidget):
         self.enable_sounds.setStyleSheet("QCheckBox::indicator{width: 120px; height:80px;} QCheckBox::indicator:checked {image: url(./Icons/SwitchOn.png)} QCheckBox::indicator:unchecked {image: url(./Icons/SwitchOff.png)}")
 
         self.vbox_enable_buttons = QVBoxLayout()
-        self.vbox_enable_buttons.addWidget(self.enable_warnings)
-        self.vbox_enable_buttons.addWidget(self.enable_sounds)
-        self.vbox_enable_buttons.addWidget(self.enable_abort)
+        self.vbox_enable_buttons.addWidget(self.enable_warnings,1)
+        self.vbox_enable_buttons.addWidget(self.enable_sounds,1)
+        self.vbox_enable_buttons.addWidget(self.enable_abort,1)
 
         self.vbox_emergency_buttons = QVBoxLayout()
         self.vbox_emergency_buttons.addWidget(self.b_abort)
@@ -153,7 +153,7 @@ class TouchButtonsControlroom(QWidget):
         for i,light in enumerate(config.bbox_led_control_controlroom):
             #self.lights.append(light_point(light,config.bbox_led_control[light],QPushButton('+'),QPushButton('-'),QLabel('LIGHT '+light)))
             self.lights.append(light_point(light,config.bbox_led_control_controlroom[light],QDial()))
-            self.vbox_enable_buttons.addWidget(self.lights[-1].slider)
+            self.vbox_enable_buttons.addWidget(self.lights[-1].slider,2)
 
         self.lightSlides = []
         for i,light in enumerate(config.bbox_led_control_tel):
