@@ -88,22 +88,22 @@ log_level = "INFO"
 
 # Panel page declaration:
 # environment.panels.rowcolumn.tabname
-[screen.panels.00.Allsky]
+[kitchen.panels.00.Allsky]
 #auto_interval = 10  # seconds, how long to show this page before auto switching to next page
 source = "allsky_animation"  # page source - page is defined in oca_monitor/pages/example.py
 vertical_screen=1
 
-[screen.panels.00.Satellite]
+[kitchen.panels.00.Satellite]
 #auto_interval = 10  # seconds, how long to show this page before auto switching to next page
 source = "satellite_animation"  # page source - page is defined in oca_monitor/pages/example.py
 vertical_screen=1
 
-[screen.panels.10.Weather]
+[kitchen.panels.10.Weather]
 #auto_interval = 10  # seconds, how long to show this page before auto switching to next page
 source = "wind"  # page source - page is defined in oca_monitor/pages/example.py
 vertical_screen = 1
 
-[screen.panels.20.Buttons]
+[kitchen.panels.20.Buttons]
 source = "buttons_kitchen"  # page source - page is defined in oca_monitor/pages/example.py
 
 
@@ -125,22 +125,22 @@ log_level = "INFO"
 
 # Panel page declaration:
 # environment.panels.rowcolumn.tabname
-[screen.panels.00.Allsky]
+[tvroom.panels.00.Allsky]
 #auto_interval = 10  # seconds, how long to show this page before auto switching to next page
 source = "allsky_animation"  # page source - page is defined in oca_monitor/pages/example.py
 vertical_screen=1
 
-[screen.panels.00.Satellite]
+[tvroom.panels.00.Satellite]
 #auto_interval = 10  # seconds, how long to show this page before auto switching to next page
 source = "satellite_animation"  # page source - page is defined in oca_monitor/pages/example.py
 vertical_screen=1
 
-[screen.panels.10.Weather]
+[tvroom.panels.10.Weather]
 #auto_interval = 10  # seconds, how long to show this page before auto switching to next page
 source = "wind"  # page source - page is defined in oca_monitor/pages/example.py
 vertical_screen = 1
 
-[screen.panels.20.Buttons]
+[tvroom.panels.20.Buttons]
 source = "buttons_tvroom"  # page source - page is defined in oca_monitor/pages/example.py
 
 
