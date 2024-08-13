@@ -192,7 +192,7 @@ class TouchButtonsControlroom(QWidget):
                 light.slide.setStyleSheet("QCheckBox::indicator{width: 200px; height:200px;} QCheckBox::indicator:checked {image: url(./Icons/"+light.name+"_lightna.png)} QCheckBox::indicator:unchecked {image: url(./Icons/"+light.name+"_lightna.png)}")
 
         for light in self.lights:
-            light.is_avilable()
+            light.status()
             
 
         QtCore.QTimer.singleShot(15000, self._update_lights_status)
