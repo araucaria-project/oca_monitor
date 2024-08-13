@@ -151,7 +151,7 @@ class ButtonsWidgetTVroom(QWidget):
         #self.label.setFont(QtGui.QFont('Arial', 20))
         
         self.b_alarm = QCheckBox()#abort button
-        self.b_alarm.setStyleSheet("QCheckBox::indicator{width: 300px; height:300px;} QCheckBox::indicator:checked {image: url(./Icons/alarmon.png)} QCheckBox::indicator:unchecked {image: url(./Icons/alarmoff.png)}")
+        self.b_alarm.setStyleSheet("QCheckBox::indicator{width: 200px; height:200px;} QCheckBox::indicator:checked {image: url(./Icons/alarmon.png)} QCheckBox::indicator:unchecked {image: url(./Icons/alarmoff.png)}")
         self.b_alarm.stateChanged.connect(self.send_alarm)
         self.layout.addWidget(self.b_alarm)
         self._update_lights_status()
