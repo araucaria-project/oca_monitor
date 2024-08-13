@@ -78,12 +78,13 @@ class light_point():
         self.ip = ip
         
         self.slider= slider
-        self.slider.setGeometry(100, 100, 100, 100) 
+        self.slider.setGeometry(100, 100, 100, 100)
+        self.slider.setNotchesVisible(True)
         self.slider.valueChanged.connect(self.changeLight)
 
     def changeLight(self):
-        #try:
-        if True:
+        try:
+        #if True:
             #self.status()
             #if True:
             if self.is_active:
@@ -97,8 +98,8 @@ class light_point():
                     val = '0'+val
                 
                 self.req(val)
-        #except:
-        #    pass
+        except:
+            pass
 
     
 
@@ -106,8 +107,8 @@ class light_point():
         requests.post('http://'+self.ip+'/api/rgbw/set',json={"rgbw":{"desiredColor":val}})
 
     def status(self):
-        #try:
-        if True:
+        try:
+        #if True:
             req = requests.get('http://'+self.ip+'/api/rgbw/state',timeout=0.5)
             
             if int(req.status_code) != 200:
@@ -116,8 +117,8 @@ class light_point():
                 self.is_active = True 
                 self.curr_value = int(req.json()["rgbw"]["desiredColor"],16)
                 self.slider.setValue(int(self.curr_value*100/255))
-        #except:
-        #    self.is_active = False
+        except:
+            self.is_active = False
         
 
 

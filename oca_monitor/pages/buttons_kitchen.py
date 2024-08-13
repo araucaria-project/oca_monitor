@@ -78,17 +78,18 @@ class light_point():
         self.ip = ip
         
         self.slider= slider
-        
+        self.slider.setGeometry(100, 100, 100, 100)
+        self.slider.setNotchesVisible(True)
         self.slider.valueChanged.connect(self.changeLight)
 
     def changeLight(self):
         try:
         #if True:
-            self.status()
+            #self.status()
             #if True:
             if self.is_active:
                 new_value = int(self.slider.value()*255/100)
-
+                print(new_value)
                 if new_value > 255:
                     new_value = 255
 
@@ -106,8 +107,8 @@ class light_point():
         requests.post('http://'+self.ip+'/api/rgbw/set',json={"rgbw":{"desiredColor":val}})
 
     def status(self):
-        #try:
-        if True:
+        try:
+        #if True:
             req = requests.get('http://'+self.ip+'/api/rgbw/state',timeout=0.5)
             
             if int(req.status_code) != 200:
@@ -116,8 +117,8 @@ class light_point():
                 self.is_active = True 
                 self.curr_value = int(req.json()["rgbw"]["desiredColor"],16)
                 self.slider.setValue(int(self.curr_value*100/255))
-        #except:
-        #    self.is_active = False
+        except:
+            self.is_active = False
         
 
 
@@ -151,11 +152,18 @@ class ButtonsWidgetKitchen(QWidget):
         #self.label.setFont(QtGui.QFont('Arial', 20))
         
         self.b_alarm = QCheckBox()#abort button
-        self.b_alarm.setStyleSheet("QCheckBox::indicator{width: 300px; height:300px;} QCheckBox::indicator:checked {image: url(./Icons/alarmon.png)} QCheckBox::indicator:unchecked {image: url(./Icons/alarmoff.png)}")
+        self.b_alarm.setStyleSheet("QCheckBox::indicator{width: 200px; height:200px;} QCheckBox::indicator:checked {image: url(./Icons/alarmon.png)} QCheckBox::indicator:unchecked {image: url(./Icons/alarmoff.png)}")
         self.b_alarm.stateChanged.connect(self.send_alarm)
         self.layout.addWidget(self.b_alarm)
+        self._update_lights_status()
         # Some async operation
         logger.info("UI setup done")
+
+    def _update_lights_status(self):
+        for light in self.lights:
+            light.status()
+
+        QtCore.QTimer.singleShot(30000, self._update_lights_status)
 
     @asyncSlot()
     async def send_alarm(self):
