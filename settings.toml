@@ -69,9 +69,10 @@ log_level = "INFO"
 [touch_controlroom.panels.00.Buttons]
 source = "touch_buttons"  # page source - page is defined in oca_monitor/pages/example.py
 
-##--------------------------screens kitchen and salon---------------
 
-[screen]  # global configuration is used by all environments, setting from here override all other settings
+##--------------------------screen kitchen---------------
+
+[kitchen]  # global configuration is used by all environments, setting from here override all other settings
 window_size = [1080, 1850]
 panel_columns = [1]  # The size ratio of the columns in the panel grid
 panel_rows = [7,4,1]   # The size ratio of the rows in the panel grid
@@ -103,7 +104,44 @@ source = "wind"  # page source - page is defined in oca_monitor/pages/example.py
 vertical_screen = 1
 
 [screen.panels.20.Buttons]
-source = "buttons_screens"  # page source - page is defined in oca_monitor/pages/example.py
+source = "buttons_kitchen"  # page source - page is defined in oca_monitor/pages/example.py
+
+
+##--------------------------screens tvroom---------------
+
+[tvroom]  # global configuration is used by all environments, setting from here override all other settings
+window_size = [1080, 1850]
+panel_columns = [1]  # The size ratio of the columns in the panel grid
+panel_rows = [7,4,1]   # The size ratio of the rows in the panel grid
+style = "dark"
+#style = "white"
+
+nats_host = "nats.oca.lan"
+nats_port = 4222
+
+#log_level = "DEBUG"
+log_level = "INFO"
+#log_level = "WARNING"
+
+# Panel page declaration:
+# environment.panels.rowcolumn.tabname
+[screen.panels.00.Allsky]
+#auto_interval = 10  # seconds, how long to show this page before auto switching to next page
+source = "allsky_animation"  # page source - page is defined in oca_monitor/pages/example.py
+vertical_screen=1
+
+[screen.panels.00.Satellite]
+#auto_interval = 10  # seconds, how long to show this page before auto switching to next page
+source = "satellite_animation"  # page source - page is defined in oca_monitor/pages/example.py
+vertical_screen=1
+
+[screen.panels.10.Weather]
+#auto_interval = 10  # seconds, how long to show this page before auto switching to next page
+source = "wind"  # page source - page is defined in oca_monitor/pages/example.py
+vertical_screen = 1
+
+[screen.panels.20.Buttons]
+source = "buttons_tvroom"  # page source - page is defined in oca_monitor/pages/example.py
 
 
 #----------dev----------

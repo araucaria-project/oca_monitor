@@ -122,7 +122,7 @@ class light_point():
 
 
 
-class ButtonsWidget(QWidget):
+class ButtonsWidgetTVroom(QWidget):
     # You can use just def __init__(self, **kwargs) if you don't want to bother with the arguments
     def __init__(self,
                  main_window, # always passed
@@ -174,4 +174,4 @@ class ButtonsWidget(QWidget):
         
 
 
-widget_class = ButtonsWidget
+widget_class = ButtonsWidgetTVroom

@@ -122,7 +122,7 @@ class light_point():
 
 
 
-class ButtonsWidget(QWidget):
+class ButtonsWidgetKitchen(QWidget):
     # You can use just def __init__(self, **kwargs) if you don't want to bother with the arguments
     def __init__(self,
                  main_window, # always passed
@@ -135,7 +135,7 @@ class ButtonsWidget(QWidget):
         self.layout = QHBoxLayout(self)
         self.lights = []
         
-        for i,light in enumerate(config.bbox_led_control_tvroom):
+        for i,light in enumerate(config.bbox_led_control_kitchen):
             #self.lights.append(light_point(light,config.bbox_led_control[light],QPushButton('+'),QPushButton('-'),QLabel('LIGHT '+light)))
             self.lights.append(light_point(light,config.bbox_led_control[light],QDial()))
             #vbox = QVBoxLayout()
@@ -174,4 +174,4 @@ class ButtonsWidget(QWidget):
         
 
 
-widget_class = ButtonsWidget
+widget_class = ButtonsWidgetKitchen

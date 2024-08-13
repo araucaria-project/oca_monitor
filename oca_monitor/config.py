@@ -14,7 +14,8 @@ settings = Dynaconf(
 )
 bbox_tsensors = {'westbedroom':'192.168.7.199','eastbedroom':'192.168.7.198','electricroom':'192.168.7.206','batteryroom':'192.168.7.207','zb08':'192.168.7.202','jk15':'192.168.7.204'}
 bbox_htsensors = {'controlroom':'192.168.7.192','serverroom':'192.168.7.193'}
-bbox_led_control = {'tvroom':'192.168.7.221','kitchen':'192.168.7.222'}
+bbox_led_control_tvroom = {'tvroom':'192.168.7.221'}
+bbox_led_control_kitchen ={'kitchen':'192.168.7.222'}
 bbox_led_control_tel = {'zb08':'192.168.7.216','wk06':'192.168.7.217','jk15':'192.168.7.218','iris':'192.168.7.215','wg25':'192.168.7.219','tmmt':'192.168.7.220'}
 bbox_blinds_control = {'bodega':'192.168.7.190','kitchen':'192.168.7.191'}
 # `envvar_prefix` = export envvars with `export DYNACONF_FOO=bar`.
