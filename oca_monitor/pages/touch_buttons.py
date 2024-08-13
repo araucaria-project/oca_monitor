@@ -59,7 +59,7 @@ class light_point():
         self.ip = ip
         
         self.slider= slider
-        self.slider.setGeometry(70, 70, 70, 70)
+        self.slider.setGeometry(50, 50, 50, 50)
         self.slider.setNotchesVisible(True)
         self.slider.valueChanged.connect(self.changeLight)
 
@@ -153,7 +153,7 @@ class TouchButtonsControlroom(QWidget):
         for i,light in enumerate(config.bbox_led_control_controlroom):
             #self.lights.append(light_point(light,config.bbox_led_control[light],QPushButton('+'),QPushButton('-'),QLabel('LIGHT '+light)))
             self.lights.append(light_point(light,config.bbox_led_control_controlroom[light],QDial()))
-            self.vbox_enable_buttons.addWidget(self.lights[-1].slider,2)
+            self.vbox_enable_buttons.addWidget(self.lights[-1].slider,1)
 
         self.lightSlides = []
         for i,light in enumerate(config.bbox_led_control_tel):
