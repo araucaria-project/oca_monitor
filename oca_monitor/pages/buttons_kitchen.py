@@ -146,7 +146,7 @@ class ButtonsWidgetKitchen(QWidget):
             #vbox.addWidget(self.lights[-1].label)
             #vbox.addLayout(hbox)
 
-        self.layout.addWidget(self.lights[-1].slider)
+            self.layout.addWidget(self.lights[-1].slider)
         #self.label = QLabel("TEL STATUS -not working yet")
         #self.label.setStyleSheet("background-color : lightgreen; color: black")
         #self.label.setFont(QtGui.QFont('Arial', 20))

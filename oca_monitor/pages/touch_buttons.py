@@ -53,7 +53,53 @@ class lightSlide():
     def req(self,val):
         requests.post('http://'+self.ip+'/api/rgbw/set',json={"rgbw":{"desiredColor":val}})
         
+class light_point():
+    def __init__(self,name,ip,slider):
+        self.name = name
+        self.ip = ip
+        
+        self.slider= slider
+        self.slider.setGeometry(100, 100, 100, 100)
+        self.slider.setNotchesVisible(True)
+        self.slider.valueChanged.connect(self.changeLight)
 
+    def changeLight(self):
+        try:
+        #if True:
+            #self.status()
+            #if True:
+            if self.is_active:
+                new_value = int(self.slider.value()*255/100)
+                print(new_value)
+                if new_value > 255:
+                    new_value = 255
+
+                val = str(hex(int(new_value))).replace('0x','',1)
+                if len(val) == 1:
+                    val = '0'+val
+                
+                self.req(val)
+        except:
+            pass
+
+    
+
+    def req(self,val):
+        requests.post('http://'+self.ip+'/api/rgbw/set',json={"rgbw":{"desiredColor":val}})
+
+    def status(self):
+        try:
+        #if True:
+            req = requests.get('http://'+self.ip+'/api/rgbw/state',timeout=0.5)
+            
+            if int(req.status_code) != 200:
+                self.is_active = False
+            else:
+                self.is_active = True 
+                self.curr_value = int(req.json()["rgbw"]["desiredColor"],16)
+                self.slider.setValue(int(self.curr_value*100/255))
+        except:
+            self.is_active = False
 
 
 class TouchButtonsControlroom(QWidget):
@@ -94,15 +140,20 @@ class TouchButtonsControlroom(QWidget):
         self.vbox_enable_buttons.addWidget(self.enable_abort)
 
         self.vbox_emergency_buttons = QVBoxLayout()
-        self.vbox_emergency_buttons.addWidget(self.b_alarm)
         self.vbox_emergency_buttons.addWidget(self.b_abort)
-        
+        self.vbox_emergency_buttons.addWidget(self.b_alarm)
                 
         self.vbox_light_buttons_left = QVBoxLayout()
         self.vbox_light_buttons_right = QVBoxLayout()
         self.hbox_light_buttons = QHBoxLayout()
         #self.vbox_light_buttons_left.addWidget(self.label_lights)
 
+        self.lights = []
+        
+        for i,light in enumerate(config.bbox_led_control_tvroom):
+            #self.lights.append(light_point(light,config.bbox_led_control[light],QPushButton('+'),QPushButton('-'),QLabel('LIGHT '+light)))
+            self.lights.append(light_point(light,config.bbox_led_control_tvroom[light],QDial()))
+            self.vbox_enable_buttons.addWidget(self.lights[-1].slider)
 
         self.lightSlides = []
         for i,light in enumerate(config.bbox_led_control_tel):
