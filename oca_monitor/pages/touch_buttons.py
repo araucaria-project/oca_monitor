@@ -152,7 +152,7 @@ class TouchButtonsControlroom(QWidget):
         
         for i,light in enumerate(config.bbox_led_control_tvroom):
             #self.lights.append(light_point(light,config.bbox_led_control[light],QPushButton('+'),QPushButton('-'),QLabel('LIGHT '+light)))
-            self.lights.append(light_point(light,config.bbox_led_control_tvroom[light],QDial()))
+            self.lights.append(light_point(light,config.bbox_led_control_controlroom[light],QDial()))
             self.vbox_enable_buttons.addWidget(self.lights[-1].slider)
 
         self.lightSlides = []
