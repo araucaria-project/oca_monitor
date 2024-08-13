@@ -137,7 +137,7 @@ class ButtonsWidgetKitchen(QWidget):
         
         for i,light in enumerate(config.bbox_led_control_kitchen):
             #self.lights.append(light_point(light,config.bbox_led_control[light],QPushButton('+'),QPushButton('-'),QLabel('LIGHT '+light)))
-            self.lights.append(light_point(light,config.bbox_led_control[light],QDial()))
+            self.lights.append(light_point(light,config.bbox_led_control_kitchen[light],QDial()))
             #vbox = QVBoxLayout()
         
             #hbox.addWidget(self.lights[-1].b_faint)
