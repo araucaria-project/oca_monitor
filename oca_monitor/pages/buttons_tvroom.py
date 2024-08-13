@@ -78,7 +78,7 @@ class light_point():
         self.ip = ip
         
         self.slider= slider
-        
+        self.slider.setGeometry(100, 100, 100, 100) 
         self.slider.valueChanged.connect(self.changeLight)
 
     def changeLight(self):
