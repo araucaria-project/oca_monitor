@@ -22,7 +22,7 @@ class MessageWidget(QWidget):
         self.vertical = bool(vertical_screen)
         self.initUI()
         QTimer.singleShot(0, self.async_init)
-        self.script_location = os.path.dirname(os.path.abspath(__file__))
+        #self.script_location = os.path.dirname(os.path.abspath(__file__))
 
     @asyncSlot()
     async def async_init(self):
@@ -34,8 +34,6 @@ class MessageWidget(QWidget):
     def initUI(self,):
         self.layout = QHBoxLayout(self)
         self.info_e = QTextEdit()
-        print(os.getcwd())
-        subprocess.run(["aplay", "../sounds/romulan_alarm.wav"])
 
         self.layout.addWidget(self.info_e)
 
@@ -45,14 +43,15 @@ class MessageWidget(QWidget):
             r = get_reader(f'tic.status.{tel}.toi.message', deliver_policy='new')
             async for data, meta in r:
                 txt = f"{time.strftime('%H:%M:%S', time.gmtime())}"
+                print(os.getcwd())
                 if "BELL" in data['info']:
                     txt = f"(UT {txt}) {data['info']} by {data['tel']}"
                     self.info_e.append(txt)
-                    subprocess.run(["aplay","../sounds/romulan_alarm.wav"])
+                    subprocess.run(["aplay",f"{os.getcwd()}/sounds/romulan_alarm.wav"])
                 if "STOP" in data['info']:
                     txt = f"(UT {txt}) {data['info']} reached by {data['tel']}"
                     self.info_e.append(txt)
-                    subprocess.run(["aplay","../sounds/alert06.wav"])
+                    subprocess.run(["aplay",f"{os.getcwd()}/sounds/alert06.wav"])
 
 
         except Exception as e:
