@@ -178,6 +178,7 @@ class MainWindow(QMainWindow):
         self.temp = 0
         self.skytemp = 0
         self.winddir = 0
+        self.telescope_names = ["wk06", "zb08", "jk15"]
         self.central_widget = QWidget()
         # We will divide the window into a grid of panels
         self.grid_layout = QGridLayout(self.central_widget)
