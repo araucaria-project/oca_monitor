@@ -15,7 +15,8 @@ python = "^3.9, <3.12"
 # pyqy6 is optional, because there is no such package for ARM
 # to install it from PyPI on **other** platforms, use `poetry update --extras pyqt`
 # on ARM follwo the instruction from the manual
-pyqt6 = {version="*",optional = true}
+#pyqt6 = {version="*",optional = true}
+pyqt6 = {version="*"}
 astropy = "*"
 ephem = "^4.1.4"
 matplotlib = "*"

@@ -51,6 +51,10 @@ source = "tvs_controlroom"  # page source - page is defined in oca_monitor/pages
 #auto_interval = 10  # seconds, how long to show this page before auto switching to next page
 source = "message"  # page source - page is defined in oca_monitor/pages/example.py
 
+[default.panels.10.Telescopes]
+#auto_interval = 10  # seconds, how long to show this page before auto switching to next page
+source = "telescopes"  # page source - page is defined in oca_monitor/pages/example.py
+
 ##--------------------------touchpanel controlroom---------------
 
 [touch_controlroom]  # global configuration is used by all environments, setting from here override all other settings
