@@ -34,6 +34,8 @@ class MessageWidget(QWidget):
     def initUI(self,):
         self.layout = QHBoxLayout(self)
         self.info_e = QTextEdit()
+        print(os.getcwd())
+        subprocess.run(["aplay", "../sounds/romulan_alarm.wav"])
 
         self.layout.addWidget(self.info_e)
 
