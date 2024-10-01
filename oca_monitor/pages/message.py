@@ -1,6 +1,7 @@
 import logging
 import os
 import subprocess
+import time
 
 from PyQt6.QtWidgets import  QWidget, QHBoxLayout, QTextEdit
 from PyQt6.QtCore import QTimer
@@ -41,13 +42,17 @@ class MessageWidget(QWidget):
         try:
             r = get_reader(f'tic.status.{tel}.toi.message', deliver_policy='new')
             async for data, meta in r:
-                txt =  f"{data['info']} by {data['tel']}"
+                txt = f"{time.strftime('%H:%M:%S', time.gmtime())}"
                 if "BELL" in data['info']:
+                    txt = f"(UT {txt}) {data['info']} by {data['tel']}"
+                    self.info_e.append(txt)
                     subprocess.run(["aplay","../sounds/romulan_alarm.wav"])
-                    #print(self.script_location+"/sounds/romulan_alarm.wav")
-                    #subprocess.run(["aplay", self.script_location+"/sounds/romulan_alarm.wav"])
+                if "STOP" in data['info']:
+                    txt = f"(UT {txt}) {data['info']} reached by {data['tel']}"
+                    self.info_e.append(txt)
+                    subprocess.run(["aplay","../sounds/alert06.wav"])
 
-                self.info_e.append(txt)
+
         except Exception as e:
             logger.warning(f'{e}')
 
