@@ -93,7 +93,7 @@ class TelecopeWindow(QWidget):
                 else:
                     if moving: state,rgb = "MOVING",(255, 160, 0)
                     elif shutter==0: state,rgb = "OPEN",(0, 150, 0)
-                    elif shutter==1: state,rgb = "CLOSED",(0, 0, 0)
+                    elif shutter==1: state,rgb = "CLOSED",(150, 150, 150)
                     elif shutter==2: state,rgb = "OPENING",(255, 160, 0)
                     elif shutter==3: state,rgb = "CLOSING",(255, 160, 0)
                     else: state,rgb = "SHUTTER ERROR",(150, 0, 0)
@@ -111,7 +111,7 @@ class TelecopeWindow(QWidget):
                 state, rgb = "NO IDEA", (0, 0, 0)
             else:
                 if status == 3: state,rgb = "OPEN",(0, 150, 0)
-                elif status == 1: state, rgb = "CLOSED", (0, 0, 0)
+                elif status == 1: state, rgb = "CLOSED", (150, 150, 150)
                 elif status == 2: state, rgb = "MOVING", (255, 160, 0)
                 else: state,rgb = "ERROR",(150, 0, 0)
 
@@ -129,10 +129,10 @@ class TelecopeWindow(QWidget):
             motors = self.oca_tel_state[t]["mount_motor"]["val"]
 
             if slewing != None or tracking != None:
-                if motors == "false": state,rgb = "MOTORS OFF", (0, 0, 0)
+                if motors == "false": state,rgb = "MOTORS OFF", (150, 150, 150)
                 elif slewing: state,rgb = "SLEWING", (255, 160, 0)
                 elif tracking: state,rgb = "TRACKING",(0, 150, 0)
-                else: state,rgb = "IDLE",(0, 0, 0)
+                else: state,rgb = "IDLE",(150, 150, 150)
 
             item = QTableWidgetItem(state)
             item.setForeground(QtGui.QBrush(QtGui.QColor(*rgb)))
@@ -156,9 +156,9 @@ class TelecopeWindow(QWidget):
                 if ccd == 2:
                     state,rgb = f"EXP [{filtr}]", (0, 150, 0)
                 elif ccd == 0:
-                    state,rgb = f"IDLE [{filtr}]", (0, 0, 0)
+                    state,rgb = f"IDLE [{filtr}]", (150, 150, 150)
                 else:
-                   state, rgb = f"NO IDEA [{filtr}]", (0, 0, 0)
+                   state, rgb = f"NO IDEA [{filtr}]", (100, 100, 100)
 
             item = QTableWidgetItem(state)
             item.setForeground(QtGui.QBrush(QtGui.QColor(*rgb)))
@@ -191,7 +191,7 @@ class TelecopeWindow(QWidget):
                         state = f"{state} (??)"
                     state = f"{state} ({int(p*100)}%)"
             else:
-                rgb = (0, 0, 0)
+                rgb = (150, 150, 150)
                 state = f"IDLE"
 
 
