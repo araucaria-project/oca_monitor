@@ -43,7 +43,16 @@ class AllskyAnimationMplWidget(QWidget):
         #self.label.addWidget(self.canvas)
         self.layout.addWidget(self.canvas,1)
         self.update()
-    
+
+    def calc_tel_xy(self,x_0,y_0,alt,az):
+        pi = 3.14159
+        az = (270.-az) * pi / 180.
+        alt = (90-alt) * 520/90.
+
+        x = x_0 - alt * math.cos(az)
+        y = y_0 + alt * math.sin(az)
+        return x,y
+
     def calc_wind_arrow(self,x_0,y_0,r,r_prim):
         pi = 3.14159
         try:
@@ -71,6 +80,19 @@ class AllskyAnimationMplWidget(QWidget):
                 ax = self.figure.add_subplot(111)
                 image = plt.imread(lista[self.counter])
                 ax.imshow(image)
+
+                try:
+                    for t in self.main_window.telescope_names:
+                        print(self.main_window.telescopes_alt,self.main_window.telescopes_az)
+                        if self.main_window.telescopes_alt and self.main_window.telescopes_az:
+                            if t in self.main_window.telescopes_alt.keys() and t in self.main_window.telescopes_az.keys():
+                                x,y = self.calc_tel_xy(625,625,float(self.main_window.telescopes_alt[t]),float(self.main_window.telescopes_az[t]))
+                                if t == "wk06": ax.plot(x,y,"o", color='#14AD4E')
+                                if t == "zb08": ax.plot(x, y, "o", color='#0082E8')
+                                if t == "jk15": ax.plot(x, y, "o", color='#67F4F5')
+                except Exception as e:
+                    print(f"EXCEPTION 32: {e}")
+
 
                 x_arrow,y_arrow,dx_arrow,dy_arrow = self.calc_wind_arrow(600,600,550.,500.)
                 wind_arrow = Arrow(x_arrow,y_arrow,dx_arrow,dy_arrow,width=20.,color="magenta")

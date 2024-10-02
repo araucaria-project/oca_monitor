@@ -37,6 +37,8 @@ class TelecopeWindow(QWidget):
 
         templeate = {"ob_started":False,"ob_done":False,"ob_expected_time":None,"ob_start_time":None,"ob_program":None}
         self.ob_prog_status = {t:copy.deepcopy(templeate) for t in self.main_window.telescope_names}
+        self.az = {t:None for t in self.main_window.telescope_names}
+        self.alt = {t:None for t in self.main_window.telescope_names}
 
         QtCore.QTimer.singleShot(0, self.async_init)
 
@@ -44,15 +46,38 @@ class TelecopeWindow(QWidget):
     async def async_init(self):
         for tel in self.main_window.telescope_names:
             await create_task(self.oca_telemetry_program_reader(tel),"message_reader")
+            await create_task(self.oca_az_reader(tel), "message_reader")
+            await create_task(self.oca_alt_reader(tel), "message_reader")
             for k in self.oca_tel_state[tel].keys():
                 await create_task(self.oca_telemetry_reader(tel,k),"message_reader")
+
+
+    async def oca_az_reader(self,tel):
+        try:
+            r = get_reader(f'tic.telemetry.{tel}.mount.azimuth', deliver_policy='last')
+            async for data, meta in r:
+                for k in data["measurements"].keys():
+                    self.az[tel] = data["measurements"][k]
+                    self.main_window.telescopes_az = self.az
+        except Exception as e:
+            logger.warning(f'ERROR: {e}')
+
+    async def oca_alt_reader(self,tel):
+        try:
+            r = get_reader(f'tic.telemetry.{tel}.mount.altitude', deliver_policy='last')
+            async for data, meta in r:
+                for k in data["measurements"].keys():
+                    self.alt[tel] = data["measurements"][k]
+                    self.main_window.telescopes_alt = self.alt
+        except Exception as e:
+            logger.warning(f'ERROR: {e}')
+
 
 
     async def oca_telemetry_reader(self,tel,key):
         try:
             r = get_reader(f'tic.status.{tel}{self.oca_tel_state[tel][key]["pms_topic"]}', deliver_policy='last')
             async for data, meta in r:
-                print(data)
                 txt = data["measurements"][f"{tel}{self.oca_tel_state[tel][key]['pms_topic']}"]
                 self.oca_tel_state[tel][key]["val"] = txt
                 self.update_table()
@@ -172,7 +197,6 @@ class TelecopeWindow(QWidget):
             program = self.ob_prog_status[t]["ob_program"]
             t0 = self.ob_prog_status[t]["ob_start_time"]
             dt = self.ob_prog_status[t]["ob_expected_time"]
-            print(t,self.ob_prog_status[t])
             if started and not done:
                 if "OBJECT" in program:
                     state,rgb = f"{program.split()[1]}", (0, 150, 0)
