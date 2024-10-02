@@ -181,12 +181,15 @@ class TelecopeWindow(QWidget):
                         state, rgb = f"{program.split()[0]} {program.split()[1]}", (0, 150, 0)
                     else:
                         state, rgb = f"{program.split()[0]}", (0, 0, 0)
-                t = time.time() - t0
-                p = t / dt
-                if p > 1.2:
-                    rgb = (150, 0, 0)
+                if t == None or t0 == None:
                     state = f"{state} (??)"
-                state = f"{state} ({int(p*100)}%)"
+                else:
+                    t = time.time() - t0
+                    p = t / dt
+                    if p > 1.2:
+                        rgb = (150, 0, 0)
+                        state = f"{state} (??)"
+                    state = f"{state} ({int(p*100)}%)"
 
             item = QTableWidgetItem(state)
             item.setForeground(QtGui.QBrush(QtGui.QColor(*rgb)))
