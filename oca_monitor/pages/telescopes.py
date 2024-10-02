@@ -45,7 +45,6 @@ class TelecopeWindow(QWidget):
         for tel in self.main_window.telescope_names:
             await create_task(self.oca_telemetry_program_reader(tel),"message_reader")
             for k in self.oca_tel_state[tel].keys():
-                print(tel,k)
                 await create_task(self.oca_telemetry_reader(tel,k),"message_reader")
 
 
@@ -58,16 +57,16 @@ class TelecopeWindow(QWidget):
                 self.oca_tel_state[tel][key]["val"] = txt
                 self.update_table()
         except Exception as e:
-            logger.warning(f'{e}')
+            logger.warning(f'ERROR: {e}')
 
     async def oca_telemetry_program_reader(self,tel):
         try:
             reader = get_reader(f'tic.status.{tel}.toi.ob', deliver_policy='last')
             async for status, meta in reader:
                 self.ob_prog_status[tel] = status
-                self.update_oca()
+                self.update_table()
         except Exception as e:
-                logger.warning(f'{e}')
+                logger.warning(f'ERROR: {e}')
 
     def update_table(self):
 
@@ -173,6 +172,7 @@ class TelecopeWindow(QWidget):
             program = self.ob_prog_status[t]["ob_program"]
             t0 = self.ob_prog_status[t]["ob_start_time"]
             dt = self.ob_prog_status[t]["ob_expected_time"]
+            print(t,self.ob_prog_status[t])
             if started and not done:
                 if "OBJECT" in program:
                     state,rgb = f"{program.split()[1]}", (0, 150, 0)
@@ -180,8 +180,8 @@ class TelecopeWindow(QWidget):
                     if len(program.split())>1:
                         state, rgb = f"{program.split()[0]} {program.split()[1]}", (0, 150, 0)
                     else:
-                        state, rgb = f"{program.split()[0]}", (0, 0, 0)
-                if t == None or t0 == None:
+                        state, rgb = f"{program.split()[0]}", (0, 150, 0)
+                if dt == None or t0 == None:
                     state = f"{state} (??)"
                 else:
                     t = time.time() - t0
