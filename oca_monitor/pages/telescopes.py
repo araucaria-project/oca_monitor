@@ -190,6 +190,10 @@ class TelecopeWindow(QWidget):
                         rgb = (150, 0, 0)
                         state = f"{state} (??)"
                     state = f"{state} ({int(p*100)}%)"
+            else:
+                rgb = (0, 0, 0)
+                state = f"IDLE"
+
 
             item = QTableWidgetItem(state)
             item.setForeground(QtGui.QBrush(QtGui.QColor(*rgb)))
