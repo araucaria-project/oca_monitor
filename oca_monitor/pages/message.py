@@ -48,7 +48,7 @@ class MessageWidget(QWidget):
                         txt = f"(UT {txt}) {data['info']} by {data['tel']}"
                         self.info_e.append(txt)
                         subprocess.run(["aplay",f"{os.getcwd()}/sounds/romulan_alarm.wav"])
-                    if "STOP" in data['info']:
+                    elif "STOP" in data['info']:
                         txt = f"(UT {txt}) {data['info']} reached by {data['tel']}"
                         self.info_e.append(txt)
                         subprocess.run(["aplay",f"{os.getcwd()}/sounds/alert06.wav"])

@@ -34,6 +34,10 @@ class SatelliteAnimationWidget(QWidget):
         else:
             self.label.resize(self.height(),self.height())
         self.layout.addWidget(self.label,1)
+        self.w = self.width()
+        self.h = self.height()
+        self.label.setSizePolicy(QSizePolicy.Policy.Ignored,QSizePolicy.Policy.Ignored)
+
         self.update()
         
     def update(self):
@@ -47,9 +51,9 @@ class SatelliteAnimationWidget(QWidget):
                 figure = QPixmap(lista[self.counter])
 
                 if self.vertical:
-                    self.label.setPixmap(figure.scaled(self.width(),self.width(), QtCore.Qt.AspectRatioMode.KeepAspectRatio))
-                else:
                     self.label.setPixmap(figure.scaled(self.height(),self.height(), QtCore.Qt.AspectRatioMode.KeepAspectRatio))
+                else:
+                    self.label.setPixmap(figure.scaled(self.height(), self.height(), QtCore.Qt.AspectRatioMode.KeepAspectRatio))
 
                 self.counter = self.counter + 1
                 if self.counter == len(lista):
