@@ -4,8 +4,8 @@
 #---------------------------default - controlroom---------------------
 
 [default]  # global configuration is used by all environments, setting from here override all other settings
-window_size = [1900, 1040]
-#window_size = [1800, 1000]
+#window_size = [1900, 1040]
+window_size = [1800, 1000]
 panel_columns = [6,4,2]  # The size ratio of the columns in the panel grid
 panel_rows = [5,1]   # The size ratio of the rows in the panel grid
 style = "dark"
@@ -58,6 +58,9 @@ source = "message"  # page source - page is defined in oca_monitor/pages/example
 #auto_interval = 10  # seconds, how long to show this page before auto switching to next page
 source = "telescopes"  # page source - page is defined in oca_monitor/pages/example.py
 
+#[default.panels.11.Water]
+#auto_interval = 10  # seconds, how long to show this page before auto switching to next page
+#source = "water"  # page source - page is defined in oca_monitor/pages/example.py
 
 
 ##--------------------------touchpanel controlroom---------------

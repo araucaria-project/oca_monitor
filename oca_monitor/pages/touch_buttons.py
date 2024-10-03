@@ -216,5 +216,9 @@ class TouchButtonsControlroom(QWidget):
         pars = {'token':'adcte9qacd6jhmhch8dyw4e4ykuod2','user':'uacjyhka7d75k5i3gmfhdg9pc2vqyf','message':mess}
         requests.post('https://api.pushover.net/1/messages.json',data=pars)
 
+        # mgorski tez tu nizej
+        pars = {'token':"aw8oa41mtt3nqrtg1vu3ny67ajans1",'user':"ugcgrfrrfn4eefnpiekgwqnxfwtrz5",'message':mess}
+        requests.post('https://api.pushover.net/1/messages.json',data=pars)
+
 
 widget_class = TouchButtonsControlroom

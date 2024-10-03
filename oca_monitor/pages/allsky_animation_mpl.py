@@ -83,13 +83,18 @@ class AllskyAnimationMplWidget(QWidget):
 
                 try:
                     for t in self.main_window.telescope_names:
-                        print(self.main_window.telescopes_alt,self.main_window.telescopes_az)
                         if self.main_window.telescopes_alt and self.main_window.telescopes_az:
                             if t in self.main_window.telescopes_alt.keys() and t in self.main_window.telescopes_az.keys():
                                 x,y = self.calc_tel_xy(625,625,float(self.main_window.telescopes_alt[t]),float(self.main_window.telescopes_az[t]))
-                                if t == "wk06": ax.plot(x,y,"o", color='#14AD4E')
-                                if t == "zb08": ax.plot(x, y, "o", color='#0082E8')
-                                if t == "jk15": ax.plot(x, y, "o", color='#67F4F5')
+                                if t == "wk06":
+                                    ax.plot(x,y,"o", color='#14AD4E')
+                                    ax.text(10,30,"wk06", color='#14AD4E', fontsize = 12)
+                                if t == "zb08":
+                                    ax.plot(x, y, "o", color='#0082E8')
+                                    ax.text(10, 70, "zb08", color='#0082E8', fontsize=12)
+                                if t == "jk15":
+                                    ax.plot(x, y, "o", color='#67F4F5')
+                                    ax.text(10, 110, "jk15", color='#67F4F5', fontsize=12)
                 except Exception as e:
                     print(f"EXCEPTION 32: {e}")
 
