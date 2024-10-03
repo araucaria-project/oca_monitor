@@ -52,6 +52,10 @@ class MessageWidget(QWidget):
                         txt = f"(UT {txt}) {data['info']} reached by {data['tel']}"
                         self.info_e.append(txt)
                         subprocess.run(["aplay",f"{os.getcwd()}/sounds/alert06.wav"])
+                    elif "PING" in data['info']:
+                        txt = f"(UT {txt}) {data['info']} reached by {data['tel']}"
+                        self.info_e.append(txt)
+                        subprocess.run(["aplay",f"{os.getcwd()}/sounds/tos_alien_sound_4.wav"])
                     else:
                         txt = f"(UT {txt}) {data['info']} by {data['tel']}"
                         self.info_e.append(txt)
