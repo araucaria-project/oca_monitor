@@ -334,13 +334,11 @@ class WindDataWidget(QWidget):
                 warning = 'Wind:\t'+str(self.wind)+' m/s\n'+'Temp:\t'+str(self.temp)+' C\n'+'Hum:\t'+str(self.hum)+' %\n'+'Wdir:\t'+str(self.main_window.winddir)+' deg'
             else:
                 warning = '   Wind:\t\t'+str(self.wind)+' m/s\n'+'   Temperature:\t'+str(self.temp)+' C\n'+'   Humidity:\t'+str(self.hum)+' %\n'+'   Wind dir:\t'+str(self.main_window.winddir)+' deg'
-            if (float(self.wind) >= 2. and float(self.wind) < 3.) or float(self.hum) > 70.:
-            #if (float(self.wind) >= 11. and float(self.wind) < 14.) or float(self.hum) > 70.:
+            if (float(self.wind) >= 11. and float(self.wind) < 14.) or float(self.hum) > 70.:
                 self.label.setStyleSheet("background-color : yellow; color: black")
                 if self.main_window.sound_page:
                     self.main_window.sound_page.play_weather_warning(True)
-            elif float(self.wind) >= 3. or float(self.hum) > 75.  or float(self.temp) < 0.:
-            #elif float(self.wind) >= 14. or float(self.hum) > 75. or float(self.temp) < 0.:
+            elif float(self.wind) >= 14. or float(self.hum) > 75. or float(self.temp) < 0.:
                 self.label.setStyleSheet("background-color : red; color: black")
                 if self.main_window.sound_page:
                     self.main_window.sound_page.play_weather_warning(False)

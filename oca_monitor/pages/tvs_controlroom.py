@@ -66,6 +66,7 @@ class WidgetTvsControlroom(QWidget):
         self.initUI(example_parameter,subject)
 
     def initUI(self, text,subject):
+        self.prev_sun_alt = None # mgorski tutaj - musze wiedziec czy jest wschod czy zachod
         self.alarm_weather_kontrolka = 0
         self.weather_subject=subject
         self.layout = QVBoxLayout(self)
@@ -111,6 +112,18 @@ class WidgetTvsControlroom(QWidget):
             self.ephem.setStyleSheet("background-color : lightgreen; color: black")
         else:
             self.ephem.setStyleSheet("background-color : coral; color: black")
+
+        # obsluiga buczkow
+        if self.prev_sun_alt:
+            if int(sunalt.split(':')[0]) == 5 and ephem.degrees(self.prev_sun_alt) > ephem.degrees(sunalt):
+                self.main_window.sound_page.play_sun_alt(True)
+            elif int(sunalt.split(':')[0]) == -18 and ephem.degrees(self.prev_sun_alt) < ephem.degrees(sunalt):
+                self.main_window.sound_page.play_sun_alt(True)
+            elif int(sunalt.split(':')[0]) == 0:
+                self.main_window.sound_page.play_sun_alt(True)
+            else:
+                self.main_window.sound_page.play_sun_alt(False)
+        self.prev_sun_alt = sunalt
 
         QtCore.QTimer.singleShot(1000, self._update_ephem)
 

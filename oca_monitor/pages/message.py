@@ -22,6 +22,7 @@ class MessageWidget(QWidget):
         self.vertical = bool(vertical_screen)
         self.initUI()
         self.parent.sound_page = self
+        self.one_sun_sound = True
         self.one_weather_warning = True
         self.one_weather_stop = True
         QTimer.singleShot(0, self.async_init)
@@ -40,15 +41,24 @@ class MessageWidget(QWidget):
 
         self.layout.addWidget(self.info_e)
 
-    def play_weather_warning(self,go):
+    def play_sun_alt(self, go):
+        if go and self.one_sun_sound:
+            txt = f"{time.strftime('%H:%M:%S', time.gmtime())}"
+            txt = f"(UT {txt}) Sun altitude caution!"
+            self.info_e.append(txt)
+            subprocess.run(["aplay", f"{os.getcwd()}/sounds/alert23.wav"])
+            self.one_sun_sound = False
+        elif not go:
+            self.one_sun_sound = True
 
+    def play_weather_warning(self,go):
         if go and self.one_weather_warning:
             txt = f"{time.strftime('%H:%M:%S', time.gmtime())}"
             txt = f"(UT {txt}) Weather warning!"
             self.info_e.append(txt)
             subprocess.run(["aplay", f"{os.getcwd()}/sounds/alert09.wav"])
             self.one_weather_warning = False
-        else:
+        elif not go:
             self.one_weather_warning = True
 
     def play_weather_stop(self, go):
@@ -59,7 +69,7 @@ class MessageWidget(QWidget):
             self.info_e.append(txt)
             subprocess.run(["aplay", f"{os.getcwd()}/sounds/klingon_alert.wav"])
             self.one_weather_stop = False
-        else:
+        elif not go:
             self.one_weather_stop = True
 
     async def toi_message_reader(self,tel):
