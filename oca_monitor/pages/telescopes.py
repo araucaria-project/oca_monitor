@@ -24,7 +24,7 @@ class TelecopeWindow(QWidget):
         self.mkUI()
         templeate = {
             "mount_motor":{"val":None, "pms_topic":".mount.motorstatus"},
-            "mirror_status": {"val": None, "pms_topic": ".cover.coverstate"},
+            "mirror_status": {"val": None, "pms_topic": ".covercalibrator.coverstate"},
             "mount_tracking": {"val": None, "pms_topic": ".mount.tracking"},
             "mount_slewing": {"val": None, "pms_topic": ".mount.slewing"},
             "dome_shutterstatus": {"val": None, "pms_topic": ".dome.shutterstatus"},
