@@ -178,6 +178,7 @@ class MainWindow(QMainWindow):
         self.temp = 0
         self.skytemp = 0
         self.winddir = 0
+        self.sound_page = None  # nie wiem teraz jak dostac sie inaczej z jedneggo panelu do drugiego
         self.telescope_names = ["wk06", "zb08", "jk15"]
         self.telescopes_az = None
         self.telescopes_alt = None

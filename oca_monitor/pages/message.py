@@ -21,6 +21,9 @@ class MessageWidget(QWidget):
         self.subject = subject
         self.vertical = bool(vertical_screen)
         self.initUI()
+        self.parent.sound_page = self
+        self.one_weather_warning = True
+        self.one_weather_stop = True
         QTimer.singleShot(0, self.async_init)
         #self.script_location = os.path.dirname(os.path.abspath(__file__))
 
@@ -37,6 +40,27 @@ class MessageWidget(QWidget):
 
         self.layout.addWidget(self.info_e)
 
+    def play_weather_warning(self,go):
+
+        if go and self.one_weather_warning:
+            txt = f"{time.strftime('%H:%M:%S', time.gmtime())}"
+            txt = f"(UT {txt}) Weather warning!"
+            self.info_e.append(txt)
+            subprocess.run(["aplay", f"{os.getcwd()}/sounds/alert09.wav"])
+            self.one_weather_warning = False
+        else:
+            self.one_weather_warning = True
+
+    def play_weather_stop(self, go):
+
+        if go and self.one_weather_stop:
+            txt = f"{time.strftime('%H:%M:%S', time.gmtime())}"
+            txt = f"(UT {txt}) Weather STOP!"
+            self.info_e.append(txt)
+            subprocess.run(["aplay", f"{os.getcwd()}/sounds/klingon_alert.wav"])
+            self.one_weather_stop = False
+        else:
+            self.one_weather_stop = True
 
     async def toi_message_reader(self,tel):
         try:
