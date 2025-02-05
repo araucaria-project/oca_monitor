@@ -44,7 +44,7 @@ class bboxItem():
                 pass
 
     def req(self,val):
-        requests.post('http://'+self.ip+'/api/device/set',json={"relays":[{"relay":0,"state":val}]})
+        requests.post('http://'+self.ip+'/api/device/set',json={"relays":{"relay":0,"state":val}})
 
 
 class lightSlide():
