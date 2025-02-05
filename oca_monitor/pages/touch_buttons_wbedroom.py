@@ -32,19 +32,20 @@ class bboxItem():
 
     def changeState(self):
         if self.is_active:
-            try:
-                #if True:
+            #try:
+            if True:
                 if self.slide.isChecked():
                     value = 1
                 else:
                     value = 0
                 
                 self.req(value)
-            except:
-                pass
+            #except:
+            #    pass
 
     def req(self,val):
-        requests.post('http://'+self.ip+'/api/device/set',json={"relays":[{"relay":0,"state":val}]})
+        print('http://'+self.ip+'/state')
+        requests.post('http://'+self.ip+'/state',json={"relays":[{"relay":0,"state":val}]})
 
 
 class lightSlide():
