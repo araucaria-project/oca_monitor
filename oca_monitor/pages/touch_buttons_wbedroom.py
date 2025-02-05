@@ -161,7 +161,7 @@ class TouchButtonsWBedroom(QWidget):
 
 
         self.vbox_enable_buttons = QVBoxLayout()
-        self.vbox_enable_buttons.addWidget(self.enable_warnings,1)
+        
         
 
         self.vbox_emergency_buttons = QVBoxLayout()
