@@ -209,7 +209,7 @@ class TouchButtonsWBedroom(QWidget):
 
     
     def _update_lights_status(self):
-        for light in self.lightSlides:
+        for light in self.bedroomStaff:
             light.is_avilable()
             if light.is_active:
                 light.slide.setStyleSheet("QCheckBox::indicator{width: 200px; height:200px;} QCheckBox::indicator:checked {image: url(./Icons/"+light.name+"_lighton.png)} QCheckBox::indicator:unchecked {image: url(./Icons/"+light.name+"_lightoff.png)}")
