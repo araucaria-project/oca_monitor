@@ -39,12 +39,12 @@ class bboxItem():
                 else:
                     value = 0
                 
-                self.req(val)
+                self.req(value)
             except:
                 pass
 
     def req(self,val):
-        requests.post('http://'+self.ip+'/api/device/set',json={"relays":{"relay":0,"state":val}})
+        requests.post('http://'+self.ip+'/api/device/set',json={"relays":[{"relay":0,"state":val}]})
 
 
 class lightSlide():
