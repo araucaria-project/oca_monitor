@@ -182,7 +182,7 @@ class TouchButtonsWBedroom(QWidget):
 
         self.bedroomStaff = []
         for i,item in enumerate(config.bbox_bedroom_west):
-            self.bedroomStaff.append(bboxItem(light,config.bbox_bedroom_west[item],QCheckBox()))
+            self.bedroomStaff.append(bboxItem(item,config.bbox_bedroom_west[item],QCheckBox()))
             self.bedroomStaff[-1].slide.setStyleSheet("QCheckBox::indicator{width: 200px; height:200px;} QCheckBox::indicator:checked {image: url(./Icons/"+item+"_lighton.png)} QCheckBox::indicator:unchecked {image: url(./Icons/"+item+"_lightoff.png)}")
             self.bedroomStaff[-1].slide.setChecked(False)
             self.bedroomStaff[-1].slide.stateChanged.connect(self.bedroomStaff[-1].changeState)
