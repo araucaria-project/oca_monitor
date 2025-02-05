@@ -183,7 +183,7 @@ class TouchButtonsWBedroom(QWidget):
         self.bedroomStaff = []
         for i,item in enumerate(config.bbox_bedroom_west):
             self.bedroomStaff.append(bboxItem(item,config.bbox_bedroom_west[item],QCheckBox()))
-            self.bedroomStaff[-1].slide.setStyleSheet("QCheckBox::indicator{width: 200px; height:200px;} QCheckBox::indicator:checked {image: url(./Icons/"+item+"_lighton.png)} QCheckBox::indicator:unchecked {image: url(./Icons/"+item+"_lightoff.png)}")
+            self.bedroomStaff[-1].slide.setStyleSheet("QCheckBox::indicator{width: 200px; height:200px;} QCheckBox::indicator:checked {image: url(./Icons/"+item+"_on.png)} QCheckBox::indicator:unchecked {image: url(./Icons/"+item+"_off.png)}")
             self.bedroomStaff[-1].slide.setChecked(False)
             self.bedroomStaff[-1].slide.stateChanged.connect(self.bedroomStaff[-1].changeState)
 
@@ -212,9 +212,9 @@ class TouchButtonsWBedroom(QWidget):
         for light in self.bedroomStaff:
             light.is_avilable()
             if light.is_active:
-                light.slide.setStyleSheet("QCheckBox::indicator{width: 200px; height:200px;} QCheckBox::indicator:checked {image: url(./Icons/"+light.name+"_lighton.png)} QCheckBox::indicator:unchecked {image: url(./Icons/"+light.name+"_lightoff.png)}")
-            else:
-                light.slide.setStyleSheet("QCheckBox::indicator{width: 200px; height:200px;} QCheckBox::indicator:checked {image: url(./Icons/"+light.name+"_lightna.png)} QCheckBox::indicator:unchecked {image: url(./Icons/"+light.name+"_lightna.png)}")
+                light.slide.setStyleSheet("QCheckBox::indicator{width: 200px; height:200px;} QCheckBox::indicator:checked {image: url(./Icons/"+light.name+"_on.png)} QCheckBox::indicator:unchecked {image: url(./Icons/"+light.name+"_off.png)}")
+            #else:
+            #    light.slide.setStyleSheet("QCheckBox::indicator{width: 200px; height:200px;} QCheckBox::indicator:checked {image: url(./Icons/"+light.name+"_na.png)} QCheckBox::indicator:unchecked {image: url(./Icons/"+light.name+"_na.png)}")
 
         for light in self.lights:
             light.status()
