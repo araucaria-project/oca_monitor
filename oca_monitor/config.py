@@ -19,5 +19,6 @@ bbox_led_control_kitchen ={'kitchen':'192.168.7.222'}
 bbox_led_control_controlroom = {'controlroom':'192.168.7.223'}
 bbox_led_control_tel = {'zb08':'192.168.7.216','wk06':'192.168.7.217','jk15':'192.168.7.218','iris':'192.168.7.215','wg25':'192.168.7.219','tmmt':'192.168.7.220'}
 bbox_blinds_control = {'bodega':'192.168.7.190','kitchen':'192.168.7.191'}
+bbox_bedroom_west = {'hot_water':'192.168.7.225'}
 # `envvar_prefix` = export envvars with `export DYNACONF_FOO=bar`.
 # `settings_files` = Load these files in the order.
