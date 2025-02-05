@@ -90,7 +90,7 @@ class light_point():
         self.ip = ip
         
         self.slider= slider
-        self.slider.setGeomelightSlidetry(50, 50, 50, 50)
+        self.slider.setGeometry(50, 50, 50, 50)
         self.slider.setNotchesVisible(True)
         self.slider.valueChanged.connect(self.changeLight)
 
