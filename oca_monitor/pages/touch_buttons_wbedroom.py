@@ -175,11 +175,15 @@ class TouchButtonsWBedroom(QWidget):
         self.label_ephem.setStyleSheet("background-color : #2b2b2b; color: white; font-weight: bold")
         self.label_ephem.setFont(QtGui.QFont('Arial', 28))
 
+        self.vbox_left.addWidget(self.label_ephem)
+
+
         self.label_temp = QLabel("temp")
         self.label_temp.setStyleSheet("background-color : #2b2b2b; color: white; font-weight: bold")
         self.label_temp.setFont(QtGui.QFont('Arial', 28))
 
-        self.vbox_left.addWidget(self.label_ephem)
+        self.vbox_center.addWidget(self.label_temp)
+
 
         self.label_weather = QLabel("weather")
         self.label_weather.setStyleSheet("background-color : silver; color: black")
