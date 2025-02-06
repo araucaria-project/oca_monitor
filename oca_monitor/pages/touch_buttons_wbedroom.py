@@ -300,24 +300,17 @@ class TouchButtonsWBedroom(QWidget):
             self.hum = int(measurement['humidity'])
             self.pres = int(measurement['pressure_Pa'])
 
-            if self.vertical:
-                warning = 'Wind:\t'+str(self.wind)+' m/s\n'+'Temp:\t'+str(self.temp)+' C\n'+'Hum:\t'+str(self.hum)+' %\n'
-            else:
-                warning = '   Wind:\t\t'+str(self.wind)+' m/s\n'+'   Temperature:\t'+str(self.temp)+' C\n'+'   Humidity:\t'+str(self.hum)+' %\n'
+            warning = 'Wind:\t'+str(self.wind)+' m/s\n'+'Temp:\t'+str(self.temp)+' C\n'+'Hum:\t'+str(self.hum)+' %\n'+'Press:\t'+str(self.pres)+' hPa\n'
+            
 
             if (float(self.wind) >= 11. and float(self.wind) < 14.) or float(self.hum) > 70.:
                 self.label.setStyleSheet("background-color : yellow; color: black")
-                if self.main_window.sound_page:
-                    self.main_window.sound_page.play_weather_warning(True)
+                
             elif float(self.wind) >= 14. or float(self.hum) > 75. or float(self.temp) < 0.:
                 self.label.setStyleSheet("background-color : red; color: black")
-                if self.main_window.sound_page:
-                    self.main_window.sound_page.play_weather_warning(False)
-                    self.main_window.sound_page.play_weather_stop(True)
+                
             else:
-                if self.main_window.sound_page:
-                    self.main_window.sound_page.play_weather_warning(False)
-                    self.main_window.sound_page.play_weather_stop(False)
+               
                 self.label.setStyleSheet("background-color : lightgreen; color: black")
 
             self.label_weather.setText(warning)
