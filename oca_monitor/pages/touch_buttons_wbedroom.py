@@ -44,7 +44,6 @@ class bboxItem():
             #    pass
 
     def req(self,val):
-        print('http://'+self.ip+'/state')
         requests.post('http://'+self.ip+'/state',json={"relays":[{"relay":0,"state":val}]})
 
 
@@ -149,24 +148,15 @@ class TouchButtonsWBedroom(QWidget):
     def initUI(self, text,subject):
         
         self.layout = QHBoxLayout(self)
-        self.b_abort = QCheckBox()#abort button
-        self.b_abort.setStyleSheet("QCheckBox::indicator{width: 300px; height:300px;} QCheckBox::indicator:checked {image: url(./Icons/closedomeson.png)} QCheckBox::indicator:unchecked {image: url(./Icons/closedomesoff.png)}")
-        self.b_abort.stateChanged.connect(self.abort_observations)
+        
         
         self.b_alarm = QCheckBox()#abort button
         self.b_alarm.setStyleSheet("QCheckBox::indicator{width: 300px; height:300px;} QCheckBox::indicator:checked {image: url(./Icons/alarmon.png)} QCheckBox::indicator:unchecked {image: url(./Icons/alarmoff.png)}")
         self.b_alarm.stateChanged.connect(self.send_alarm)
-
-        self.enable_abort = QCheckBox('Enable close button')
-        self.enable_abort.setStyleSheet("QCheckBox::indicator{width: 120px; height:80px;} QCheckBox::indicator:checked {image: url(./Icons/SwitchOn.png)} QCheckBox::indicator:unchecked {image: url(./Icons/SwitchOff.png)}")
-
-
-        self.vbox_enable_buttons = QVBoxLayout()
         
         
 
         self.vbox_emergency_buttons = QVBoxLayout()
-        self.vbox_emergency_buttons.addWidget(self.b_abort)
         self.vbox_emergency_buttons.addWidget(self.b_alarm)
                 
         self.vbox_light_buttons_left = QVBoxLayout()
@@ -243,7 +233,7 @@ class TouchButtonsWBedroom(QWidget):
         requests.post('https://api.pushover.net/1/messages.json',data=pars)
 
         # mgorski tez tu nizej
-        pars = {'token':"aw8oa41mtt3nqrtg1vu3ny67ajans1",'user':"ugcgrfrrfn4eefnpiekgwqnxfwtrz5",'message':mess}
+        pars = {'token':"adcte9qacd6jhmhch8dyw4e4ykuod2",'user':"ugcgrfrrfn4eefnpiekgwqnxfwtrz5",'message':mess}
         requests.post('https://api.pushover.net/1/messages.json',data=pars)
 
 
