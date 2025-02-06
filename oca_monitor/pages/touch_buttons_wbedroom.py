@@ -237,7 +237,7 @@ class TouchButtonsWBedroom(QWidget):
         QtCore.QTimer.singleShot(1000, self._update_ephem)
 
     @asyncSlot()
-    async def _update_warningWindow(self):
+    async def _update_weather(self):
         self.wind = '0.0'
         self.temp = '0.0'
         self.hum = '0.0'
