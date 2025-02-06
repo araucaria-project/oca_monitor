@@ -241,7 +241,7 @@ class TouchButtonsControlroom(QWidget):
 
     def d_close_clicked(self):
         self.d.close()
-        self.c = QDialog()
+        #self.c = QDialog()
 
 
     @asyncSlot()
@@ -255,9 +255,13 @@ class TouchButtonsControlroom(QWidget):
         
 
         await self.siren(wyj)
+        try:
+            self.d.close()
+        except:
+            pass
         if self.b_alarm.isChecked():
             QtCore.QTimer.singleShot(2000, self.siren(mes='',wyj=0))
-        self.d.close()
+        
            
 
     async def push(self, name,user,token,mess):
