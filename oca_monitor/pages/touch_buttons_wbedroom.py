@@ -293,6 +293,8 @@ class TouchButtonsWBedroom(QWidget):
 
     def d_close_clicked(self):
         self.d.close()
+        self.c = QDialog()
+
 
     @asyncSlot()
     async def raise_alarm(self,mess,wyj=0):
@@ -305,8 +307,10 @@ class TouchButtonsWBedroom(QWidget):
         
 
         await self.siren(wyj)
-
-        self.d.close()    
+        if self.b_alarm.isChecked():
+            QtCore.QTimer.singleShot(2000, self.siren(mes='',wyj=0))
+        self.d.close()
+           
 
     async def push(self, name,user,token,mess):
         pars = {'token':token,'user':user,'message':mess+name+'!'}
@@ -315,6 +319,8 @@ class TouchButtonsWBedroom(QWidget):
     async def siren(self,wyj):
         for siren,ip in config.bbox_sirens.items():
             requests.post('http://'+ip+'/state',json={"relays":[{"relay":0,"state":wyj}]})
+
+        
 
             
 
