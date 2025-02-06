@@ -30,8 +30,9 @@ class bboxItem():
         self.name = name
         self.ip = ip
         self.button = button
+        self.is_available()
 
-    def is_avilable(self):
+    def is_available(self):
         try:
         #if True:
             req = requests.get('http://'+self.ip+'/info',timeout=0.5)
@@ -41,6 +42,7 @@ class bboxItem():
                 self.is_active = True 
         except:
             self.is_active = False
+        return self.is_active
 
     def changeState(self):
         if self.is_active:
@@ -198,12 +200,23 @@ class TouchButtonsWBedroom(QWidget):
 
         # Some async operation
         
-        QtCore.QTimer.singleShot(1000, self._update_weather)
-        QtCore.QTimer.singleShot(1000, self._update_ephem)
+        self._update_weather
+        self._update_ephem
+        self._update_water_status()
         
         logger.info("UI setup done")
 
     
+    def _update_water_status(self):
+        
+        if self.water_pump.is_available():
+                light.slide.setStyleSheet("QCheckBox::indicator{width: 200px; height:200px;} QCheckBox::indicator:checked {image: url(./Icons/hot_water_on.png)} QCheckBox::indicator:unchecked {image: url(./Icons/hot_water_off.png)}")
+            '''else:
+                light.slide.setStyleSheet("QCheckBox::indicator{width: 200px; height:200px;} QCheckBox::indicator:checked {image: url(./Icons/"+light.name+"_lightna.png)} QCheckBox::indicator:unchecked {image: url(./Icons/"+light.name+"_lightna.png)}")'''
+            
+
+        QtCore.QTimer.singleShot(15000, self._update_water_status)
+
     @asyncSlot()
     async def water_button_pressed(self):
         await self.water_pump.changeState()
