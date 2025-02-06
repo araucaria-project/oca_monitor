@@ -185,7 +185,7 @@ class TouchButtonsWBedroom(QWidget):
 
         self.vbox_right.addWidget(self.b_alarm)
                 
-        self.water_pump=bboxItem(item,config.bbox_bedroom_west[item],QCheckBox())
+        self.water_pump=bboxItem('hot_water',config.bbox_bedroom_west['hot_water'],QCheckBox())
         self.water_pump.button.setStyleSheet("QCheckBox::indicator{width: 200px; height:200px;} QCheckBox::indicator:checked {image: url(./Icons/"+item+"_on.png)} QCheckBox::indicator:unchecked {image: url(./Icons/"+item+"_off.png)}")
         self.water_pump.button.setChecked(False)
         self.water_pump.button.stateChanged.connect(self.bedroomStaff[-1].changeState)
