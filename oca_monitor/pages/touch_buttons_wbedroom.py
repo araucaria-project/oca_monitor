@@ -216,11 +216,11 @@ class TouchButtonsWBedroom(QWidget):
             
 
         QtCore.QTimer.singleShot(15000, self._update_water_status)'''
-
-    def water_button_pressed(self,wylacz=False):
+    @asyncSlot()
+    async def water_button_pressed(self,wylacz=False):
         if wylacz:
             self.water_pump.button.setChecked(False)
-        self.water_pump.changeState()
+        await self.water_pump.changeState()
         #if self.water_pump.button.isChecked:
             #przycisk musi byc wlaczony przez okolo 2 sekundy zeby pompa sie uruchomila
             
