@@ -66,7 +66,7 @@ source = "telescopes"  # page source - page is defined in oca_monitor/pages/exam
 ##--------------------------touchpanel controlroom---------------
 
 [touch_controlroom]  # global configuration is used by all environments, setting from here override all other settings
-window_size = [1200, 740]
+window_size = [1250, 740]
 panel_columns = [1]  # The size ratio of the columns in the panel grid
 panel_rows = [1]   # The size ratio of the rows in the panel grid
 style = "dark"
