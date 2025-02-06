@@ -188,7 +188,6 @@ class TouchButtonsWBedroom(QWidget):
 
         self.hbox_main = QHBoxLayout()
         self.hbox_main.addLayout(self.hbox_light_buttons)
-        self.hbox_main.addLayout(self.vbox_enable_buttons)
         self.hbox_main.addLayout(self.vbox_emergency_buttons)
         self.layout.addLayout(self.hbox_main)
 
