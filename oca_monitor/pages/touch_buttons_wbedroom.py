@@ -350,8 +350,8 @@ class TouchButtonsWBedroom(QWidget):
         }
         async for data, meta in rdr:
             ts = dt_ensure_datetime(data['ts']).astimezone()
-            
-            self.temp = "{:.1f}".format(data['temperature_C'])
+            mes = data["measurements"]
+            self.temp = "{:.1f}".format(data['temperature'])
             self.label_wtemp.setText(str(temp))
 
 widget_class = TouchButtonsWBedroom
