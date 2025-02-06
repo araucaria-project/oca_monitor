@@ -26,7 +26,7 @@ def ephemeris():
     return lt,sun.alt
 
 class bboxItem():
-    def __init__(self,name,ip,slide):
+    def __init__(self,name,ip,button):
         self.name = name
         self.ip = ip
         self.button = button
