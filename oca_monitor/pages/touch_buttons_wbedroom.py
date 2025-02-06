@@ -172,8 +172,12 @@ class TouchButtonsWBedroom(QWidget):
         self.vbox_right = QVBoxLayout()
         
         self.label_ephem = QLabel("ephem")
-        self.label_ephem.setStyleSheet("background-color : black; color: white")
+        self.label_ephem.setStyleSheet("background-color : #2b2b2b; color: white; font-weight: bold")
         self.label_ephem.setFont(QtGui.QFont('Arial', 28))
+
+        self.label_temp = QLabel("temp")
+        self.label_temp.setStyleSheet("background-color : #2b2b2b; color: white; font-weight: bold")
+        self.label_temp.setFont(QtGui.QFont('Arial', 28))
 
         self.vbox_left.addWidget(self.label_ephem)
 
@@ -204,6 +208,7 @@ class TouchButtonsWBedroom(QWidget):
         
         self._update_weather()
         self._update_ephem()
+        self._update_temp()
         #self._update_water_status()
         
         logger.info("UI setup done")
@@ -303,7 +308,7 @@ class TouchButtonsWBedroom(QWidget):
             warning = 'Wind:\t'+str(self.wind)+' m/s\n'+'Temp:\t'+str(self.temp)+' C\n'+'Hum:\t'+str(self.hum)+' %\n'+'Press:\t'+str(self.pres)+' hPa\n'
             
 
-            if (float(self.wind) >= 11. and float(self.wind) < 14.) or float(self.hum) > 70.:
+            if (float(self.wind) >= 11. and float(self.wind) < 14.) or float(self.hum) > 70:
                 self.label_weather.setStyleSheet("background-color : yellow; color: black")
                 
             elif float(self.wind) >= 14. or float(self.hum) > 75. or float(self.temp) < 0.:
@@ -311,8 +316,40 @@ class TouchButtonsWBedroom(QWidget):
                 
             else:
                
-                self.label_weather.setStyleSheet("background-color : lightgreen; color: black")
+                self.label_weather.setStyleSheet("background-color : green; color: black")
 
             self.label_weather.setText(warning)
+
+    @asyncSlot()
+    async def _update_temp(self):
+        
+        self.roomtemp = '0.0'
+        await create_task(self.reader_loop_3(), "temp reader")
+        #warning = 'Wind: '+str(self.wind)+' m/s\n'+'Temperature: '+str(self.temp)+' C\n'+'Humidity: '+str(self.hum)+' %\n'+'Wind dir: '+str(self.main_window.winddir)+'\n'
+        #self.label.setText(warning)
+    
+
+    async def reader_loop_3(self):
+        
+        msg = Messenger()
+
+        # We want the data from the midnight of yesterday
+        
+
+        rdr = msg.get_reader(
+            self.temp_subject,
+            deliver_policy='last',
+        )
+        logger.info(f"Subscribed to {self.temp_subject}")
+
+        sample_measurement = {
+                "temperature_C": 10
+        }
+        async for data, meta in rdr:
+            ts = dt_ensure_datetime(data['ts']).astimezone()
+            measurement = data['measurements']
+            
+            self.temp = "{:.1f}".format(measurement['temperature_C'])
+            self.label_wtemp.setText(str(temp))
 
 widget_class = TouchButtonsWBedroom
