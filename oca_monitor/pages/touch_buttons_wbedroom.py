@@ -178,18 +178,17 @@ class TouchButtonsWBedroom(QWidget):
         self.vbox_left.addWidget(self.label_ephem)
 
 
-        self.label_temp = QLabel("temp")
-        self.label_temp.setStyleSheet("background-color : #2b2b2b; color: white; font-weight: bold")
-        self.label_temp.setFont(QtGui.QFont('Arial', 28))
-
-        self.vbox_center.addWidget(self.label_temp)
-
-
         self.label_weather = QLabel("weather")
         self.label_weather.setStyleSheet("background-color : silver; color: black")
         self.label_weather.setFont(QtGui.QFont('Arial', 28))
 
         self.vbox_center.addWidget(self.label_weather)
+
+        self.label_temp = QLabel("temp")
+        self.label_temp.setStyleSheet("background-color : #2b2b2b; color: white; font-weight: bold")
+        self.label_temp.setFont(QtGui.QFont('Arial', 28))
+
+        self.vbox_center.addWidget(self.label_temp)
 
         self.b_alarm = QCheckBox()#abort button
         self.b_alarm.setStyleSheet("QCheckBox::indicator{width: 300px; height:300px;} QCheckBox::indicator:checked {image: url(./Icons/alarmon.png)} QCheckBox::indicator:unchecked {image: url(./Icons/alarmoff.png)}")
@@ -351,9 +350,8 @@ class TouchButtonsWBedroom(QWidget):
         }
         async for data, meta in rdr:
             ts = dt_ensure_datetime(data['ts']).astimezone()
-            measurement = data['measurements']
             
-            self.temp = "{:.1f}".format(measurement['temperature_C'])
+            self.temp = "{:.1f}".format(data['temperature_C'])
             self.label_wtemp.setText(str(temp))
 
 widget_class = TouchButtonsWBedroom
