@@ -20,10 +20,10 @@ def ephemeris():
     arm.lat='-24.598616'
     arm.elev=2800
     arm.pressure=730
-    lt = time.strftime('%Y/%m/%d %H:%M:%S',time.localtime() )
+    lt = time.strftime('%H:%M:%S %Y/%m/%d',time.localtime() )
     sun = ephem.Sun()
     sun.compute(arm)
-    return lt,sun.alt
+    return str(lt).replace(' ','\n\n',1),str(sun.alt).split(':')[0]
 
 class bboxItem():
     def __init__(self,name,ip,button):
@@ -172,14 +172,14 @@ class TouchButtonsWBedroom(QWidget):
         self.vbox_right = QVBoxLayout()
         
         self.label_ephem = QLabel("ephem")
-        self.label_ephem.setStyleSheet("background-color : gray; color: white")
-        self.label_ephem.setFont(QtGui.QFont('Arial', 26))
+        self.label_ephem.setStyleSheet("background-color : black; color: white")
+        self.label_ephem.setFont(QtGui.QFont('Arial', 28))
 
         self.vbox_left.addWidget(self.label_ephem)
 
         self.label_weather = QLabel("weather")
         self.label_weather.setStyleSheet("background-color : silver; color: black")
-        self.label_weather.setFont(QtGui.QFont('Arial', 26))
+        self.label_weather.setFont(QtGui.QFont('Arial', 28))
 
         self.vbox_center.addWidget(self.label_weather)
 
@@ -249,7 +249,7 @@ class TouchButtonsWBedroom(QWidget):
     def _update_ephem(self):
         lt,sunalt = ephemeris()
         sunalt = str(sunalt)
-        text = str(lt)+'\nSUN ALT: '+sunalt
+        text = str(lt)+'\n\nSUN ALT: '+sunalt
         self.label_ephem.setText(text)
         
         QtCore.QTimer.singleShot(1000, self._update_ephem)
