@@ -20,8 +20,9 @@ bbox_led_control_controlroom = {'controlroom':'192.168.7.223'}
 bbox_led_control_tel = {'zb08':'192.168.7.216','wk06':'192.168.7.217','jk15':'192.168.7.218','iris':'192.168.7.215','wg25':'192.168.7.219','tmmt':'192.168.7.220'}
 bbox_blinds_control = {'bodega':'192.168.7.190','kitchen':'192.168.7.191'}
 bbox_bedroom_west = {'hot_water':'192.168.7.225'}
+bbox_sirens = {'electric_room':'192.168.7.188'}
 
 #pushover user,token
-pushover = {'Piotrek':['uacjyhka7d75k5i3gmfhdg9pc2vqyf','adcte9qacd6jhmhch8dyw4e4ykuod2'],'Marek':['ugcgrfrrfn4eefnpiekgwqnxfwtrz5','adcte9qacd6jhmhch8dyw4e4ykuod2'],'OCMFON':['uqizn1afohvpeymtpu7cq67rabiidx','adcte9qacd6jhmhch8dyw4e4ykuod2']}#,'Weronika':[uqiowbkk91544jc5zab54vnsp5fjb2],'Paulina':[ucw5v3tyxwpes9e6wznf59f2s7hfzy],'Mikolaj':[],'Mirek':[],'Bartek':[]}
+pushover = {'Piotrek':['uacjyhka7d75k5i3gmfhdg9pc2vqyf','adcte9qacd6jhmhch8dyw4e4ykuod2'],'Marek':['ugcgrfrrfn4eefnpiekgwqnxfwtrz5','adcte9qacd6jhmhch8dyw4e4ykuod2'],'OCMFON':['uqizn1afohvpeymtpu7cq67rabiidx','adcte9qacd6jhmhch8dyw4e4ykuod2'],'Weronika':['uqiowbkk91544jc5zab54vnsp5fjb2','adcte9qacd6jhmhch8dyw4e4ykuod2']}#,'Paulina':[ucw5v3tyxwpes9e6wznf59f2s7hfzy],'Mikolaj':[],'Mirek':[],'Bartek':[]}
 # `envvar_prefix` = export envvars with `export DYNACONF_FOO=bar`.
 # `settings_files` = Load these files in the order.

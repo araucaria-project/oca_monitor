@@ -1,5 +1,5 @@
 import logging
-from PyQt6.QtWidgets import QWidget, QVBoxLayout, QHBoxLayout, QLabel,QSlider,QDial,QScrollBar,QPushButton,QCheckBox
+from PyQt6.QtWidgets import QDialog,QWidget, QVBoxLayout, QHBoxLayout, QLabel,QSlider,QDial,QScrollBar,QPushButton,QCheckBox
 from PyQt6 import QtCore, QtGui
 import json,requests
 import oca_monitor.config as config
@@ -20,10 +20,12 @@ def ephemeris():
     arm.lat='-24.598616'
     arm.elev=2800
     arm.pressure=730
-    lt = time.strftime('%H:%M:%S %Y/%m/%d',time.localtime() )
+    #lt = time.strftime('%H:%M:%S %Y/%m/%d',time.localtime() )
+    lt = time.strftime('%H:%M:%S',time.localtime() )
     sun = ephem.Sun()
     sun.compute(arm)
-    return str(lt).replace(' ','\n\n',1),str(sun.alt).split(':')[0]
+    #return str(lt).replace(' ','\n\n',1),str(sun.alt).split(':')[0]
+    return str(lt),str(sun.alt).split(':')[0]
 
 class bboxItem():
     def __init__(self,name,ip,button):
@@ -155,7 +157,7 @@ class TouchButtonsWBedroom(QWidget):
                  main_window, # always passed
                  example_parameter: str = "Hello OCM!",  # parameters from settings
                  subject='telemetry.weather.davis',#weather subject
-                 temp_subject='telemetry.conditions.bedroom-west-tsensor',
+                 temp_subject='telemetry.conditions.bedroom-east-tsensor',
                  **kwargs  # other parameters
                  ):
         super().__init__()
@@ -173,26 +175,27 @@ class TouchButtonsWBedroom(QWidget):
         
         self.label_ephem = QLabel("ephem")
         self.label_ephem.setStyleSheet("background-color : #2b2b2b; color: white; font-weight: bold")
-        self.label_ephem.setFont(QtGui.QFont('Arial', 28))
+        self.label_ephem.setFont(QtGui.QFont('Arial', 52))
 
         self.vbox_left.addWidget(self.label_ephem)
 
 
         self.label_weather = QLabel("weather")
         self.label_weather.setStyleSheet("background-color : silver; color: black")
-        self.label_weather.setFont(QtGui.QFont('Arial', 28))
+        self.label_weather.setFont(QtGui.QFont('Arial', 34))
 
         self.vbox_center.addWidget(self.label_weather)
 
         self.label_temp = QLabel("temp")
         self.label_temp.setStyleSheet("background-color : #2b2b2b; color: white; font-weight: bold")
-        self.label_temp.setFont(QtGui.QFont('Arial', 28))
+        self.label_temp.setFont(QtGui.QFont('Arial', 52))
 
-        self.vbox_center.addWidget(self.label_temp)
+        self.vbox_left.addWidget(self.label_temp)
 
         self.b_alarm = QCheckBox()#abort button
         self.b_alarm.setStyleSheet("QCheckBox::indicator{width: 300px; height:300px;} QCheckBox::indicator:checked {image: url(./Icons/alarmon.png)} QCheckBox::indicator:unchecked {image: url(./Icons/alarmoff.png)}")
         self.b_alarm.stateChanged.connect(self.send_alarm)
+        self.b_alarm.setChecked(False)
 
         self.vbox_right.addWidget(self.b_alarm)
                 
@@ -200,7 +203,7 @@ class TouchButtonsWBedroom(QWidget):
         self.water_pump.button.setStyleSheet("QCheckBox::indicator{width: 200px; height:200px;} QCheckBox::indicator:checked {image: url(./Icons/hot_water_on.png)} QCheckBox::indicator:unchecked {image: url(./Icons/hot_water_off.png)}")
         self.water_pump.button.setChecked(False)
         self.water_pump.button.stateChanged.connect(self.water_button_pressed)
-        self.vbox_left.addWidget(self.water_pump.button)
+        self.vbox_center.addWidget(self.water_pump.button)
 
     
         self.layout.addLayout(self.vbox_left)
@@ -239,25 +242,86 @@ class TouchButtonsWBedroom(QWidget):
     async def changeWaterState(self):
         self.water_pump.changeState()
 
-    @asyncSlot()
-    async def send_alarm(self):
+
+
+    def send_alarm(self):
         if self.b_alarm.isChecked:
-            await self.raise_alarm('OCM: HELP US, ')
+            self.d = QDialog()
+            layout = QVBoxLayout()
+            l1 = QHBoxLayout()
+            self.d.setWindowTitle("ALARM")
+            self.d.button_silent_test = QPushButton()
+            self.d.button_silent_test.setText('TEST')
+            self.d.button_silent_test.clicked.connect(lambda: self.raise_alarm('OCM: TEST,',wyj=0))
+            self.d.button_silent_test.setStyleSheet('QPushButton {background-color: white; border:  grey; font: bold;font-size: 32px; color: black;height: 160px;width: 220px}')
 
-        self.b_alarm.setChecked(False)
+            self.d.button_siren = QPushButton()
+            self.d.button_siren.setText('SIREN')
+            self.d.button_siren.clicked.connect(lambda: self.raise_alarm('',wyj=1))
+            self.d.button_siren.setStyleSheet('QPushButton {background-color: yellow; border:  grey; font: bold;font-size: 34px;color: black;height: 160px;width: 220px}')
+
+            self.d.button_sirenstop = QPushButton()
+            self.d.button_sirenstop.setText('SIREN STOP')
+            self.d.button_sirenstop.clicked.connect(lambda: self.raise_alarm('',wyj=0))
+            self.d.button_sirenstop.setStyleSheet('QPushButton {background-color: orange; border:  grey; font: bold;font-size: 34px;color: black;height: 160px;width: 220px}')
+            
+            self.d.button_alarm = QPushButton()
+            self.d.button_alarm.setText('REAL ALARM')
+            self.d.button_alarm.clicked.connect(lambda: self.raise_alarm('OCM: HELP US,',wyj=1))
+            self.d.button_alarm.setStyleSheet('QPushButton {background-color: red; border:  grey; font: bold;font-size: 34px;color: black;height: 160px;width: 220px}')
+
+            self.d.button_close = QPushButton()
+            self.d.button_close.setText('CLOSE')
+            self.d.button_close.clicked.connect(self.d_close_clicked)
+            self.d.button_close.setStyleSheet('QPushButton {background-color: grey; border:  grey; font: bold;font-size: 34px;color: black;height: 100px;width: 400px}')
 
 
-    async def raise_alarm(self,mess):
-        for name,po_data in config.pushover.items():
-            user = po_data[0]
-            token = po_data[1]
-            pars = {'token':token,'user':user,'message':mess+name+'!'}
-            requests.post('https://api.pushover.net/1/messages.json',data=pars)
+            l1.addWidget(self.d.button_silent_test)
+            l1.addWidget(self.d.button_siren)
+            l1.addWidget(self.d.button_sirenstop)
+            l1.addWidget(self.d.button_alarm)
+
+            layout.addLayout(l1)
+            layout.addWidget(self.d.button_close)
+
+            self.d.setLayout(layout)
+            self.d.exec()
+            self.b_alarm.setChecked(False)
+            #self.d.setGeometry(500,300,1400,500)
+
+        return 1
+
+    def d_close_clicked(self):
+        self.d.close()
+
+    @asyncSlot()
+    async def raise_alarm(self,mess,wyj=0):
+        if len(mess) > 0:
+            for name,po_data in config.pushover.items():
+            
+                user = po_data[0]
+                token = po_data[1]
+                await self.push(name,user,token,mess)
+        
+
+        await self.siren(wyj)
+
+        self.d.close()    
+
+    async def push(self, name,user,token,mess):
+        pars = {'token':token,'user':user,'message':mess+name+'!'}
+        requests.post('https://api.pushover.net/1/messages.json',data=pars)
+
+    async def siren(self,wyj):
+        for siren,ip in config.bbox_sirens.items():
+            requests.post('http://'+ip+'/state',json={"relays":[{"relay":0,"state":wyj}]})
+
+            
 
     def _update_ephem(self):
         lt,sunalt = ephemeris()
         sunalt = str(sunalt)
-        text = str(lt)+'\n\nSUN ALT: '+sunalt
+        text = str(lt)+'\n\nSUN: '+sunalt
         self.label_ephem.setText(text)
         
         QtCore.QTimer.singleShot(1000, self._update_ephem)
@@ -346,13 +410,15 @@ class TouchButtonsWBedroom(QWidget):
         logger.info(f"Subscribed to {self.temp_subject}")
 
         sample_measurement = {
-                "temperature_C": 10
+                "temperature": 10
         }
-        async for data, meta in rdr:
-            ts = dt_ensure_datetime(data['ts']).astimezone()
-            #mes = data["measurements"]
-            print(data)
-            self.temp = "{:.1f}".format(data['temperature'])
-            self.label_wtemp.setText(str(temp))
+        try:
+            async for data, meta in rdr:
+                ts = dt_ensure_datetime(data['ts']).astimezone()
+                mes = data["measurements"]
+                self.temp = "{:.1f}".format(mes['temperature'])
+                self.label_temp.setText(str(self.temp)+ ' C')
+        except:
+            pass
 
 widget_class = TouchButtonsWBedroom
