@@ -202,8 +202,8 @@ class TouchButtonsWBedroom(QWidget):
 
         # Some async operation
         
-        self._update_weather
-        self._update_ephem
+        self._update_weather()
+        self._update_ephem()
         #self._update_water_status()
         
         logger.info("UI setup done")
