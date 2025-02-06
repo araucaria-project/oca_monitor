@@ -188,7 +188,7 @@ class TouchButtonsWBedroom(QWidget):
         self.water_pump=bboxItem('hot_water',config.bbox_bedroom_west['hot_water'],QCheckBox())
         self.water_pump.button.setStyleSheet("QCheckBox::indicator{width: 200px; height:200px;} QCheckBox::indicator:checked {image: url(./Icons/hot_water_on.png)} QCheckBox::indicator:unchecked {image: url(./Icons/hot_water_off.png)}")
         self.water_pump.button.setChecked(False)
-        self.water_pump.button.stateChanged.connect(self.bedroomStaff[-1].changeState)
+        self.water_pump.button.stateChanged.connect(self.water_button_pressed)
         self.vbox_left.addWidget(self.water_pump.button)
 
     
@@ -205,11 +205,13 @@ class TouchButtonsWBedroom(QWidget):
 
     
     @asyncSlot()
-    async def button_pressed(self):
-        if self.b_abort.isChecked:
-            await self.raise_alarm('EMERGENCY STOP OBS!')
-            
-        self.b_abort.setChecked(False)
+    async def water_button_pressed(self):
+        await self.water_pump.changeState()
+        if self.water_pump.button.isChecked:
+            #przycisk musi byc wlaczony przez okolo 2 sekundy zeby pompa sie uruchomila
+            self.water_pump.button.setChecked(False)
+            QtCore.QTimer.singleShot(2000, self.water_button_pressed)
+
 
     @asyncSlot()
     async def send_alarm(self):
