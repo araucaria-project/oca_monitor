@@ -202,20 +202,20 @@ class TouchButtonsWBedroom(QWidget):
         
         self._update_weather
         self._update_ephem
-        self._update_water_status()
+        #self._update_water_status()
         
         logger.info("UI setup done")
 
     
-    def _update_water_status(self):
+    '''def _update_water_status(self):
         
         if self.water_pump.is_available():
             self.water_pump.button.setStyleSheet("QCheckBox::indicator{width: 200px; height:200px;} QCheckBox::indicator:checked {image: url(./Icons/hot_water_on.png)} QCheckBox::indicator:unchecked {image: url(./Icons/hot_water_off.png)}")
-            '''else:
-                light.slide.setStyleSheet("QCheckBox::indicator{width: 200px; height:200px;} QCheckBox::indicator:checked {image: url(./Icons/"+light.name+"_lightna.png)} QCheckBox::indicator:unchecked {image: url(./Icons/"+light.name+"_lightna.png)}")'''
+            else:
+                light.slide.setStyleSheet("QCheckBox::indicator{width: 200px; height:200px;} QCheckBox::indicator:checked {image: url(./Icons/"+light.name+"_lightna.png)} QCheckBox::indicator:unchecked {image: url(./Icons/"+light.name+"_lightna.png)}")
             
 
-        QtCore.QTimer.singleShot(15000, self._update_water_status)
+        QtCore.QTimer.singleShot(15000, self._update_water_status)'''
 
     def water_button_pressed(self,wylacz=False):
         if wylacz:
