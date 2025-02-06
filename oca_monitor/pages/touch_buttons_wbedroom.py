@@ -226,7 +226,7 @@ class TouchButtonsWBedroom(QWidget):
     @asyncSlot()
     async def send_alarm(self):
         if self.b_alarm.isChecked:
-            await self.raise_alarm('OCM: HELP!')
+            await self.raise_alarm('OCM HELP!')
 
         self.b_alarm.setChecked(False)
 
@@ -238,12 +238,11 @@ class TouchButtonsWBedroom(QWidget):
         self.b_abort.setChecked(False)
 
     async def raise_alarm(self,mess):
-        pars = {'token':'adcte9qacd6jhmhch8dyw4e4ykuod2','user':'uacjyhka7d75k5i3gmfhdg9pc2vqyf','message':mess}
-        requests.post('https://api.pushover.net/1/messages.json',data=pars)
-
-        # mgorski tez tu nizej
-        pars = {'token':"adcte9qacd6jhmhch8dyw4e4ykuod2",'user':"ugcgrfrrfn4eefnpiekgwqnxfwtrz5",'message':mess}
-        requests.post('https://api.pushover.net/1/messages.json',data=pars)
+        for name,po_data in config.pushover.items():
+            user = po_data[0]
+            token = po_data[1]
+            pars = {'token':token,'user':user,'message':name+' '+mess}
+            requests.post('https://api.pushover.net/1/messages.json',data=pars)
 
 
 widget_class = TouchButtonsWBedroom
