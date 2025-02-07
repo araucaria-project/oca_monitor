@@ -34,7 +34,7 @@ vertical_screen = 0
 
 [default.panels.01.Weather]
 #auto_interval = 10  # seconds, how long to show this page before auto switching to next page
-source = "wind"  # page source - page is defined in oca_monitor/pages/example.py
+source = "weather"  # page source - page is defined in oca_monitor/pages/example.py
 vertical_screen = 0
 
 #[default.panels.01.Conditions]
@@ -57,10 +57,6 @@ source = "message"  # page source - page is defined in oca_monitor/pages/example
 [default.panels.10.Telescopes]
 #auto_interval = 10  # seconds, how long to show this page before auto switching to next page
 source = "telescopes"  # page source - page is defined in oca_monitor/pages/example.py
-
-#[default.panels.11.Water]
-#auto_interval = 10  # seconds, how long to show this page before auto switching to next page
-#source = "water"  # page source - page is defined in oca_monitor/pages/example.py
 
 
 ##--------------------------touchpanel controlroom---------------
