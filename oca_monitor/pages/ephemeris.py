@@ -15,13 +15,6 @@ from astropy.time import Time as czas_astro
 # please use logging like here, it will name the log record with the name of the module
 logger = logging.getLogger(__name__.rsplit('.')[-1])
 
-def raise_alarm(mess):
-    pars = {'token':'adcte9qacd6jhmhch8dyw4e4ykuod2','user':'uacjyhka7d75k5i3gmfhdg9pc2vqyf','message':mess}
-    requests.post('https://api.pushover.net/1/messages.json',data=pars)
-
-    # mgorski tez tu nizej
-    pars = {'token': "aw8oa41mtt3nqrtg1vu3ny67ajans1", 'user': "ugcgrfrrfn4eefnpiekgwqnxfwtrz5", 'message': mess}
-    requests.post('https://api.pushover.net/1/messages.json', data=pars)
 
 def ephemeris():
     arm=ephem.Observer()
@@ -83,7 +76,6 @@ class WidgetEphem(QWidget):
         
 
         self._update_ephem()
-        logger.info("UI setup done")
 
     def _update_ephem(self):
         text,sunalt = ephemeris()
