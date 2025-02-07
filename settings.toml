@@ -144,7 +144,7 @@ vertical_screen = 1
 [kitchen.panels.20.Buttons]
 source = "buttons_kitchen"  # page source - page is defined in oca_monitor/pages/
 
-[kitchen.panels.21.Buttons]
+[kitchen.panels.21.Message]
 source = "message"  # page source - page is defined in oca_monitor/pages/
 
 
