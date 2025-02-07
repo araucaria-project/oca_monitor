@@ -387,11 +387,11 @@ class TouchButtonsWBedroom(QWidget):
                 self.label_weather.setStyleSheet("background-color : yellow; color: black")
                 
             elif float(self.wind) >= 14. or float(self.hum) > 75. or float(self.temp) < 0.:
-                self.label_weather.setStyleSheet("background-color : red; color: black")
+                self.label_weather.setStyleSheet("background-color : coral; color: black")
                 
             else:
                
-                self.label_weather.setStyleSheet("background-color : green; color: black")
+                self.label_weather.setStyleSheet("background-color : lightgreen; color: black")
 
             self.label_weather.setText(warning)
 
