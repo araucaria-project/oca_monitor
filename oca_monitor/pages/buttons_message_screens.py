@@ -133,6 +133,7 @@ class ButtonsMessageKitchenWidget(QWidget):
         self.parent = main_window
         self.subject = subject
         self.vertical = bool(vertical_screen)
+        self.light = light
         self.initUI()
         self.parent.sound_page = self
         self.one_sun_sound = True
@@ -151,7 +152,7 @@ class ButtonsMessageKitchenWidget(QWidget):
     def initUI(self,):
         self.layout = QHBoxLayout(self)
         self.info_e = QTextEdit()
-        self.swiatlo = light_point(light,config.bbox_led_control_main[light],QDial())
+        self.swiatlo = light_point(self.light,config.bbox_led_control_main[self.light],QDial())
             
 
         self.layout.addWidget(self.swiatlo.slider,1)

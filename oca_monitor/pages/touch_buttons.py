@@ -108,11 +108,12 @@ class TouchButtonsControlroom(QWidget):
                  main_window, # always passed
                  example_parameter: str = "Hello OCM!",  # parameters from settings
                  subject='telemetry.weather.davis',#weather subject
-                 light=''
+                 light='',
                  **kwargs  # other parameters
                  ):
         super().__init__()
         self.main_window = main_window
+        self.light = light
         self.initUI(example_parameter,subject)
 
     def initUI(self, text,subject):
@@ -143,7 +144,7 @@ class TouchButtonsControlroom(QWidget):
         self.hbox_light_buttons = QHBoxLayout()
         #self.vbox_light_buttons_left.addWidget(self.label_lights)
 
-        self.swiatlo=light_point(light,config.bbox_led_control_main[light],QDial())
+        self.swiatlo=light_point(self.light,config.bbox_led_control_main[self.light],QDial())
         self.vbox_enable_buttons.addWidget(self.swiatlo.slider,1)
 
         self.lightSlides = []
