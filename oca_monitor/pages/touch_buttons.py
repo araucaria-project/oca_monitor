@@ -108,6 +108,7 @@ class TouchButtonsControlroom(QWidget):
                  main_window, # always passed
                  example_parameter: str = "Hello OCM!",  # parameters from settings
                  subject='telemetry.weather.davis',#weather subject
+                 light=''
                  **kwargs  # other parameters
                  ):
         super().__init__()
@@ -142,12 +143,8 @@ class TouchButtonsControlroom(QWidget):
         self.hbox_light_buttons = QHBoxLayout()
         #self.vbox_light_buttons_left.addWidget(self.label_lights)
 
-        self.lights = []
-        
-        for i,light in enumerate(config.bbox_led_control_controlroom):
-            #self.lights.append(light_point(light,config.bbox_led_control[light],QPushButton('+'),QPushButton('-'),QLabel('LIGHT '+light)))
-            self.lights.append(light_point(light,config.bbox_led_control_controlroom[light],QDial()))
-            self.vbox_enable_buttons.addWidget(self.lights[-1].slider,1)
+        self.swiatlo=light_point(light,config.bbox_led_control_main[light],QDial()))
+        self.vbox_enable_buttons.addWidget(self.swiatlo.slider,1)
 
         self.lightSlides = []
         for i,light in enumerate(config.bbox_led_control_tel):
@@ -185,8 +182,7 @@ class TouchButtonsControlroom(QWidget):
             else:
                 light.slide.setStyleSheet("QCheckBox::indicator{width: 200px; height:200px;} QCheckBox::indicator:checked {image: url(./Icons/"+light.name+"_lightna.png)} QCheckBox::indicator:unchecked {image: url(./Icons/"+light.name+"_lightna.png)}")
 
-        for light in self.lights:
-            light.status()
+        self.swiatlo.status()
             
 
         QtCore.QTimer.singleShot(15000, self._update_lights_status)

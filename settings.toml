@@ -84,6 +84,7 @@ log_level = "INFO"
 
 [touch_controlroom.panels.00.Buttons]
 source = "touch_buttons"  # page source - page is defined in oca_monitor/pages/example.py
+light='controlroom'
 
 ##--------------------------touchpanel bedroom---------------
 
@@ -145,7 +146,8 @@ vertical_screen = 1
 #source = "buttons_kitchen"  # page source - page is defined in oca_monitor/pages/
 
 [kitchen.panels.20.Buttons]
-source = "buttons_message_kitchen"  # page source - page is defined in oca_monitor/pages/
+source = "buttons_message_screens"  # page source - page is defined in oca_monitor/pages/
+light = 'kitchen'
 
 
 ##--------------------------screens tvroom---------------
@@ -182,8 +184,8 @@ source = "wind"  # page source - page is defined in oca_monitor/pages/example.py
 vertical_screen = 1
 
 [tvroom.panels.20.Buttons]
-source = "buttons_tvroom"  # page source - page is defined in oca_monitor/pages/example.py
-
+source = "buttons_message_screens"  # page source - page is defined in oca_monitor/pages/example.py
+light='tvroom'
 
 #----------dev----------
 
