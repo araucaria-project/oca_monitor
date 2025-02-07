@@ -169,9 +169,9 @@ class WidgetTvsControlroom(QWidget):
 
         #self.layout.addWidget(self.ephem)
         self.layout.addWidget(self.tel_e)
-        self.layout.addWidget(self.curve_pix)
         self.layout.addWidget(self.fits_pic)
         self.layout.addWidget(self.info_e)
+        self.layout.addWidget(self.curve_pix)
 
         # Some async operation
         self._update_ephem()
