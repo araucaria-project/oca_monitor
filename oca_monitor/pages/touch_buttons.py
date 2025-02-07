@@ -234,7 +234,7 @@ class TouchButtonsControlroom(QWidget):
 
             self.d.setLayout(layout)
             self.d.exec()
-            self.b_alarm.setChecked(False)
+            
             #self.d.setGeometry(500,300,1400,500)
 
         return 1
@@ -246,6 +246,7 @@ class TouchButtonsControlroom(QWidget):
 
     @asyncSlot()
     async def raise_alarm(self,mess,wyj=0):
+        kontrolka = 0
         if len(mess) > 0:
             for name,po_data in config.pushover.items():
             
@@ -260,6 +261,10 @@ class TouchButtonsControlroom(QWidget):
         except:
             pass
         if self.b_alarm.isChecked():
+            kontrolka = 1
+            self.b_alarm.setChecked(False)
+
+        if kontrolka == 1:
             QtCore.QTimer.singleShot(2000, self.siren(mes='',wyj=0))
         
            

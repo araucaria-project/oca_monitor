@@ -157,7 +157,7 @@ class TouchButtonsWBedroom(QWidget):
                  main_window, # always passed
                  example_parameter: str = "Hello OCM!",  # parameters from settings
                  subject='telemetry.weather.davis',#weather subject
-                 temp_subject='telemetry.conditions.bedroom-east-tsensor',
+                 temp_subject='telemetry.conditions.bedroom-west-tsensor',
                  **kwargs  # other parameters
                  ):
         super().__init__()
