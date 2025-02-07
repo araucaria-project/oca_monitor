@@ -6,7 +6,7 @@ import json,requests
 import oca_monitor.config as config
 from PyQt6.QtWidgets import  QDialog, QWidget, QVBoxLayout, QHBoxLayout, QLabel,QSlider,QDial,QScrollBar,QPushButton,QCheckBox, QTextEdit
 from PyQt6.QtCore import QTimer
-
+from PyQt6 import QtCore, QtGui
 from qasync import asyncSlot
 from serverish.base import dt_ensure_datetime
 from serverish.base.task_manager import create_task_sync, create_task
