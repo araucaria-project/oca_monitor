@@ -128,7 +128,7 @@ log_level = "INFO"
 # environment.panels.rowcolumn.tabname
 [kitchen.panels.00.Allsky]
 #auto_interval = 10  # seconds, how long to show this page before auto switching to next page
-source = "allsky_animation"  # page source - page is defined in oca_monitor/pages/example.py
+source = "allsky_animation_mpl"  # page source - page is defined in oca_monitor/pages/example.py
 vertical_screen=1
 
 [kitchen.panels.00.Satellite]
@@ -168,7 +168,7 @@ log_level = "INFO"
 # environment.panels.rowcolumn.tabname
 [tvroom.panels.00.Allsky]
 #auto_interval = 10  # seconds, how long to show this page before auto switching to next page
-source = "allsky_animation"  # page source - page is defined in oca_monitor/pages/example.py
+source = "allsky_animation_mpl"  # page source - page is defined in oca_monitor/pages/example.py
 vertical_screen=1
 
 [tvroom.panels.00.Satellite]
