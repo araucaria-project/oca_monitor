@@ -65,7 +65,7 @@ class WidgetTvsControlroom(QWidget):
                  ):
         super().__init__()
         self.main_window = main_window
-        self.tel = "wk06"  # TUTAJ ZMIENIAMY NAZWE TELESKOPU
+        self.tel = "jk15"  # TUTAJ ZMIENIAMY NAZWE TELESKOPU
 
 
         QtCore.QTimer.singleShot(0, self.async_init)
@@ -104,6 +104,7 @@ class WidgetTvsControlroom(QWidget):
             logger.warning(f'TOI: EXCEPTION 4a: {e}')
 
     def update_pictures(self):
+        self.info_e.clear()
         pix1 = QtGui.QPixmap(f"/data/fits/{self.tel}/processed-ofp/thumbnails/thumbnail_a.png")
         pix2 = QtGui.QPixmap(f"/data/fits/{self.tel}/processed-ofp/thumbnails/last_diff_light_curve_chart.png")
         pix1 = pix1.scaledToWidth(400)
@@ -120,7 +121,7 @@ class WidgetTvsControlroom(QWidget):
         n = self.ofp_data["raw"]["header"]["LOOP"]
         ndit = self.ofp_data["raw"]["header"]["NLOOPS"]
         exptime = self.ofp_data["raw"]["header"]["EXPTIME"]
-        print(self.ofp_data)
+
         txt = ""
         txt = txt + f" {date.split('T')[0]} <br>"
         txt = txt + f" {date.split('T')[1].split('.')[0]} <br>"

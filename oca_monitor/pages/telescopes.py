@@ -3,6 +3,7 @@ import logging
 import os
 import subprocess
 import time
+import asyncio
 
 from PyQt6.QtWidgets import QWidget, QGridLayout, QTableWidget, QTableWidgetItem, QHeaderView
 from PyQt6 import QtCore, QtGui
