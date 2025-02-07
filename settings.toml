@@ -33,11 +33,9 @@ source = "zb08_ofp"  # page source - page is defined in oca_monitor/pages/exampl
 #auto_interval = 10  # seconds, how long to show this page before auto switching to next page
 source = "jk15_ofp"  # page source - page is defined in oca_monitor/pages/example.py
 
-[default.panels.12.Message]
+[default.panels.10.Message]
 #auto_interval = 10  # seconds, how long to show this page before auto switching to next page
 source = "message"  # page source - page is defined in oca_monitor/pages/example.py
-
-
 
 [default.panels.01.Allsky]
 #auto_interval = 10  # seconds, how long to show this page before auto switching to next page
@@ -53,8 +51,6 @@ vertical_screen = 0
 #auto_interval = 10  # seconds, how long to show this page before auto switching to next page
 source = "telescopes"  # page source - page is defined in oca_monitor/pages/example.py
 
-
-
 [default.panels.02.Weather]
 #auto_interval = 10  # seconds, how long to show this page before auto switching to next page
 source = "weather"  # page source - page is defined in oca_monitor/pages/example.py
@@ -64,20 +60,10 @@ vertical_screen = 0
 #auto_interval = 10  # seconds, how long to show this page before auto switching to next page
 source = "ephemeris"  # page source - page is defined in oca_monitor/pages/example.py
 
-
-#[default.panels.12.Conditions]
+[default.panels.12.Conditions]
 #auto_interval = 10  # seconds, how long to show this page before auto switching to next page
 source = "conditions"  # page source - page is defined in oca_monitor/pages/example.py
 #vertical_screen = 0
-
-
-
-#[default.panels.02.Buttons]
-#auto_interval = 10  # seconds, how long to show this page before auto switching to next page
-#source = "buttons_controlroom"  # page source - page is defined in oca_monitor/pages/example.py
-
-
-
 
 
 

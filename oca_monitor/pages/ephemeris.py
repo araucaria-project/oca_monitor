@@ -59,7 +59,6 @@ class WidgetEphem(QWidget):
         super().__init__()
         self.main_window = main_window
 
-
         self.initUI()
 
 
@@ -71,7 +70,6 @@ class WidgetEphem(QWidget):
         self.ephem.setStyleSheet("background-color : silver; color: black")
         self.ephem.setFont(QtGui.QFont('Arial', 22))
 
-        
         self.layout.addWidget(self.ephem)
         
 
