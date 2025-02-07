@@ -163,7 +163,7 @@ class ButtonsMessageKitchenWidget(QWidget):
             #vbox.addWidget(self.lights[-1].label)
             #vbox.addLayout(hbox)
 
-            self.layout.addWidget(self.lights[-1].slider)
+            self.layout.addWidget(self.lights[-1].slider,1)
         #self.label = QLabel("TEL STATUS -not working yet")
         #self.label.setStyleSheet("background-color : lightgreen; color: black")
         #self.label.setFont(QtGui.QFont('Arial', 20))
@@ -171,11 +171,11 @@ class ButtonsMessageKitchenWidget(QWidget):
         self.b_alarm = QCheckBox()#abort button
         self.b_alarm.setStyleSheet("QCheckBox::indicator{width: 200px; height:200px;} QCheckBox::indicator:checked {image: url(./Icons/alarmon.png)} QCheckBox::indicator:unchecked {image: url(./Icons/alarmoff.png)}")
         self.b_alarm.stateChanged.connect(self.send_alarm)
-        self.layout.addWidget(self.b_alarm)
+        self.layout.addWidget(self.b_alarm,1)
         self._update_lights_status()
         # Some async operation
         logger.info("UI setup done")
-        self.layout.addWidget(self.info_e)
+        self.layout.addWidget(self.info_e,2)
 
     def _update_lights_status(self):
         for light in self.lights:
