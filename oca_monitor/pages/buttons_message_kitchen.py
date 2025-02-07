@@ -2,7 +2,8 @@ import logging
 import os
 import subprocess
 import time
-
+import json,requests
+import oca_monitor.config as config
 from PyQt6.QtWidgets import  QWidget, QHBoxLayout, QTextEdit
 from PyQt6.QtCore import QTimer
 
