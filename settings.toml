@@ -42,9 +42,21 @@ vertical_screen = 0
 #source = "conditions"  # page source - page is defined in oca_monitor/pages/example.py
 #vertical_screen = 0
 
-[default.panels.02.Control]
+[default.panels.02.wk06]
 #auto_interval = 10  # seconds, how long to show this page before auto switching to next page
-source = "tvs_controlroom"  # page source - page is defined in oca_monitor/pages/example.py
+source = "wk06_ofp"  # page source - page is defined in oca_monitor/pages/example.py
+
+[default.panels.02.zb08]
+#auto_interval = 10  # seconds, how long to show this page before auto switching to next page
+source = "zb08_ofp"  # page source - page is defined in oca_monitor/pages/example.py
+
+[default.panels.02.jk15]
+#auto_interval = 10  # seconds, how long to show this page before auto switching to next page
+source = "jk15_ofp"  # page source - page is defined in oca_monitor/pages/example.py
+
+#[default.panels.02.Control]
+##auto_interval = 10  # seconds, how long to show this page before auto switching to next page
+#source = "tvs_controlroom"  # page source - page is defined in oca_monitor/pages/example.py
 
 #[default.panels.02.Buttons]
 #auto_interval = 10  # seconds, how long to show this page before auto switching to next page
