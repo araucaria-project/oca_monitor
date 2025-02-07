@@ -6,7 +6,7 @@
 [default]  # global configuration is used by all environments, setting from here override all other settings
 #window_size = [1900, 1040]
 window_size = [1800, 1000]
-panel_columns = [6,4,2]  # The size ratio of the columns in the panel grid
+panel_columns = [3,6,4]  # The size ratio of the columns in the panel grid
 panel_rows = [5,1]   # The size ratio of the rows in the panel grid
 style = "dark"
 #style = "white"
