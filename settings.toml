@@ -129,7 +129,7 @@ log_level = "INFO"
 # Panel page declaration:
 # environment.panels.rowcolumn.tabname
 
-[touch_wbedroom.panels.00.Buttons]
+[touch_ebedroom.panels.00.Buttons]
 source = "touch_buttons_wbedroom"  # page source - page is defined in oca_monitor/pages/example.py
 room = 'eastbedroom'
 temp_subject='telemetry.conditions.bedroom-east-tsensor'
