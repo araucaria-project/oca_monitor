@@ -107,8 +107,8 @@ class WidgetTvsControlroom(QWidget):
         self.info_e.clear()
         pix1 = QtGui.QPixmap(f"/data/fits/{self.tel}/processed-ofp/thumbnails/thumbnail_a.png")
         pix2 = QtGui.QPixmap(f"/data/fits/{self.tel}/processed-ofp/thumbnails/last_diff_light_curve_chart.png")
-        pix1 = pix1.scaledToWidth(400)
-        pix2 = pix2.scaledToWidth(400)
+        pix1 = pix1.scaledToWidth(500)
+        pix2 = pix2.scaledToWidth(500)
         self.fits_pic.setPixmap(pix1)
         self.curve_pix.setPixmap(pix2)
 
@@ -162,8 +162,8 @@ class WidgetTvsControlroom(QWidget):
         # DUPA
         pix1 = QtGui.QPixmap(f"/data/fits/{self.tel}/processed-ofp/thumbnails/thumbnail_a.png")
         pix2 = QtGui.QPixmap(f"/data/fits/{self.tel}/processed-ofp/thumbnails/last_diff_light_curve_chart.png")
-        pix1 = pix1.scaledToWidth(400)
-        pix2 = pix2.scaledToWidth(400)
+        pix1 = pix1.scaledToWidth(500)
+        pix2 = pix2.scaledToWidth(500)
         self.fits_pic.setPixmap(pix1)
         self.curve_pix.setPixmap(pix2)
 
