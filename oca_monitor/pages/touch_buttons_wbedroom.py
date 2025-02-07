@@ -158,12 +158,14 @@ class TouchButtonsWBedroom(QWidget):
                  example_parameter: str = "Hello OCM!",  # parameters from settings
                  subject='telemetry.weather.davis',#weather subject
                  temp_subject='telemetry.conditions.bedroom-west-tsensor',
+                 room = '',
                  **kwargs  # other parameters
                  ):
         super().__init__()
         self.main_window = main_window
         self.weather_subject = subject
         self.temp_subject = temp_subject
+        self.room = room
         self.initUI(example_parameter,subject)
 
     def initUI(self, text,subject):
