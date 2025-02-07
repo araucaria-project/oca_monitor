@@ -143,7 +143,7 @@ class TouchButtonsControlroom(QWidget):
         self.hbox_light_buttons = QHBoxLayout()
         #self.vbox_light_buttons_left.addWidget(self.label_lights)
 
-        self.swiatlo=light_point(light,config.bbox_led_control_main[light],QDial()))
+        self.swiatlo=light_point(light,config.bbox_led_control_main[light],QDial())
         self.vbox_enable_buttons.addWidget(self.swiatlo.slider,1)
 
         self.lightSlides = []
