@@ -4,7 +4,7 @@ import subprocess
 import time
 import json,requests
 import oca_monitor.config as config
-from PyQt6.QtWidgets import  QWidget, QHBoxLayout, QTextEdit
+from PyQt6.QtWidgets import  QDialog, QWidget, QVBoxLayout, QHBoxLayout, QLabel,QSlider,QDial,QScrollBar,QPushButton,QCheckBox QTextEdit
 from PyQt6.QtCore import QTimer
 
 from qasync import asyncSlot
