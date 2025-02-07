@@ -21,54 +21,64 @@ log_level = "INFO"
 # Panel page declaration:
 # environment.panels.rowcolumn.tabname
 
-
-[default.panels.00.Allsky]
-#auto_interval = 10  # seconds, how long to show this page before auto switching to next page
-source = "allsky_animation_mpl"  # page source - page is defined in oca_monitor/pages/example.py
-vertical_screen = 0
-
-[default.panels.00.Satellite]
-#auto_interval = 10  # seconds, how long to show this page before auto switching to next page
-source = "satellite_animation"  # page source - page is defined in oca_monitor/pages/example.py
-vertical_screen = 0
-
-[default.panels.01.Weather]
-#auto_interval = 10  # seconds, how long to show this page before auto switching to next page
-source = "weather"  # page source - page is defined in oca_monitor/pages/example.py
-vertical_screen = 0
-
-#[default.panels.01.Conditions]
-#auto_interval = 10  # seconds, how long to show this page before auto switching to next page
-#source = "conditions"  # page source - page is defined in oca_monitor/pages/example.py
-#vertical_screen = 0
-
-[default.panels.02.wk06]
+[default.panels.00.wk06]
 #auto_interval = 10  # seconds, how long to show this page before auto switching to next page
 source = "wk06_ofp"  # page source - page is defined in oca_monitor/pages/example.py
 
-[default.panels.02.zb08]
+[default.panels.00.zb08]
 #auto_interval = 10  # seconds, how long to show this page before auto switching to next page
 source = "zb08_ofp"  # page source - page is defined in oca_monitor/pages/example.py
 
-[default.panels.02.jk15]
+[default.panels.00.jk15]
 #auto_interval = 10  # seconds, how long to show this page before auto switching to next page
 source = "jk15_ofp"  # page source - page is defined in oca_monitor/pages/example.py
-
-#[default.panels.02.Control]
-##auto_interval = 10  # seconds, how long to show this page before auto switching to next page
-#source = "tvs_controlroom"  # page source - page is defined in oca_monitor/pages/example.py
-
-#[default.panels.02.Buttons]
-#auto_interval = 10  # seconds, how long to show this page before auto switching to next page
-#source = "buttons_controlroom"  # page source - page is defined in oca_monitor/pages/example.py
 
 [default.panels.12.Message]
 #auto_interval = 10  # seconds, how long to show this page before auto switching to next page
 source = "message"  # page source - page is defined in oca_monitor/pages/example.py
 
-[default.panels.10.Telescopes]
+
+
+[default.panels.01.Allsky]
+#auto_interval = 10  # seconds, how long to show this page before auto switching to next page
+source = "allsky_animation_mpl"  # page source - page is defined in oca_monitor/pages/example.py
+vertical_screen = 0
+
+[default.panels.01.Satellite]
+#auto_interval = 10  # seconds, how long to show this page before auto switching to next page
+source = "satellite_animation"  # page source - page is defined in oca_monitor/pages/example.py
+vertical_screen = 0
+
+[default.panels.11.Telescopes]
 #auto_interval = 10  # seconds, how long to show this page before auto switching to next page
 source = "telescopes"  # page source - page is defined in oca_monitor/pages/example.py
+
+
+
+[default.panels.02.Weather]
+#auto_interval = 10  # seconds, how long to show this page before auto switching to next page
+source = "weather"  # page source - page is defined in oca_monitor/pages/example.py
+vertical_screen = 0
+
+[default.panels.12.Ephemeris]
+#auto_interval = 10  # seconds, how long to show this page before auto switching to next page
+source = "ephemeris"  # page source - page is defined in oca_monitor/pages/example.py
+
+
+#[default.panels.12.Conditions]
+#auto_interval = 10  # seconds, how long to show this page before auto switching to next page
+source = "conditions"  # page source - page is defined in oca_monitor/pages/example.py
+#vertical_screen = 0
+
+
+
+#[default.panels.02.Buttons]
+#auto_interval = 10  # seconds, how long to show this page before auto switching to next page
+#source = "buttons_controlroom"  # page source - page is defined in oca_monitor/pages/example.py
+
+
+
+
 
 
 ##--------------------------touchpanel controlroom---------------

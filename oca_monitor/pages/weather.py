@@ -35,9 +35,9 @@ def ephemeris(vertical = 0):
     sun = ephem.Sun()
     sun.compute(arm)
     if vertical:
-        text = 'LT: '+lt+'\nSUN ALT: '+str(sun.alt).split(':')[0]
+        text = 'LT: '+lt+'\nSUN ALT: '+str("{:.1f}".format(float(str(sun.alt).split(':')[0])+float(str(sun.alt).split(':')[1])/60.))
     else:
-        text = 'LT: '+lt+'\tSUN ALT: '+str(sun.alt).split(':')[0]
+        text = 'LT: '+lt+'\tSUN ALT: '+str("{:.1f}".format(float(str(sun.alt).split(':')[0])+float(str(sun.alt).split(':')[1])/60.))
     
     return text,float(str(sun.alt).split(':')[0])
 
