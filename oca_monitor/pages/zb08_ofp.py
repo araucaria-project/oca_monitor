@@ -105,7 +105,7 @@ class WidgetTvsControlroom(QWidget):
 
     def update_pictures(self):
         self.info_e.clear()
-        pix1 = QtGui.QPixmap(f"/data/fits/{self.tel}/processed-ofp/thumbnails/thumbnail_a.png")
+        pix1 = QtGui.QPixmap(f"/data/fits/{self.tel}/processed-ofp/thumbnails/thumbnail_display.png")
         pix2 = QtGui.QPixmap(f"/data/fits/{self.tel}/processed-ofp/thumbnails/last_diff_light_curve_chart.png")
         pix1 = pix1.scaledToWidth(500)
         pix2 = pix2.scaledToWidth(500)
