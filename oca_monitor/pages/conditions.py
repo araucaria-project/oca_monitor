@@ -50,9 +50,7 @@ class ConditionsWidget(QWidget):
         self.ax_wind.fill_between(x,13,20,color='red',alpha=0.3)
 
         
-        self.ax_wind.grid(which='major', axis='both')
-       
-        self.figure.tight_layout()
+        
         self.layout.addWidget(self.canvas)'''
         self.layout.addWidget(self.label)
 

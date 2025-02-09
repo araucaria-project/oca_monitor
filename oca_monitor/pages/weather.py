@@ -34,10 +34,15 @@ def ephemeris(vertical = 0):
     sunrise=str(arm.next_rising(ephem.Sun()))
     sun = ephem.Sun()
     sun.compute(arm)
-    if vertical:
-        text = 'LT: '+lt+'\nSUN ALT: '+str("{:.1f}".format(float(str(sun.alt).split(':')[0])+float(str(sun.alt).split(':')[1])/60.))
+    if str(sun.alt)[0] == '-':
+        sunalt = "{:.1f}".format(float(str(sun.alt).split(':')[0])-float(str(sun.alt).split(':')[1])/60.)
     else:
-        text = 'LT: '+lt+'\tSUN ALT: '+str("{:.1f}".format(float(str(sun.alt).split(':')[0])+float(str(sun.alt).split(':')[1])/60.))
+        sunalt = "{:.1f}".format(float(str(sun.alt).split(':')[0])+float(str(sun.alt).split(':')[1])/60.)
+
+    if vertical:
+        text = 'LT: '+lt+'\nSUN ALT: '+str(sunalt)
+    else:
+        text = 'LT: '+lt+'\tSUN ALT: 'str(sunalt)
     
     return text,float(str(sun.alt).split(':')[0])
 
