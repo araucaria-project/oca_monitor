@@ -42,7 +42,7 @@ def ephemeris(vertical = 0):
     if vertical:
         text = 'LT: '+lt+'\nSUN ALT: '+str(sunalt)
     else:
-        text = 'LT: '+lt+'\tSUN ALT: 'str(sunalt)
+        text = 'LT: '+lt+'\tSUN ALT: '+str(sunalt)
     
     return text,float(str(sun.alt).split(':')[0])
 
