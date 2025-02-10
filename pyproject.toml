@@ -17,6 +17,7 @@ python = "^3.9, <3.12"
 # on ARM follwo the instruction from the manual
 #pyqt6 = {version="*",optional = true}
 pyqt6 = {version="*"}
+opencv-python = "*"
 astropy = "*"
 ephem = "^4.1.4"
 matplotlib = "*"
