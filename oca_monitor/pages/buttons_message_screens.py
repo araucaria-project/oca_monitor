@@ -98,7 +98,7 @@ class ButtonsMessageWidget(QWidget):
         self.b_alarm = QCheckBox()#abort button
         self.b_alarm.setStyleSheet("QCheckBox::indicator{width: 200px; height:200px;} QCheckBox::indicator:checked {image: url(./Icons/alarmon.png)} QCheckBox::indicator:unchecked {image: url(./Icons/alarmoff.png)}")
         self.b_alarm.setChecked(False)
-        self.b_alarm.clicked(checked=False).connect(self.send_alarm)
+        self.b_alarm.clicked().connect(self.send_alarm)
         self.layout.addWidget(self.b_alarm,1)
         self._update_lights_status()
         # Some async operation
