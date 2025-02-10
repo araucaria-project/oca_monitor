@@ -310,17 +310,18 @@ class TouchButtonsWBedroom(QWidget):
                 token = po_data[1]
                 await self.push(name,user,token,mess)
         
-
+        
         await self.siren(wyj)
         if self.b_alarm.isChecked():
             QtCore.QTimer.singleShot(2000, self.siren(mes='',wyj=0))
-        self.d_close_clicked()
+        
            
 
     async def push(self, name,user,token,mess):
         pars = {'token':token,'user':user,'message':mess+name+'!'}
         try:
             requests.post('https://api.pushover.net/1/messages.json',data=pars)
+            self.d_close_clicked()
             self.c = QDialog()
             label = QLabel()
             label.setText('Alarm sent')
@@ -329,7 +330,9 @@ class TouchButtonsWBedroom(QWidget):
             layout = QHBoxLayout()
             layout.addWidget(label)
             layout.addWidget(button)
+            self.c.setLayout(layout)
             self.c.exec()
+
         except:
             pass
 
