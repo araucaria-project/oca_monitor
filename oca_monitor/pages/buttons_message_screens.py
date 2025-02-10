@@ -15,69 +15,6 @@ from serverish.messenger import get_reader
 
 logger = logging.getLogger(__name__.rsplit('.')[-1])
 
-class light_point_old():
-    def __init__(self,name,ip,button_brighter,button_fainter,label):
-        self.name = name
-        self.ip = ip
-        self.label = label
-        self.b_bright = button_brighter
-        self.b_faint = button_fainter
-        self.b_bright.setStyleSheet("background-color : silver; color: black")
-        self.b_faint.setStyleSheet("background-color : silver; color: black")
-        self.b_bright.clicked.connect(self.brightLight)
-        self.b_faint.clicked.connect(self.dimLight)
-        self.label.setStyleSheet("background-color : silver; color: black")
-
-    def brightLight(self):
-        try:
-        #if True:
-            self.status()
-            #if True:
-            if self.is_active:
-                new_value = self.curr_value + 25
-                if new_value > 255:
-                    new_value = 255
-
-                val = str(hex(int(new_value))).replace('0x','',1)
-                if len(val) == 1:
-                    val = '0'+val
-                
-                self.req(val)
-        except:
-            pass
-
-    def dimLight(self):
-        try:
-            self.status()
-            #if True:
-            if self.is_active:
-                new_value = self.curr_value - 25
-                if new_value < 0:
-                    new_value = 0
-
-                val = str(hex(int(new_value))).replace('0x','',1)
-                if len(val) == 1:
-                    val = '0'+val
-                
-                self.req(val)
-        except:
-            pass
-
-    def req(self,val):
-        requests.post('http://'+self.ip+'/api/rgbw/set',json={"rgbw":{"desiredColor":val}})
-
-    def status(self):
-        #try:
-        if True:
-            req = requests.get('http://'+self.ip+'/api/rgbw/state',timeout=0.5)
-            
-            if int(req.status_code) != 200:
-                self.is_active = False
-            else:
-                self.is_active = True 
-                self.curr_value = int(req.json()["rgbw"]["desiredColor"],16)
-        #except:
-        #    self.is_active = False
 
 class light_point():
     def __init__(self,name,ip,slider):
@@ -91,9 +28,6 @@ class light_point():
 
     def changeLight(self):
         try:
-        #if True:
-            #self.status()
-            #if True:
             if self.is_active:
                 new_value = int(self.slider.value()*255/100)
                 print(new_value)
@@ -111,7 +45,10 @@ class light_point():
     
 
     def req(self,val):
-        requests.post('http://'+self.ip+'/api/rgbw/set',json={"rgbw":{"desiredColor":val}})
+        try:
+            requests.post('http://'+self.ip+'/api/rgbw/set',json={"rgbw":{"desiredColor":val}})
+        except:
+            pass
 
     def status(self):
         try:
@@ -199,7 +136,7 @@ class ButtonsMessageKitchenWidget(QWidget):
             self.d.button_alarm.setStyleSheet('QPushButton {background-color: red; border:  grey; font: bold;font-size: 34px;color: black;height: 160px;width: 220px}')
 
             self.d.button_close = QPushButton()
-            self.d.button_close.setText('CLOSE')
+            self.d.button_close.setText('EXIT')
             self.d.button_close.clicked.connect(self.d_close_clicked)
             self.d.button_close.setStyleSheet('QPushButton {background-color: grey; border:  grey; font: bold;font-size: 34px;color: black;height: 100px;width: 400px}')
 
@@ -212,16 +149,17 @@ class ButtonsMessageKitchenWidget(QWidget):
             layout.addLayout(l1)
             layout.addWidget(self.d.button_close)
 
+
             self.d.setLayout(layout)
             self.d.exec()
-            self.b_alarm.setChecked(False)
+            
             #self.d.setGeometry(500,300,1400,500)
 
         return 1
 
     def d_close_clicked(self):
         self.d.close()
-        self.c = QDialog()
+        self.b_alarm.setChecked(False)
 
 
     @asyncSlot()
@@ -237,49 +175,31 @@ class ButtonsMessageKitchenWidget(QWidget):
         await self.siren(wyj)
         if self.b_alarm.isChecked():
             QtCore.QTimer.singleShot(2000, self.siren(mes='',wyj=0))
-        self.d.close()
+        self.d_close_clicked()
            
 
     async def push(self, name,user,token,mess):
         pars = {'token':token,'user':user,'message':mess+name+'!'}
-        requests.post('https://api.pushover.net/1/messages.json',data=pars)
+        try:
+            requests.post('https://api.pushover.net/1/messages.json',data=pars)
+            self.c = QDialog()
+            label = QLabel()
+            label.setText('Alarm sent')
+            button = QPushButton('OK')
+            button.clicked.connect(self.c_close_clicked)
+            layout = QHBoxLayout()
+            layout.addWidget(label)
+            layout.addWidget(button)
+            self.c.exec()
+        except:
+            pass
+
+    def c_close_clicked(self):
+        self.c.close()
 
     async def siren(self,wyj):
         for siren,ip in config.bbox_sirens.items():
             requests.post('http://'+ip+'/state',json={"relays":[{"relay":0,"state":wyj}]})
-
-
-
-    def play_sun_alt(self, go):
-        if go and self.one_sun_sound:
-            txt = f"{time.strftime('%H:%M:%S', time.gmtime())}"
-            txt = f"(UT {txt}) Sun altitude caution!"
-            self.info_e.append(txt)
-            subprocess.run(["aplay", f"{os.getcwd()}/sounds/alert23.wav"])
-            self.one_sun_sound = False
-        elif not go:
-            self.one_sun_sound = True
-
-    def play_weather_warning(self,go):
-        if go and self.one_weather_warning:
-            txt = f"{time.strftime('%H:%M:%S', time.gmtime())}"
-            txt = f"(UT {txt}) Weather warning!"
-            self.info_e.append(txt)
-            subprocess.run(["aplay", f"{os.getcwd()}/sounds/alert09.wav"])
-            self.one_weather_warning = False
-        elif not go:
-            self.one_weather_warning = True
-
-    def play_weather_stop(self, go):
-
-        if go and self.one_weather_stop:
-            txt = f"{time.strftime('%H:%M:%S', time.gmtime())}"
-            txt = f"(UT {txt}) Weather STOP!"
-            self.info_e.append(txt)
-            subprocess.run(["aplay", f"{os.getcwd()}/sounds/klingon_alert.wav"])
-            self.one_weather_stop = False
-        elif not go:
-            self.one_weather_stop = True
 
     async def toi_message_reader(self,tel):
         try:
