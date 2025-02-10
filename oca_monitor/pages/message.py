@@ -40,55 +40,55 @@ class MessageWidget(QWidget):
 
 
     async def reader_ocm_messages(self):
-        try:
             r = get_reader(f'tic.status.ocm.messages', deliver_policy='new')
             async for data, meta in r:
-                label = data["label"]
-                c = Qt.GlobalColor.gray
-                if label == "INFO":
+                try:
+                    label = data["label"]
                     c = Qt.GlobalColor.gray
-                elif label == "PING":
-                    c = Qt.GlobalColor.darkYellow
-                    subprocess.run(["aplay", f"{os.getcwd()}/sounds/tos_alien_sound_4.wav"])
-                elif label == "PROGRAM STOP":
-                    c = Qt.GlobalColor.gray
-                    subprocess.run(["aplay", f"{os.getcwd()}/sounds/alert07.wav"])
-                elif label == "PROGRAM BELL":
-                    c = Qt.GlobalColor.gray
-                    subprocess.run(["aplay",f"{os.getcwd()}/sounds/romulan_alarm.wav"])
-                elif label == "PROGRAM ERROR":
-                    c = Qt.GlobalColor.red
-                    subprocess.run(["aplay",f"{os.getcwd()}/sounds/alert06.wav"])
-                elif label == "WEATHER ALERT":
-                    c = Qt.GlobalColor.red
-                    subprocess.run(["aplay", f"{os.getcwd()}/sounds/klingon_alert.wav"])
-                elif label == "WEATHER WARNING":
-                    c = Qt.GlobalColor.darkYellow
-                    subprocess.run(["aplay", f"{os.getcwd()}/sounds/alert09.wav"])
-                elif label == "SUN WARNING":
-                    c = Qt.GlobalColor.darkYellow
-                    subprocess.run(["aplay", f"{os.getcwd()}/sounds/alert23.wav"])
-                elif label == "FWHM WARNING":
-                    c = Qt.GlobalColor.darkYellow
-                    subprocess.run(["aplay", f"{os.getcwd()}/sounds/computerbeep_12.wav"])
-                else:
-                    c = Qt.GlobalColor.gray
-                    subprocess.run(["aplay", f"{os.getcwd()}/sounds/computerbeep_12.wav"])
+                    if label == "INFO":
+                        c = Qt.GlobalColor.gray
+                    elif label == "PING":
+                        c = Qt.GlobalColor.darkYellow
+                        subprocess.run(["aplay", f"{os.getcwd()}/sounds/tos_alien_sound_4.wav"])
+                    elif label == "PROGRAM STOP":
+                        c = Qt.GlobalColor.gray
+                        subprocess.run(["aplay", f"{os.getcwd()}/sounds/alert07.wav"])
+                    elif label == "PROGRAM BELL":
+                        c = Qt.GlobalColor.gray
+                        subprocess.run(["aplay",f"{os.getcwd()}/sounds/romulan_alarm.wav"])
+                    elif label == "PROGRAM ERROR":
+                        c = Qt.GlobalColor.red
+                        subprocess.run(["aplay",f"{os.getcwd()}/sounds/alert06.wav"])
+                    elif label == "WEATHER ALERT":
+                        c = Qt.GlobalColor.red
+                        subprocess.run(["aplay", f"{os.getcwd()}/sounds/klingon_alert.wav"])
+                    elif label == "WEATHER WARNING":
+                        c = Qt.GlobalColor.darkYellow
+                        subprocess.run(["aplay", f"{os.getcwd()}/sounds/alert09.wav"])
+                    elif label == "SUN WARNING":
+                        c = Qt.GlobalColor.darkYellow
+                        subprocess.run(["aplay", f"{os.getcwd()}/sounds/alert23.wav"])
+                    elif label == "FWHM WARNING":
+                        c = Qt.GlobalColor.darkYellow
+                        subprocess.run(["aplay", f"{os.getcwd()}/sounds/computerbeep_12.wav"])
+                    else:
+                        c = Qt.GlobalColor.gray
+                        subprocess.run(["aplay", f"{os.getcwd()}/sounds/computerbeep_12.wav"])
 
 
-                # if label == "TOI RESPONDER":
-                #     c = QtCore.Qt.darkGreen
-                # if label == "PLANRUNNER":
-                #     c = QtCore.Qt.darkGray
+                    # if label == "TOI RESPONDER":
+                    #     c = QtCore.Qt.darkGreen
+                    # if label == "PLANRUNNER":
+                    #     c = QtCore.Qt.darkGray
 
-                txt = f'{data["ut"]} [{data["user"]}] {data["info"]}'
-                self.info_e.setTextColor(c)
-                self.info_e.append(txt)
-                self.info_e.repaint()
+                    txt = f'{data["ut"]} [{data["user"]}] {data["info"]}'
+                    self.info_e.setTextColor(c)
+                    self.info_e.append(txt)
+                    self.info_e.repaint()
 
 
-        except Exception as e:
-            logger.warning(f'{e}')
+                except Exception as e:
+                    logger.warning(f'{e} {data}')
 
 
 widget_class = MessageWidget
