@@ -196,7 +196,7 @@ class TouchButtonsWBedroom(QWidget):
 
         self.b_alarm = QCheckBox()#abort button
         self.b_alarm.setStyleSheet("QCheckBox::indicator{width: 300px; height:300px;} QCheckBox::indicator:checked {image: url(./Icons/alarmon.png)} QCheckBox::indicator:unchecked {image: url(./Icons/alarmoff.png)}")
-        self.b_alarm.stateChanged.connect(self.send_alarm)
+        self.b_alarm.clicked.connect(self.send_alarm)
         self.b_alarm.setChecked(False)
 
         self.vbox_right.addWidget(self.b_alarm)
@@ -247,7 +247,8 @@ class TouchButtonsWBedroom(QWidget):
 
 
     def send_alarm(self):
-        if self.b_alarm.isChecked:
+        print(self.b_alarm.isChecked())
+        if self.b_alarm.isChecked():
             self.d = QDialog()
             layout = QVBoxLayout()
             l1 = QHBoxLayout()
@@ -273,7 +274,7 @@ class TouchButtonsWBedroom(QWidget):
             self.d.button_alarm.setStyleSheet('QPushButton {background-color: red; border:  grey; font: bold;font-size: 34px;color: black;height: 160px;width: 220px}')
 
             self.d.button_close = QPushButton()
-            self.d.button_close.setText('CLOSE')
+            self.d.button_close.setText('EXIT')
             self.d.button_close.clicked.connect(self.d_close_clicked)
             self.d.button_close.setStyleSheet('QPushButton {background-color: grey; border:  grey; font: bold;font-size: 34px;color: black;height: 100px;width: 400px}')
 
@@ -286,17 +287,19 @@ class TouchButtonsWBedroom(QWidget):
             layout.addLayout(l1)
             layout.addWidget(self.d.button_close)
 
+
             self.d.setLayout(layout)
             self.d.exec()
-            self.b_alarm.setChecked(False)
+            
             #self.d.setGeometry(500,300,1400,500)
 
         return 1
 
     def d_close_clicked(self):
         self.d.close()
-        self.c = QDialog()
-
+        self.b_alarm.setChecked(False)
+        print('status',self.b_alarm.isChecked())
+        self.send_alarm()
 
     @asyncSlot()
     async def raise_alarm(self,mess,wyj=0):
@@ -311,12 +314,27 @@ class TouchButtonsWBedroom(QWidget):
         await self.siren(wyj)
         if self.b_alarm.isChecked():
             QtCore.QTimer.singleShot(2000, self.siren(mes='',wyj=0))
-        self.d.close()
+        self.d_close_clicked()
            
 
     async def push(self, name,user,token,mess):
         pars = {'token':token,'user':user,'message':mess+name+'!'}
-        requests.post('https://api.pushover.net/1/messages.json',data=pars)
+        try:
+            requests.post('https://api.pushover.net/1/messages.json',data=pars)
+            self.c = QDialog()
+            label = QLabel()
+            label.setText('Alarm sent')
+            button = QPushButton('OK')
+            button.clicked.connect(self.c_close_clicked)
+            layout = QHBoxLayout()
+            layout.addWidget(label)
+            layout.addWidget(button)
+            self.c.exec()
+        except:
+            pass
+
+    def c_close_clicked(self):
+        self.c.close()
 
     async def siren(self,wyj):
         for siren,ip in config.bbox_sirens.items():
