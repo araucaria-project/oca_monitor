@@ -4,7 +4,7 @@ import subprocess
 import time
 
 from PyQt6.QtWidgets import  QWidget, QHBoxLayout, QTextEdit
-from PyQt6.QtCore import QTimer
+from PyQt6.QtCore import QTimer, Qt
 
 from qasync import asyncSlot
 from serverish.base import dt_ensure_datetime
@@ -30,10 +30,7 @@ class MessageWidget(QWidget):
 
     @asyncSlot()
     async def async_init(self):
-
-        for tel in self.parent.telescope_names:
-            await create_task(self.toi_message_reader(tel), "message_reader")
-
+        await create_task(self.reader_ocm_messages(), "message_reader")
 
     def initUI(self,):
         self.layout = QHBoxLayout(self)
@@ -41,59 +38,46 @@ class MessageWidget(QWidget):
 
         self.layout.addWidget(self.info_e)
 
-    def play_sun_alt(self, go):
-        if go and self.one_sun_sound:
-            txt = f"{time.strftime('%H:%M:%S', time.gmtime())}"
-            txt = f"(UT {txt}) Sun altitude caution!"
-            self.info_e.append(txt)
-            subprocess.run(["aplay", f"{os.getcwd()}/sounds/alert23.wav"])
-            self.one_sun_sound = False
-        elif not go:
-            self.one_sun_sound = True
 
-    def play_weather_warning(self,go):
-        if go and self.one_weather_warning:
-            txt = f"{time.strftime('%H:%M:%S', time.gmtime())}"
-            txt = f"(UT {txt}) Weather warning!"
-            self.info_e.append(txt)
-            subprocess.run(["aplay", f"{os.getcwd()}/sounds/alert09.wav"])
-            self.one_weather_warning = False
-        elif not go:
-            self.one_weather_warning = True
-
-    def play_weather_stop(self, go):
-
-        if go and self.one_weather_stop:
-            txt = f"{time.strftime('%H:%M:%S', time.gmtime())}"
-            txt = f"(UT {txt}) Weather STOP!"
-            self.info_e.append(txt)
-            subprocess.run(["aplay", f"{os.getcwd()}/sounds/klingon_alert.wav"])
-            self.one_weather_stop = False
-        elif not go:
-            self.one_weather_stop = True
-
-    async def toi_message_reader(self,tel):
+    async def reader_ocm_messages(self):
         try:
-            r = get_reader(f'tic.status.{tel}.toi.message', deliver_policy='new')
+            r = get_reader(f'tic.status.ocm.messages', deliver_policy='new')
             async for data, meta in r:
-                txt = f"{time.strftime('%H:%M:%S', time.gmtime())}"
-                if "info" in data.keys() and "tel" in data.keys():
-                    if "BELL" in data['info']:
-                        txt = f"(UT {txt}) {data['info']} by {data['tel']}"
-                        self.info_e.append(txt)
-                        subprocess.run(["aplay",f"{os.getcwd()}/sounds/romulan_alarm.wav"])
-                    elif "STOP" in data['info']:
-                        txt = f"(UT {txt}) {data['info']} reached by {data['tel']}"
-                        self.info_e.append(txt)
-                        subprocess.run(["aplay",f"{os.getcwd()}/sounds/alert06.wav"])
-                    elif "PING" in data['info']:
-                        txt = f"(UT {txt}) {data['info']} reached by {data['tel']}"
-                        self.info_e.append(txt)
-                        subprocess.run(["aplay",f"{os.getcwd()}/sounds/tos_alien_sound_4.wav"])
-                    else:
-                        txt = f"(UT {txt}) {data['info']} by {data['tel']}"
-                        self.info_e.append(txt)
-                        subprocess.run(["aplay",f"{os.getcwd()}/sounds/computerbeep_12.wav"])
+                label = data["label"]
+                c = Qt.GlobalColor.gray
+                if label == "INFO":
+                    c = Qt.GlobalColor.gray
+                if label == "PING":
+                    c = Qt.GlobalColor.darkYellow
+                    subprocess.run(["aplay", f"{os.getcwd()}/sounds/tos_alien_sound_4.wav"])
+                if label == "PROGRAM STOP":
+                    c = Qt.GlobalColor.gray
+                    subprocess.run(["aplay", f"{os.getcwd()}/sounds/alert06.wav"])
+                if label == "PROGRAM BELL":
+                    c = Qt.GlobalColor.gray
+                    subprocess.run(["aplay",f"{os.getcwd()}/sounds/romulan_alarm.wav"])
+                if label == "WEATHER ALERT":
+                    c = Qt.GlobalColor.darkRed
+                    subprocess.run(["aplay", f"{os.getcwd()}/sounds/klingon_alert.wav"])
+                if label == "WEATHER WARNING":
+                    c = Qt.GlobalColor.darkYellow
+                    subprocess.run(["aplay", f"{os.getcwd()}/sounds/alert09.wav"])
+                if label == "SUN WARNING":
+                    c = Qt.GlobalColor.darkYellow
+                    subprocess.run(["aplay", f"{os.getcwd()}/sounds/alert23.wav"])
+                if label == "FWHM WARNING":
+                    c = Qt.GlobalColor.darkYellow
+                    subprocess.run(["aplay", f"{os.getcwd()}/sounds/computerbeep_12.wav"])
+
+                # if label == "TOI RESPONDER":
+                #     c = QtCore.Qt.darkGreen
+                # if label == "PLANRUNNER":
+                #     c = QtCore.Qt.darkGray
+
+                txt = f'{data["ut"]} [{data["user"]}] {data["info"]}'
+                self.info_e.setTextColor(c)
+                self.info_e.append(txt)
+                self.info_e.repaint()
 
 
         except Exception as e:

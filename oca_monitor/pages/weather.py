@@ -345,16 +345,19 @@ class WeatherDataWidget(QWidget):
             if (float(self.wind) >= 11. and float(self.wind) < 14.) or float(self.hum) > 70.:
                 self.label.setStyleSheet("background-color : yellow; color: black")
                 if self.main_window.sound_page:
-                    self.main_window.sound_page.play_weather_warning(True)
+                    pass
+                    # self.main_window.sound_page.play_weather_warning(True)
             elif float(self.wind) >= 14. or float(self.hum) > 75. or float(self.temp) < 0.:
                 self.label.setStyleSheet("background-color : red; color: black")
                 if self.main_window.sound_page:
-                    self.main_window.sound_page.play_weather_warning(False)
-                    self.main_window.sound_page.play_weather_stop(True)
+                    pass
+                    # self.main_window.sound_page.play_weather_warning(False)
+                    # self.main_window.sound_page.play_weather_stop(True)
             else:
                 if self.main_window.sound_page:
-                    self.main_window.sound_page.play_weather_warning(False)
-                    self.main_window.sound_page.play_weather_stop(False)
+                    pass
+                    # self.main_window.sound_page.play_weather_warning(False)
+                    # self.main_window.sound_page.play_weather_stop(False)
                 self.label.setStyleSheet("background-color : lightgreen; color: black")
 
             self.label.setText(warning)

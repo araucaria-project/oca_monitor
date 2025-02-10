@@ -107,8 +107,8 @@ class WidgetTvsControlroom(QWidget):
         self.info_e.clear()
         pix1 = QtGui.QPixmap(f"/data/fits/{self.tel}/processed-ofp/thumbnails/thumbnail_display.png")
         pix2 = QtGui.QPixmap(f"/data/fits/{self.tel}/processed-ofp/thumbnails/last_diff_light_curve_chart.png")
-        pix1 = pix1.scaledToWidth(500)
-        pix2 = pix2.scaledToWidth(500)
+        pix1 = pix1.scaled(500,500)
+        pix2 = pix2.scaled(500,150)
         self.fits_pic.setPixmap(pix1)
         self.curve_pix.setPixmap(pix2)
 
@@ -159,11 +159,12 @@ class WidgetTvsControlroom(QWidget):
         self.info_e = QTextEdit("")
 
 
+
         # DUPA
-        pix1 = QtGui.QPixmap(f"/data/fits/{self.tel}/processed-ofp/thumbnails/thumbnail_a.png")
+        pix1 = QtGui.QPixmap(f"/data/fits/{self.tel}/processed-ofp/thumbnails/thumbnail_display.png")
         pix2 = QtGui.QPixmap(f"/data/fits/{self.tel}/processed-ofp/thumbnails/last_diff_light_curve_chart.png")
-        pix1 = pix1.scaledToWidth(500)
-        pix2 = pix2.scaledToWidth(500)
+        pix1 = pix1.scaled(500,500)
+        pix2 = pix2.scaled(500,150)
         self.fits_pic.setPixmap(pix1)
         self.curve_pix.setPixmap(pix2)
 
@@ -189,16 +190,16 @@ class WidgetTvsControlroom(QWidget):
             self.ephem.setStyleSheet("background-color : coral; color: black")
 
         # obsluiga buczkow
-        if self.prev_sun_alt:
-            if int(sunalt.split(':')[0]) == 5 and ephem.degrees(self.prev_sun_alt) > ephem.degrees(sunalt):
-                self.main_window.sound_page.play_sun_alt(True)
-            elif int(sunalt.split(':')[0]) == -18 and ephem.degrees(self.prev_sun_alt) < ephem.degrees(sunalt):
-                self.main_window.sound_page.play_sun_alt(True)
-            elif int(sunalt.split(':')[0]) == 0:
-                self.main_window.sound_page.play_sun_alt(True)
-            else:
-                self.main_window.sound_page.play_sun_alt(False)
-        self.prev_sun_alt = sunalt
+        # if self.prev_sun_alt:
+        #     if int(sunalt.split(':')[0]) == 5 and ephem.degrees(self.prev_sun_alt) > ephem.degrees(sunalt):
+        #         self.main_window.sound_page.play_sun_alt(True)
+        #     elif int(sunalt.split(':')[0]) == -18 and ephem.degrees(self.prev_sun_alt) < ephem.degrees(sunalt):
+        #         self.main_window.sound_page.play_sun_alt(True)
+        #     elif int(sunalt.split(':')[0]) == 0:
+        #         self.main_window.sound_page.play_sun_alt(True)
+        #     else:
+        #         self.main_window.sound_page.play_sun_alt(False)
+        # self.prev_sun_alt = sunalt
 
         QtCore.QTimer.singleShot(1000, self._update_ephem)
 
