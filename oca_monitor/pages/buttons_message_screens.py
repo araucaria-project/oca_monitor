@@ -64,7 +64,7 @@ class light_point():
         except:
             self.is_active = False
 
-class ButtonsMessageKitchenWidget(QWidget):
+class ButtonsMessageWidget(QWidget):
     def __init__(self, main_window, subject='telemetry.weather.davis', vertical_screen = False, light='', **kwargs):
         super().__init__()
         self.parent = main_window
@@ -72,7 +72,7 @@ class ButtonsMessageKitchenWidget(QWidget):
         self.vertical = bool(vertical_screen)
         self.light = light
         self.initUI()
-        self.parent.sound_page = self
+        self.parent.sound_page = False
         self.one_sun_sound = True
         self.one_weather_warning = True
         self.one_weather_stop = True
@@ -229,4 +229,4 @@ class ButtonsMessageKitchenWidget(QWidget):
             logger.warning(f'{e}')
 
 
-widget_class = ButtonsMessageKitchenWidget
+widget_class = ButtonsMessageWidget
