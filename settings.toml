@@ -114,6 +114,11 @@ source = "touch_buttons_wbedroom"  # page source - page is defined in oca_monito
 room = 'westbedroom'
 temp_subject='telemetry.conditions.bedroom-west-tsensor'
 
+#[touch_wbedroom.panels.00.cameras]
+#source = "cameras"  # page source - page is defined in oca_monitor/pages/example.py
+
+
+
 ##--------------------------touchpanel east bedroom---------------
 
 [touch_ebedroom]  # global configuration is used by all environments, setting from here override all other settings
