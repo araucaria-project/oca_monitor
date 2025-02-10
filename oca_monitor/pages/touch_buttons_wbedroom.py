@@ -312,8 +312,8 @@ class TouchButtonsWBedroom(QWidget):
         
         
         await self.siren(wyj)
-        if self.b_alarm.isChecked():
-            QtCore.QTimer.singleShot(2000, self.raise_alarm(mes='',wyj=0))
+        #if self.b_alarm.isChecked():
+        #    QtCore.QTimer.singleShot(2000, self.raise_alarm(mes='',wyj=0))
 
         self.d_close_clicked()
         
