@@ -110,7 +110,8 @@ class ButtonsMessageWidget(QWidget):
         QtCore.QTimer.singleShot(30000, self._update_lights_status)
 
     def send_alarm(self):
-        if self.b_alarm.isChecked:
+        print(self.b_alarm.isChecked())
+        if self.b_alarm.isChecked():
             self.d = QDialog()
             layout = QVBoxLayout()
             l1 = QHBoxLayout()
