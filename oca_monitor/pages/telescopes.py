@@ -253,14 +253,13 @@ class TelecopeWindow(QWidget):
                         state, rgb = f"{program.split()[0]} {program.split()[1]}", (0, 150, 0)
                     else:
                         state, rgb = f"{program.split()[0]}", (0, 150, 0)
-                if dt == None or t0 == None:
+                if dt == None or dt == 0 or t0 == None:
                     state = f"{state} (??)"
                 else:
                     t = time.time() - t0
                     p = t / dt
                     if p > 1.2:
-                        rgb = (150, 0, 0)
-                        state = f"{state} (??)"
+                        rgb = (255, 160, 0)
                     state = f"{state} ({int(p*100)}%)"
             else:
                 rgb = (150, 150, 150)
