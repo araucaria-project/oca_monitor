@@ -168,7 +168,7 @@ vertical_screen=1
 
 [kitchen.panels.10.Weather]
 #auto_interval = 10  # seconds, how long to show this page before auto switching to next page
-source = "wind"  # page source - page is defined in oca_monitor/pages/example.py
+source = "weather"  # page source - page is defined in oca_monitor/pages/example.py
 vertical_screen = 1
 
 #[kitchen.panels.20.Buttons]
@@ -209,7 +209,7 @@ vertical_screen=1
 
 [tvroom.panels.10.Weather]
 #auto_interval = 10  # seconds, how long to show this page before auto switching to next page
-source = "wind"  # page source - page is defined in oca_monitor/pages/example.py
+source = "weather"  # page source - page is defined in oca_monitor/pages/example.py
 vertical_screen = 1
 
 [tvroom.panels.20.Buttons]
