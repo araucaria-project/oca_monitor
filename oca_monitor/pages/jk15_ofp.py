@@ -151,7 +151,7 @@ class WidgetTvsControlroom(QWidget):
         font.setBold(True)
         self.tel_e.setFont(font)
         color = self.nats_cfg["config"]["telescopes"][self.tel]["observatory"]["style"]["color"]
-        self.tel_e.setStyleSheet(f"background-color: {color};")
+        self.tel_e.setStyleSheet(f"background-color: {color}; color: black")
 
 
         self.fits_pic = QLabel()
