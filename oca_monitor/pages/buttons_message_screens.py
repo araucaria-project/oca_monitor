@@ -161,7 +161,7 @@ class ButtonsMessageWidget(QWidget):
     def d_close_clicked(self):
         self.d.close()
         self.b_alarm.setChecked(False)
-
+        print('status',self.b_alarm.isChecked())
 
     @asyncSlot()
     async def raise_alarm(self,mess,wyj=0):
