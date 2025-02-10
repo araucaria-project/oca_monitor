@@ -321,10 +321,9 @@ class TouchButtonsWBedroom(QWidget):
         pars = {'token':token,'user':user,'message':mess+name+'!'}
         try:
             requests.post('https://api.pushover.net/1/messages.json',data=pars)
-            self.d_close_clicked()
             self.c = QDialog()
             label = QLabel()
-            label.setText('Alarm sent')
+            label.setText('ALARM SENT')
             button = QPushButton('OK')
             button.clicked.connect(self.c_close_clicked)
             layout = QHBoxLayout()
