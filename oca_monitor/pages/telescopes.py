@@ -11,7 +11,7 @@ from PyQt6 import QtCore, QtGui
 from qasync import asyncSlot
 from serverish.base import dt_ensure_datetime
 from serverish.base.task_manager import create_task_sync, create_task
-from serverish.messenger import get_reader
+from serverish.messenger import get_reader, single_read
 
 
 logger = logging.getLogger(__name__.rsplit('.')[-1])
@@ -40,18 +40,47 @@ class TelecopeWindow(QWidget):
         self.ob_prog_status = {t:copy.deepcopy(templeate) for t in self.main_window.telescope_names}
         self.az = {t:None for t in self.main_window.telescope_names}
         self.alt = {t:None for t in self.main_window.telescope_names}
+        self.toi_op_status = {t:None for t in self.main_window.telescope_names}
 
         QtCore.QTimer.singleShot(0, self.async_init)
 
     @asyncSlot()
     async def async_init(self):
+
+        nats_cfg = await single_read(f'tic.config.observatory')
+        self.nats_cfg = nats_cfg[0]
+
+        self.filters = {t:None for t in self.main_window.telescope_names}
+
+        for tel in self.main_window.telescope_names:
+            try:
+                tmp = self.nats_cfg["config"]["telescopes"][tel]["observatory"]["components"]["filterwheel"]["filters"]
+                tmp_n = [item["name"] for item in sorted(tmp, key=lambda x: x["position"])]
+            except KeyError:
+                tmp_n = None
+            self.filters[tel] = tmp_n
+
+
+
+
         for tel in self.main_window.telescope_names:
             await create_task(self.oca_telemetry_program_reader(tel),"message_reader")
             await create_task(self.oca_az_reader(tel), "message_reader")
             await create_task(self.oca_alt_reader(tel), "message_reader")
+            await create_task(self.oca_toi_status_reader(tel), "message_reader")
             for k in self.oca_tel_state[tel].keys():
                 await create_task(self.oca_telemetry_reader(tel,k),"message_reader")
 
+    async def oca_toi_status_reader(self,tel):
+        try:
+            reader = get_reader(f'tic.status.{tel}.toi.status', deliver_policy='last')
+            async for data, meta in reader:
+                self.toi_op_status[tel] = data
+                self.update_table()
+        except (asyncio.CancelledError, asyncio.TimeoutError):
+            raise
+        except Exception as e:
+            logger.warning(f'EXCEPTION oca_toi_status_reader: {e}')
 
     async def oca_az_reader(self,tel):
         try:
@@ -73,8 +102,6 @@ class TelecopeWindow(QWidget):
         except Exception as e:
             logger.warning(f'ERROR: {e}')
 
-
-
     async def oca_telemetry_reader(self,tel,key):
         try:
             r = get_reader(f'tic.status.{tel}{self.oca_tel_state[tel][key]["pms_topic"]}', deliver_policy='last')
@@ -94,16 +121,35 @@ class TelecopeWindow(QWidget):
         except Exception as e:
                 logger.warning(f'ERROR: {e}')
 
-    def update_table(self):
 
+    def update_table(self):
         i = -1
         for t in self.main_window.telescope_names:
             i = i + 1
 
             # TELESKOPY
-            txt = t
+
+            rgb = (150, 150, 150)
+            status_ok = True
+            try:
+                if self.toi_op_status[t]:
+                    for k in self.toi_op_status[t].keys():
+                        if self.toi_op_status[t][k]["state"] == self.toi_op_status[t][k]["defoult"]:
+                            pass
+                        else:
+                            status_ok = False
+            except Exception as e:
+                print(f"EXCEPTION: {e}")
+
+            if status_ok:
+                txt = ""
+            else:
+                txt = "\u26A0 "
+                rgb = (255, 160, 0)
+            txt = txt + f'{t}'
 
             item = QTableWidgetItem(txt)
+            item.setForeground(QtGui.QBrush(QtGui.QColor(*rgb)))
             item.setTextAlignment(QtCore.Qt.AlignmentFlag.AlignCenter)
             self.obs_t.setItem(i, 0, item)
 
@@ -171,12 +217,13 @@ class TelecopeWindow(QWidget):
             pos = self.oca_tel_state[t]["fw_position"]["val"]
             ccd =  self.oca_tel_state[t]["ccd_state"]["val"]
 
+
             try:
-                filtr = str(pos)
-            except:
+                if pos != None:
+                    if pos >= 0:
+                        filtr = self.filters[t][pos]
+            except Exception as e:
                 pass
-            #if pos != None:
-            #    filtr = self.nats_cfg[t]["filter_list_names"][pos]
 
             if ccd != None :
                 if ccd == 2:
@@ -226,6 +273,8 @@ class TelecopeWindow(QWidget):
             self.obs_t.setItem(i, 5, item)
 
             self.obs_t.horizontalHeader().setSectionResizeMode(QHeaderView.ResizeMode.Stretch)
+
+        QtCore.QTimer.singleShot(1000, self.update_table)
 
     def mkUI(self):
 
