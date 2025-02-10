@@ -97,7 +97,8 @@ class ButtonsMessageWidget(QWidget):
         self.layout.addWidget(self.info_e,2)
         self.b_alarm = QCheckBox()#abort button
         self.b_alarm.setStyleSheet("QCheckBox::indicator{width: 200px; height:200px;} QCheckBox::indicator:checked {image: url(./Icons/alarmon.png)} QCheckBox::indicator:unchecked {image: url(./Icons/alarmoff.png)}")
-        self.b_alarm.stateChanged.connect(self.send_alarm)
+        self.b_alarm.setChecked(False)
+        self.b_alarm.clicked(checked=false).connect(self.send_alarm)
         self.layout.addWidget(self.b_alarm,1)
         self._update_lights_status()
         # Some async operation
@@ -162,6 +163,7 @@ class ButtonsMessageWidget(QWidget):
         self.d.close()
         self.b_alarm.setChecked(False)
         print('status',self.b_alarm.isChecked())
+        self.send_alarm()
 
     @asyncSlot()
     async def raise_alarm(self,mess,wyj=0):
