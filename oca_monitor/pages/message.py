@@ -47,28 +47,28 @@ class MessageWidget(QWidget):
                 c = Qt.GlobalColor.gray
                 if label == "INFO":
                     c = Qt.GlobalColor.gray
-                if label == "PING":
+                elif label == "PING":
                     c = Qt.GlobalColor.darkYellow
                     subprocess.run(["aplay", f"{os.getcwd()}/sounds/tos_alien_sound_4.wav"])
-                if label == "PROGRAM STOP":
+                elif label == "PROGRAM STOP":
                     c = Qt.GlobalColor.gray
                     subprocess.run(["aplay", f"{os.getcwd()}/sounds/alert07.wav"])
-                if label == "PROGRAM BELL":
+                elif label == "PROGRAM BELL":
                     c = Qt.GlobalColor.gray
                     subprocess.run(["aplay",f"{os.getcwd()}/sounds/romulan_alarm.wav"])
-                if label == "PROGRAM ERROR":
+                elif label == "PROGRAM ERROR":
                     c = Qt.GlobalColor.red
                     subprocess.run(["aplay",f"{os.getcwd()}/sounds/alert06.wav"])
-                if label == "WEATHER ALERT":
+                elif label == "WEATHER ALERT":
                     c = Qt.GlobalColor.red
                     subprocess.run(["aplay", f"{os.getcwd()}/sounds/klingon_alert.wav"])
-                if label == "WEATHER WARNING":
+                elif label == "WEATHER WARNING":
                     c = Qt.GlobalColor.darkYellow
                     subprocess.run(["aplay", f"{os.getcwd()}/sounds/alert09.wav"])
-                if label == "SUN WARNING":
+                elif label == "SUN WARNING":
                     c = Qt.GlobalColor.darkYellow
                     subprocess.run(["aplay", f"{os.getcwd()}/sounds/alert23.wav"])
-                if label == "FWHM WARNING":
+                elif label == "FWHM WARNING":
                     c = Qt.GlobalColor.darkYellow
                     subprocess.run(["aplay", f"{os.getcwd()}/sounds/computerbeep_12.wav"])
                 else:
