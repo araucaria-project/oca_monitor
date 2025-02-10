@@ -52,12 +52,15 @@ class MessageWidget(QWidget):
                     subprocess.run(["aplay", f"{os.getcwd()}/sounds/tos_alien_sound_4.wav"])
                 if label == "PROGRAM STOP":
                     c = Qt.GlobalColor.gray
-                    subprocess.run(["aplay", f"{os.getcwd()}/sounds/alert06.wav"])
+                    subprocess.run(["aplay", f"{os.getcwd()}/sounds/alert07.wav"])
                 if label == "PROGRAM BELL":
                     c = Qt.GlobalColor.gray
                     subprocess.run(["aplay",f"{os.getcwd()}/sounds/romulan_alarm.wav"])
+                if label == "PROGRAM ERROR":
+                    c = Qt.GlobalColor.red
+                    subprocess.run(["aplay",f"{os.getcwd()}/sounds/alert06.wav"])
                 if label == "WEATHER ALERT":
-                    c = Qt.GlobalColor.darkRed
+                    c = Qt.GlobalColor.red
                     subprocess.run(["aplay", f"{os.getcwd()}/sounds/klingon_alert.wav"])
                 if label == "WEATHER WARNING":
                     c = Qt.GlobalColor.darkYellow
@@ -68,6 +71,10 @@ class MessageWidget(QWidget):
                 if label == "FWHM WARNING":
                     c = Qt.GlobalColor.darkYellow
                     subprocess.run(["aplay", f"{os.getcwd()}/sounds/computerbeep_12.wav"])
+                else:
+                    c = Qt.GlobalColor.gray
+                    subprocess.run(["aplay", f"{os.getcwd()}/sounds/computerbeep_12.wav"])
+
 
                 # if label == "TOI RESPONDER":
                 #     c = QtCore.Qt.darkGreen
