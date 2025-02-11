@@ -148,7 +148,7 @@ temp_subject='telemetry.conditions.bedroom-east-tsensor'
 [kitchen]  # global configuration is used by all environments, setting from here override all other settings
 window_size = [1080, 1850]
 panel_columns = [1]  # The size ratio of the columns in the panel grid
-panel_rows = [7,4,1]   # The size ratio of the rows in the panel grid
+panel_rows = [5,4,3,1]   # The size ratio of the rows in the panel grid
 style = "dark"
 #style = "white"
 
@@ -179,7 +179,7 @@ vertical_screen = 1
 #[kitchen.panels.20.Buttons]
 #source = "buttons_kitchen"  # page source - page is defined in oca_monitor/pages/
 
-[kitchen.panels.20.Buttons]
+[kitchen.panels.30.Buttons]
 source = "buttons_message_screens"  # page source - page is defined in oca_monitor/pages/
 light = 'kitchen'
 
