@@ -189,7 +189,7 @@ light = 'kitchen'
 [tvroom]  # global configuration is used by all environments, setting from here override all other settings
 window_size = [1080, 1850]
 panel_columns = [1]  # The size ratio of the columns in the panel grid
-panel_rows = [6,3,2,1]   # The size ratio of the rows in the panel grid
+panel_rows = [5,3,2,1]   # The size ratio of the rows in the panel grid
 style = "dark"
 #style = "white"
 
@@ -217,7 +217,7 @@ vertical_screen=1
 source = "weather"  # page source - page is defined in oca_monitor/pages/example.py
 vertical_screen = 1
 
-[tvroom.panels.30.Telescopes]
+[tvroom.panels.20.Telescopes]
 source = "telescopes"  # page source - page is defined in oca_monitor/pages/example.py
 
 
