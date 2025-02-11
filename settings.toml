@@ -176,8 +176,8 @@ vertical_screen=1
 source = "weather"  # page source - page is defined in oca_monitor/pages/example.py
 vertical_screen = 1
 
-#[kitchen.panels.20.Buttons]
-#source = "buttons_kitchen"  # page source - page is defined in oca_monitor/pages/
+#[kitchen.panels.20.Telescopes]
+#source = "telescopes"  # page source - page is defined in oca_monitor/pages/
 
 [kitchen.panels.30.Buttons]
 source = "buttons_message_screens"  # page source - page is defined in oca_monitor/pages/
