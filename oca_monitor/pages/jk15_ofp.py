@@ -106,7 +106,7 @@ class WidgetTvsControlroom(QWidget):
     def update_pictures(self):
         self.info_e.clear()
         pix1 = QtGui.QPixmap(f"/data/fits/{self.tel}/processed-ofp/thumbnails/thumbnail_display.png")
-        pix2 = QtGui.QPixmap(f"/data/fits/{self.tel}/processed-ofp/thumbnails/last_diff_light_curve_chart.png")
+        pix2 = QtGui.QPixmap(f"/data/fits/{self.tel}/processed-ofp/thumbnails/last_light_curve_chart_display.png")
         pix1 = pix1.scaled(500,500)
         pix2 = pix2.scaled(500,150)
         self.fits_pic.setPixmap(pix1)
@@ -123,15 +123,10 @@ class WidgetTvsControlroom(QWidget):
         exptime = self.ofp_data["raw"]["header"]["EXPTIME"]
 
         txt = ""
-        txt = txt + f" {date.split('T')[0]} <br>"
-        txt = txt + f" {date.split('T')[1].split('.')[0]} <br>"
-        txt = txt + f" {fname} <br>"
-        txt = txt + f" <hr> <br>"
-        txt = txt + f" OBJECT: <b>{object}</b> <br>"
-        txt = txt + f" TYPE: <i>{type}</i> <i>{obs_type}</i> <br>"
-        txt = txt + f" FILTER: <b>{filter}</b> {n}/{ndit} <br>"
-        txt = txt + f" EXP: <b>{exptime}</b> s. <br>"
-        txt = txt + f" <hr> <br>"
+        txt = txt + f" <p style='font-size: 15pt;'> {date.split('T')[0]} {date.split('T')[1].split('.')[0]} "
+        txt = txt + f" <i>{type}</i> <b>{object}</b>"
+        txt = txt + f" {n}/{ndit} <b>{filter}</b>  <b>{exptime}</b> s. <br> </p>"
+        #txt = txt + f" <hr> <br>"
 
         self.info_e.setHtml(txt)
         self.repaint()
@@ -162,7 +157,7 @@ class WidgetTvsControlroom(QWidget):
 
         # DUPA
         pix1 = QtGui.QPixmap(f"/data/fits/{self.tel}/processed-ofp/thumbnails/thumbnail_display.png")
-        pix2 = QtGui.QPixmap(f"/data/fits/{self.tel}/processed-ofp/thumbnails/last_diff_light_curve_chart.png")
+        pix2 = QtGui.QPixmap(f"/data/fits/{self.tel}/processed-ofp/thumbnails/last_light_curve_chart_display.png")
         pix1 = pix1.scaled(500,500)
         pix2 = pix2.scaled(500,150)
         self.fits_pic.setPixmap(pix1)
