@@ -40,8 +40,11 @@ class ConditionsWidget(QWidget):
         # Layout
         self.layout = QVBoxLayout(self)
         self.label_water = QLabel()
+        self.label_water.setStyleSheet("background-color : cyan; color: black")
+        self.label_water.setFont(QtGui.QFont('Arial', 26))
         self.label_energy = QLabel()
-        
+        self.label_energy.setStyleSheet("background-color : pink; color: black")
+        self.label_energy.setFont(QtGui.QFont('Arial', 26))
         # Matplotlib setup
         '''self.figure = Figure(facecolor='lightgrey')
         self.canvas = FigureCanvas(self.figure)
@@ -212,7 +215,7 @@ class ConditionsWidget(QWidget):
                 ec = 'NaN'
 
             try:
-                text = 'State of charge '+str(soc)+'%\n' + 'Solar Power '+str(pv)+'W\n'+ 'Power consumption'+str(ec)+'W\n'
+                text = 'State of charge '+str(soc)+' %\n' + 'Solar Power '+str(pv)+' W\n'+ 'Power consumption '+str(ec)+' W\n'
                 self.label_energy.setText(text)
             except:
                 self.label_energy.setText('No data')
