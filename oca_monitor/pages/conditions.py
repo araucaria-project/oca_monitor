@@ -80,7 +80,7 @@ class ConditionsWidget(QWidget):
                 logger.info(f"Measured water level {self.water_level}")
                 try:
         
-                    self.label_water.setText(str(self.water_level))
+                    self.label_water.setText('Water '+str(self.water_level)+ ' litres')
                 except:
                     self.label_water.setText('No data')
 
@@ -145,8 +145,8 @@ class ConditionsWidget(QWidget):
                 if pv < 0:
                     pv = 0
                 bc = measurement['battery_charge']
-                bd = measurement['battery_discharge']/100.
-                ec = bd + pv - bd
+                bd = measurement['battery_discharge']
+                ec = bd + pv - bc
                 # depending on the date of the measurement, we want to add point to the yesterday or today data
                 hour = ts.hour + ts.minute / 60 + ts.second / 3600
                 '''if ts < today_midnight.astimezone():
