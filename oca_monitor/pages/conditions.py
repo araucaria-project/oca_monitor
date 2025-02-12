@@ -30,8 +30,8 @@ class ConditionsWidget(QWidget):
     @asyncSlot()
     async def async_init(self):
         #obs_config = await self.main_window.observatory_config()
-        await create_task(self.reader_loop(), "reader_water")
-
+        await create_task(self.reader_loop_water(), "reader_water")
+        await create_task(self.reader_loop_energy(), "reader_water")
 
 
 
@@ -57,7 +57,7 @@ class ConditionsWidget(QWidget):
         self.layout.addWidget(self.label_water)
         self.layout.addWidget(self.label_energy)
 
-    async def reader_loop(self):
+    async def reader_loop_water(self):
         msg = Messenger()
 
         # We want the data from the midnight of yesterday
@@ -85,7 +85,7 @@ class ConditionsWidget(QWidget):
                     self.label_water.setText('No data')
 
 
-    async def reader_loop(self):
+    async def reader_loop_energy(self):
         msg = Messenger()
 
         # We want the data from the midnight of yesterday
@@ -142,6 +142,8 @@ class ConditionsWidget(QWidget):
                 measurement = data['measurements']
                 soc = measurement['state_of_charge']
                 pv = measurement['pv_power']
+                if pv < 0:
+                    pv = 0
                 bc = measurement['battery_charge']
                 bd = measurement['battery_discharge']/100.
                 ec = bd + pv - bd
@@ -210,7 +212,7 @@ class ConditionsWidget(QWidget):
                 ec = 'NaN'
 
             try:
-                text = 'SOC '+str(soc)+'%\n' + 'PV '+str(pv)+'W\n'+ 'PC'+str(ec)+'kW\n'
+                text = 'State of charge '+str(soc)+'%\n' + 'Solar Power '+str(pv)+'W\n'+ 'Power consumption'+str(ec)+'W\n'
                 self.label_energy.setText(text)
             except:
                 self.label_energy.setText('No data')
