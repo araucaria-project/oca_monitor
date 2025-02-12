@@ -14,10 +14,11 @@ import numpy as np
 logger = logging.getLogger(__name__.rsplit('.')[-1])
 
 class ConditionsWidget(QWidget):
-    def __init__(self, main_window, subject='telemetry.water.level', vertical_screen = False, **kwargs):
+    def __init__(self, main_window, subject='telemetry.water.level', subject2 = 'telemetry.power.data-manager', vertical_screen = False, **kwargs):
         super().__init__()
         self.main_window = main_window
         self.water_subject = subject
+        self.energy_subject = subject2
         self.vertical = bool(vertical_screen)
         self.initUI()
 
@@ -38,7 +39,8 @@ class ConditionsWidget(QWidget):
     def initUI(self):
         # Layout
         self.layout = QVBoxLayout(self)
-        self.label = QLabel()
+        self.label_water = QLabel()
+        self.label_energy = QLabel()
         
         # Matplotlib setup
         '''self.figure = Figure(facecolor='lightgrey')
@@ -52,7 +54,8 @@ class ConditionsWidget(QWidget):
         
         
         self.layout.addWidget(self.canvas)'''
-        self.layout.addWidget(self.label)
+        self.layout.addWidget(self.label_water)
+        self.layout.addWidget(self.label_energy)
 
     async def reader_loop(self):
         msg = Messenger()
@@ -77,9 +80,140 @@ class ConditionsWidget(QWidget):
                 logger.info(f"Measured water level {self.water_level}")
                 try:
         
-                    self.label.setText(str(self.water_level))
+                    self.label_water.setText(str(self.water_level))
                 except:
-                    self.label.setText('No data')
+                    self.label_water.setText('No data')
+
+
+    async def reader_loop(self):
+        msg = Messenger()
+
+        # We want the data from the midnight of yesterday
+        today_midnight = datetime.datetime.combine(datetime.date.today(), datetime.time(0))
+        yesterday_midnight = today_midnight - datetime.timedelta(days=1)
+
+        rdr = msg.get_reader(
+            self.energy_subject,
+            deliver_policy='by_start_time',
+            opt_start_time=today_midnight,
+        )
+        logger.info(f"Subscribed to {self.energy_subject}")
+
+        sample_measurement = {
+                "state_of_charge": 100,
+                "pv_power": 0,
+                "battery charge": 0,
+                "battery_discharge": 0,
+        }
+        async for data, meta in rdr:
+            try:
+                # if we crossed the midnight, we want to copy today's data to yesterday's and start today from scratch
+                now = datetime.datetime.now()
+                '''if now.date() > today_midnight.date():
+                    logger.info("Crossed the midnight, resetting the data")
+                    yesterday_midnight = today_midnight
+                    today_midnight = datetime.datetime.combine(now.date(), datetime.time(0))
+                    self.ln_yesterday_wind.set_data(
+                        self.ln_today_wind.get_xdata(),
+                        self.ln_today_wind.get_ydata()
+                    )
+                    self.ln_today_wind.set_data([], [])
+
+                    self.ln_yesterday_temp.set_data(
+                        self.ln_today_temp.get_xdata(),
+                        self.ln_today_temp.get_ydata()
+                    )
+                    self.ln_today_temp.set_data([], [])
+
+                    self.ln_yesterday_hum.set_data(
+                        self.ln_today_hum.get_xdata(),
+                        self.ln_today_hum.get_ydata()
+                    )
+                    self.ln_today_hum.set_data([], [])
+
+                    self.ln_yesterday_pres.set_data(
+                        self.ln_today_pres.get_xdata(),
+                        self.ln_today_pres.get_ydata()
+                    )
+                    self.ln_today_pres.set_data([], [])'''
+
+                # handle current datapoint. it has measurement timestamp in data.ts, and the measurement in data.measurement
+                ts = dt_ensure_datetime(data['ts']).astimezone()
+                measurement = data['measurements']
+                soc = measurement['state_of_charge']
+                pv = measurement['pv_power']
+                bc = measurement['battery_charge']
+                bd = measurement['battery_discharge']/100.
+                ec = bd + pv - bd
+                # depending on the date of the measurement, we want to add point to the yesterday or today data
+                hour = ts.hour + ts.minute / 60 + ts.second / 3600
+                '''if ts < today_midnight.astimezone():
+                    #logger.info(f'Adding point to yesterday data {wind_speed10}')
+                    self.ln_yesterday_wind.set_data(
+                        list(self.ln_yesterday_wind.get_xdata()) + [hour],
+                        list(self.ln_yesterday_wind.get_ydata()) + [wind_speed10]
+                    )
+
+                    self.ln_yesterday_temp.set_data(
+                        list(self.ln_yesterday_temp.get_xdata()) + [hour],
+                        list(self.ln_yesterday_temp.get_ydata()) + [temp]
+                    )
+
+                    self.ln_yesterday_hum.set_data(
+                        list(self.ln_yesterday_hum.get_xdata()) + [hour],
+                        list(self.ln_yesterday_hum.get_ydata()) + [hum]
+                    )
+
+                    self.ln_yesterday_pres.set_data(
+                        list(self.ln_yesterday_pres.get_xdata()) + [hour],
+                        list(self.ln_yesterday_pres.get_ydata()) + [pres]
+                    )
+                else:
+                    #logger.info(f'Adding point to today data {wind_speed10}')
+                    self.ln_today_wind.set_data(
+                        list(self.ln_today_wind.get_xdata()) + [hour],
+                        list(self.ln_today_wind.get_ydata()) + [wind_speed10]
+                    )
+                    self.ln_today_temp.set_data(
+                        list(self.ln_today_temp.get_xdata()) + [hour],
+                        list(self.ln_today_temp.get_ydata()) + [temp]
+                    )
+
+                    self.ln_today_hum.set_data(
+                        list(self.ln_today_hum.get_xdata()) + [hour],
+                        list(self.ln_today_hum.get_ydata()) + [hum]
+                    )
+
+                    self.ln_today_pres.set_data(
+                        list(self.ln_today_pres.get_xdata()) + [hour],
+                        list(self.ln_today_pres.get_ydata()) + [pres]
+                    )
+                # lazy redraw
+                
+                self.ax_wind.relim()
+                self.ax_wind.autoscale_view()
+
+                self.ax_temp.relim()
+                self.ax_temp.autoscale_view()
+
+                self.ax_hum.relim()
+                self.ax_hum.autoscale_view()
+
+                self.ax_pres.relim()
+                self.ax_pres.autoscale_view()
+                self.canvas.draw_idle()'''
+            except:
+                soc = 'NaN'
+                pv = 'NaN'
+                bc = 'NaN'
+                bd = 'NaN'
+                ec = 'NaN'
+
+            try:
+                text = 'SOC '+str(soc)+'%\n' + 'PV '+str(pv)+'W\n'+ 'PC'+str(ec)+'kW\n'
+                self.label_energy.setText(text)
+            except:
+                self.label_energy.setText('No data')
         
                                 
 
