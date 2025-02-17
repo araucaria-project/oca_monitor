@@ -155,7 +155,7 @@ temp_subject='telemetry.conditions.bedroom-east-tsensor'
 ##--------------------------touchpanel controlroom---------------
 
 [touch_controlroom]  # global configuration is used by all environments, setting from here override all other settings
-window_size = [1020, 530]
+window_size = [1240, 680]
 panel_columns = [1]  # The size ratio of the columns in the panel grid
 panel_rows = [1]   # The size ratio of the rows in the panel grid
 style = "dark"
