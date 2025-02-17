@@ -42,10 +42,10 @@ class ConditionsWidget(QWidget):
         self.layout = QVBoxLayout(self)
         self.label_water = QLabel()
         self.label_water.setStyleSheet("background-color : cyan; color: black")
-        self.label_water.setFont(QtGui.QFont('Arial', 26))
+        self.label_water.setFont(QtGui.QFont('Arial', 24))
         self.label_energy = QLabel()
         self.label_energy.setStyleSheet("background-color : pink; color: black")
-        self.label_energy.setFont(QtGui.QFont('Arial', 26))
+        self.label_energy.setFont(QtGui.QFont('Arial', 24))
         # Matplotlib setup
         '''self.figure = Figure(facecolor='lightgrey')
         self.canvas = FigureCanvas(self.figure)
@@ -218,7 +218,7 @@ class ConditionsWidget(QWidget):
                 ec = 'NaN'
 
             try:
-                text = 'ENERGY:\nClusters state of charge\t'+str(soc)+' %\n' + 'Solar Power\t\t'+str(pv)+' W\n'+ 'Power consumption\t'+str(ec)+' W\n'
+                text = 'ENERGY:\nClusters state of charge\t'+str(soc)+' %\n' + 'Solar Power\t\t'+str(pv)+' W\n'+ 'Power consumption\t'+str(ec)+' W'
                 self.label_energy.setText(text)
             except:
                 self.label_energy.setText('No data')

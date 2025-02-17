@@ -34,15 +34,16 @@ def ephemeris():
     sunrise=str(arm.next_rising(ephem.Sun()))
     sun = ephem.Sun()
     moon = ephem.Moon()
+    moon_ph = moon.moon_phase
     sun.compute(arm)
     moon.compute(arm)
     arm.horizon = '-18'
     
     lst = arm.sidereal_time()
     if str(sun.alt)[0] == '-':
-        text = 'UT:\t'+ut+'\nSIDT:\t'+str(lst)+'\nJD:\t\t'+str("{:.2f}".format(float(jd)))+'\nSUNRISE(UT):\t'+sunrise[-8:]
+        text = 'UT:\t'+ut+'\nSIDT:\t'+str(lst)+'\nJD:\t\t'+str("{:.2f}".format(float(jd)))+'\nSUNRISE(UT):\t'+sunrise[-8:]+'MOON PHASE[%]:\t'+str(moon_ph)
     else:
-        text = 'UT:\t'+ut+'\nLT:\t'+lt+'\nSIDT:\t'+str(lst)+'\nJD:\t\t'+str("{:.2f}".format(float(jd)))+'\nSUNSET(UT):\t'+sunset[-8:]
+        text = 'UT:\t'+ut+'\nLT:\t'+lt+'\nSIDT:\t'+str(lst)+'\nJD:\t\t'+str("{:.2f}".format(float(jd)))+'\nSUNSET(UT):\t'+sunset[-8:]+'MOON PHASE[%]:\t'+str(moon_ph)
     return text,sun.alt
         
 
