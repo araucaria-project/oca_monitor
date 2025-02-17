@@ -157,6 +157,7 @@ class TouchButtonsWBedroom(QWidget):
     # You can use just def __init__(self, **kwargs) if you don't want to bother with the arguments
     def __init__(self,
                  main_window, # always passed
+                 allsky_dir='/data/misc/allsky/',
                  example_parameter: str = "Hello OCM!",  # parameters from settings
                  subject='telemetry.weather.davis',#weather subject
                  temp_subject='telemetry.conditions.bedroom-west-tsensor',
