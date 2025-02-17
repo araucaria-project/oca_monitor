@@ -201,7 +201,7 @@ class TouchButtonsWBedroom(QWidget):
         self.vbox_left.addWidget(self.label_temp)
 
         self.b_alarm = QCheckBox()#abort button
-        self.b_alarm.setStyleSheet("QCheckBox::indicator{width: 300px; height:300px;} QCheckBox::indicator:checked {image: url(./Icons/alarmon.png)} QCheckBox::indicator:unchecked {image: url(./Icons/alarmoff.png)}")
+        self.b_alarm.setStyleSheet("QCheckBox::indicator{width: 270px; height:270px;} QCheckBox::indicator:checked {image: url(./Icons/alarmon.png)} QCheckBox::indicator:unchecked {image: url(./Icons/alarmoff.png)}")
         self.b_alarm.clicked.connect(self.send_alarm)
         self.b_alarm.setChecked(False)
 
@@ -213,7 +213,7 @@ class TouchButtonsWBedroom(QWidget):
         
                 
         self.water_pump=bboxItem('hot_water',config.bbox_bedroom_west['hot_water'],QCheckBox())
-        self.water_pump.button.setStyleSheet("QCheckBox::indicator{width: 200px; height:200px;} QCheckBox::indicator:checked {image: url(./Icons/hot_water_on.png)} QCheckBox::indicator:unchecked {image: url(./Icons/hot_water_off.png)}")
+        self.water_pump.button.setStyleSheet("QCheckBox::indicator{width: 170px; height:170px;} QCheckBox::indicator:checked {image: url(./Icons/hot_water_on.png)} QCheckBox::indicator:unchecked {image: url(./Icons/hot_water_off.png)}")
         self.water_pump.button.setChecked(False)
         self.water_pump.button.stateChanged.connect(self.water_button_pressed)
         self.vbox_center.addWidget(self.water_pump.button)
