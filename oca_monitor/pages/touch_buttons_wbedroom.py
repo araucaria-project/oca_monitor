@@ -208,7 +208,7 @@ class TouchButtonsWBedroom(QWidget):
         self.vbox_right.addWidget(self.b_alarm)
 
         self.label_allsky = QLabel()
-        self.label_allsky.resize(100,100)
+        self.label_allsky.resize(300,300)
         self.vbox_right.addWidget(self.label_allsky,1)
         
                 
@@ -239,7 +239,7 @@ class TouchButtonsWBedroom(QWidget):
         if len(lista) > 0:
             try:
                 figure = QPixmap(lista[self.counter])
-                self.label_allsky.setPixmap(figure.scaled(100,100, QtCore.Qt.AspectRatioMode.KeepAspectRatio))
+                self.label_allsky.setPixmap(figure.scaled(300,300, QtCore.Qt.AspectRatioMode.KeepAspectRatio))
 
                 self.counter = self.counter + 1
                 if self.counter == len(lista):
