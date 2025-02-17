@@ -218,7 +218,7 @@ class ConditionsWidget(QWidget):
                 ec = 'NaN'
 
             try:
-                text = 'Energy:\nClusters state of charge\t'+str(soc)+' %\n' + 'Solar Power\t\t'+str(pv)+' W\n'+ 'Power consumption\t'+str(ec)+' W\n'
+                text = 'ENERGY:\nClusters state of charge\t'+str(soc)+' %\n' + 'Solar Power\t\t'+str(pv)+' W\n'+ 'Power consumption\t'+str(ec)+' W\n'
                 self.label_energy.setText(text)
             except:
                 self.label_energy.setText('No data')
