@@ -242,7 +242,7 @@ class TouchButtonsControlroom(QWidget):
         self.d.close()
         self.b_alarm.setChecked(False)
         print('status',self.b_alarm.isChecked())
-        self.send_alarm()
+        #self.send_alarm()
 
     @asyncSlot()
     async def raise_alarm(self,mess,wyj=0):
@@ -267,6 +267,7 @@ class TouchButtonsControlroom(QWidget):
         await self.siren(wyj)
         if self.b_alarm.isChecked():
             QtCore.QTimer.singleShot(2000, self.siren(mes='',wyj=0))
+
         self.d_close_clicked()
            
 
@@ -279,6 +280,7 @@ class TouchButtonsControlroom(QWidget):
 
     def c_close_clicked(self):
         self.c.close()
+        self.d.close_clicked()
 
     async def siren(self,wyj):
         for siren,ip in config.bbox_sirens.items():
