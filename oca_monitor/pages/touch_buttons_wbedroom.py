@@ -188,11 +188,11 @@ class TouchButtonsWBedroom(QWidget):
         self.vbox_left.addWidget(self.label_ephem)
 
 
-        self.label_weather = QLabel("weather")
-        self.label_weather.setStyleSheet("background-color : silver; color: black")
-        self.label_weather.setFont(QtGui.QFont('Arial', 34))
+        self.label_allsky = QLabel()
+        self.label_allsky.resize(300,300)
+        self.vbox_center.addWidget(self.label_allsky)
 
-        self.vbox_center.addWidget(self.label_weather)
+        
 
         self.label_temp = QLabel("temp")
         self.label_temp.setStyleSheet("background-color : #2b2b2b; color: white; font-weight: bold")
@@ -207,9 +207,11 @@ class TouchButtonsWBedroom(QWidget):
 
         self.vbox_right.addWidget(self.b_alarm)
 
-        self.label_allsky = QLabel()
-        self.label_allsky.resize(300,300)
-        self.vbox_right.addWidget(self.label_allsky,1)
+        self.label_weather = QLabel("weather")
+        self.label_weather.setStyleSheet("background-color : silver; color: black")
+        self.label_weather.setFont(QtGui.QFont('Arial', 34))
+
+        self.vbox_right.addWidget(self.label_weather)
         
                 
         self.water_pump=bboxItem('hot_water',config.bbox_bedroom_west['hot_water'],QCheckBox())
@@ -426,7 +428,7 @@ class TouchButtonsWBedroom(QWidget):
             self.hum = int(measurement['humidity'])
             self.pres = int(measurement['pressure_Pa'])
 
-            warning = 'Wind:\t'+str(self.wind)+' m/s\n'+'Temp:\t'+str(self.temp)+' C\n'+'Hum:\t'+str(self.hum)+' %\n'+'Press:\t'+str(self.pres)+' hPa\n'
+            warning = 'Wind:\t'+str(self.wind)+' m/s\n'+'Temp:\t'+str(self.temp)+' C\n'+'Hum:\t'+str(self.hum)+' %\n'+'Press:\t'+str(self.pres)+' hPa'
             
 
             if (float(self.wind) >= 11. and float(self.wind) < 14.) or float(self.hum) > 70:
