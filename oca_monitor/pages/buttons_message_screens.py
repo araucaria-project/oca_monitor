@@ -173,6 +173,16 @@ class ButtonsMessageWidget(QWidget):
                 user = po_data[0]
                 token = po_data[1]
                 await self.push(name,user,token,mess)
+
+            self.c = QDialog()
+            label = QLabel()
+            label.setText('Alarm sent')
+            button = QPushButton('OK')
+            button.clicked.connect(self.c_close_clicked)
+            layout = QHBoxLayout()
+            layout.addWidget(label)
+            layout.addWidget(button)
+            self.c.exec()
         
 
         await self.siren(wyj)
@@ -185,15 +195,6 @@ class ButtonsMessageWidget(QWidget):
         pars = {'token':token,'user':user,'message':mess+name+'!'}
         try:
             requests.post('https://api.pushover.net/1/messages.json',data=pars)
-            self.c = QDialog()
-            label = QLabel()
-            label.setText('Alarm sent')
-            button = QPushButton('OK')
-            button.clicked.connect(self.c_close_clicked)
-            layout = QHBoxLayout()
-            layout.addWidget(label)
-            layout.addWidget(button)
-            self.c.exec()
         except:
             pass
 

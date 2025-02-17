@@ -63,30 +63,32 @@ class ConditionsWidget(QWidget):
 
     async def reader_loop_water(self):
         msg = Messenger()
+        try:
+            # We want the data from the midnight of yesterday
 
-        # We want the data from the midnight of yesterday
+            rdr = msg.get_reader(
+                self.water_subject,
+                deliver_policy='all',
+            )
+            logger.info(f"Subscribed to {self.water_subject}")
 
-        rdr = msg.get_reader(
-            self.water_subject,
-            deliver_policy='all',
-        )
-        logger.info(f"Subscribed to {self.water_subject}")
-
-        
-        async for data, meta in rdr:
             
-            if True:
-                # if we crossed the midnight, we want to copy today's data to yesterday's and start today from scratch
+            async for data, meta in rdr:
                 
-                self.ts = dt_ensure_datetime(data['ts'])
-                measurement = data['measurements']
-                self.water_level = measurement['water_level']
-                logger.info(f"Measured water level {self.water_level}")
-                try:
-        
-                    self.label_water.setText('Water '+str(self.water_level)+ ' litres')
-                except:
-                    self.label_water.setText('No data')
+                if True:
+                    # if we crossed the midnight, we want to copy today's data to yesterday's and start today from scratch
+                    
+                    self.ts = dt_ensure_datetime(data['ts'])
+                    measurement = data['measurements']
+                    self.water_level = measurement['water_level']
+                    logger.info(f"Measured water level {self.water_level}")
+                    try:
+            
+                        self.label_water.setText('Water '+str(self.water_level)+ ' litres')
+                    except:
+                        self.label_water.setText('No data')
+        except:
+            pass
 
 
     async def reader_loop_energy(self):
@@ -216,7 +218,7 @@ class ConditionsWidget(QWidget):
                 ec = 'NaN'
 
             try:
-                text = 'State of charge '+str(soc)+' %\n' + 'Solar Power '+str(pv)+' W\n'+ 'Power consumption '+str(ec)+' W\n'
+                text = 'Energy:\nClusters state of charge\t'+str(soc)+' %\n' + 'Solar Power\t\t'+str(pv)+' W\n'+ 'Power consumption\t'+str(ec)+' W\n'
                 self.label_energy.setText(text)
             except:
                 self.label_energy.setText('No data')

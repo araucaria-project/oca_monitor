@@ -241,34 +241,47 @@ class TouchButtonsControlroom(QWidget):
         #self.c = QDialog()
 
 
+    def d_close_clicked(self):
+        self.d.close()
+        self.b_alarm.setChecked(False)
+        print('status',self.b_alarm.isChecked())
+        self.send_alarm()
+
     @asyncSlot()
     async def raise_alarm(self,mess,wyj=0):
-        kontrolka = 0
         if len(mess) > 0:
             for name,po_data in config.pushover.items():
             
                 user = po_data[0]
                 token = po_data[1]
                 await self.push(name,user,token,mess)
+
+            self.c = QDialog()
+            label = QLabel()
+            label.setText('Alarm sent')
+            button = QPushButton('OK')
+            button.clicked.connect(self.c_close_clicked)
+            layout = QHBoxLayout()
+            layout.addWidget(label)
+            layout.addWidget(button)
+            self.c.exec()
         
 
         await self.siren(wyj)
-        try:
-            self.d.close()
-        except:
-            pass
         if self.b_alarm.isChecked():
-            kontrolka = 1
-            self.b_alarm.setChecked(False)
-
-        if kontrolka == 1:
             QtCore.QTimer.singleShot(2000, self.siren(mes='',wyj=0))
-        
+        self.d_close_clicked()
            
 
     async def push(self, name,user,token,mess):
         pars = {'token':token,'user':user,'message':mess+name+'!'}
-        requests.post('https://api.pushover.net/1/messages.json',data=pars)
+        try:
+            requests.post('https://api.pushover.net/1/messages.json',data=pars)
+        except:
+            pass
+
+    def c_close_clicked(self):
+        self.c.close()
 
     async def siren(self,wyj):
         for siren,ip in config.bbox_sirens.items():

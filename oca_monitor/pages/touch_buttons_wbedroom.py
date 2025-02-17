@@ -310,7 +310,18 @@ class TouchButtonsWBedroom(QWidget):
                 token = po_data[1]
                 await self.push(name,user,token,mess)
         
-        
+            self.c = QDialog()
+            label = QLabel()
+            label.setText('ALARM SENT')
+            label.setStyleSheet("QLabel{font-size: 40pt;background-color: white; color:red}")
+            button = QPushButton('OK')
+            button.clicked.connect(self.c_close_clicked)
+            layout = QVBoxLayout()
+            layout.addWidget(label)
+            layout.addWidget(button)
+            self.c.setLayout(layout)
+            self.c.exec()
+            
         await self.siren(wyj)
         #if self.b_alarm.isChecked():
         #    QtCore.QTimer.singleShot(2000, self.raise_alarm(mes='',wyj=0))
@@ -323,17 +334,7 @@ class TouchButtonsWBedroom(QWidget):
         pars = {'token':token,'user':user,'message':mess+name+'!'}
         try:
             requests.post('https://api.pushover.net/1/messages.json',data=pars)
-            self.c = QDialog()
-            label = QLabel()
-            label.setText('ALARM SENT')
-            label.setStyleSheet("QLabel{font-size: 40pt;background-color: white; color:red}")
-            button = QPushButton('OK')
-            button.clicked.connect(self.c_close_clicked)
-            layout = QVBoxLayout()
-            layout.addWidget(label)
-            layout.addWidget(button)
-            self.c.setLayout(layout)
-            self.c.exec()
+            
 
         except:
             pass

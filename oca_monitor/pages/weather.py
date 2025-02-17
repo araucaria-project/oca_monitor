@@ -293,6 +293,7 @@ class WeatherDataWidget(QWidget):
         self.hum = '0.0'
         self.pres = '0.0'
         await create_task(self.reader_loop_2(), "weather reader")
+        
         #warning = 'Wind: '+str(self.wind)+' m/s\n'+'Temperature: '+str(self.temp)+' C\n'+'Humidity: '+str(self.hum)+' %\n'+'Wind dir: '+str(self.main_window.winddir)+'\n'
         #self.label.setText(warning)
     
@@ -303,64 +304,66 @@ class WeatherDataWidget(QWidget):
 
         # We want the data from the midnight of yesterday
         
+        try:
+            rdr = msg.get_reader(
+                self.weather_subject,
+                deliver_policy='last',
+            )
+            logger.info(f"Subscribed to {self.weather_subject}")
 
-        rdr = msg.get_reader(
-            self.weather_subject,
-            deliver_policy='last',
-        )
-        logger.info(f"Subscribed to {self.weather_subject}")
+            sample_measurement = {
+                    "temperature_C": 10,
+                    "humidity": 50,
+                    "wind_dir_deg": 180,
+                    "wind_ms": 5,
+                    "wind_10min_ms": 5,
+                    "pressure_Pa": 101325,
+                    "bar_trend": 0,
+                    "rain_mm": 0,
+                    "rain_day_mm": 0,
+                    "indoor_temperature_C": 20,
+                    "indoor_humidity": 50,
+            }
+            async for data, meta in rdr:
+                ts = dt_ensure_datetime(data['ts']).astimezone()
+                hour = ts.hour + ts.minute / 60 + ts.second / 3600
+                measurement = data['measurements']
+                self.wind = "{:.1f}".format(measurement['wind_10min_ms'])
+                self.temp = "{:.1f}".format(measurement['temperature_C'])
+                self.hum = int(measurement['humidity'])
+                self.pres = int(measurement['pressure_Pa'])
+                self.winddir = int(measurement['wind_dir_deg'])
 
-        sample_measurement = {
-                "temperature_C": 10,
-                "humidity": 50,
-                "wind_dir_deg": 180,
-                "wind_ms": 5,
-                "wind_10min_ms": 5,
-                "pressure_Pa": 101325,
-                "bar_trend": 0,
-                "rain_mm": 0,
-                "rain_day_mm": 0,
-                "indoor_temperature_C": 20,
-                "indoor_humidity": 50,
-        }
-        async for data, meta in rdr:
-            ts = dt_ensure_datetime(data['ts']).astimezone()
-            hour = ts.hour + ts.minute / 60 + ts.second / 3600
-            measurement = data['measurements']
-            self.wind = "{:.1f}".format(measurement['wind_10min_ms'])
-            self.temp = "{:.1f}".format(measurement['temperature_C'])
-            self.hum = int(measurement['humidity'])
-            self.pres = int(measurement['pressure_Pa'])
-            self.winddir = int(measurement['wind_dir_deg'])
+                self.main_window.wind = self.wind
+                self.main_window.temp = self.temp
+                self.main_window.hum = self.hum
+                self.main_window.winddir = self.winddir
+                self.main_window.skytemp = '0'
+                if self.vertical:
+                    warning = 'Wind:\t'+str(self.wind)+' m/s\n'+'Temp:\t'+str(self.temp)+' C\n'+'Hum:\t'+str(self.hum)+' %\n'+'Wdir:\t'+str(self.main_window.winddir)+' deg'
+                else:
+                    warning = '   Wind:\t\t'+str(self.wind)+' m/s\n'+'   Temperature:\t'+str(self.temp)+' C\n'+'   Humidity:\t'+str(self.hum)+' %\n'+'   Wind dir:\t'+str(self.main_window.winddir)+' deg'
+                if (float(self.wind) >= 11. and float(self.wind) < 14.) or float(self.hum) > 70.:
+                    self.label.setStyleSheet("background-color : yellow; color: black")
+                    if self.main_window.sound_page:
+                        pass
+                        # self.main_window.sound_page.play_weather_warning(True)
+                elif float(self.wind) >= 14. or float(self.hum) > 75. or float(self.temp) < 0.:
+                    self.label.setStyleSheet("background-color : red; color: black")
+                    if self.main_window.sound_page:
+                        pass
+                        # self.main_window.sound_page.play_weather_warning(False)
+                        # self.main_window.sound_page.play_weather_stop(True)
+                else:
+                    if self.main_window.sound_page:
+                        pass
+                        # self.main_window.sound_page.play_weather_warning(False)
+                        # self.main_window.sound_page.play_weather_stop(False)
+                    self.label.setStyleSheet("background-color : lightgreen; color: black")
 
-            self.main_window.wind = self.wind
-            self.main_window.temp = self.temp
-            self.main_window.hum = self.hum
-            self.main_window.winddir = self.winddir
-            self.main_window.skytemp = '0'
-            if self.vertical:
-                warning = 'Wind:\t'+str(self.wind)+' m/s\n'+'Temp:\t'+str(self.temp)+' C\n'+'Hum:\t'+str(self.hum)+' %\n'+'Wdir:\t'+str(self.main_window.winddir)+' deg'
-            else:
-                warning = '   Wind:\t\t'+str(self.wind)+' m/s\n'+'   Temperature:\t'+str(self.temp)+' C\n'+'   Humidity:\t'+str(self.hum)+' %\n'+'   Wind dir:\t'+str(self.main_window.winddir)+' deg'
-            if (float(self.wind) >= 11. and float(self.wind) < 14.) or float(self.hum) > 70.:
-                self.label.setStyleSheet("background-color : yellow; color: black")
-                if self.main_window.sound_page:
-                    pass
-                    # self.main_window.sound_page.play_weather_warning(True)
-            elif float(self.wind) >= 14. or float(self.hum) > 75. or float(self.temp) < 0.:
-                self.label.setStyleSheet("background-color : red; color: black")
-                if self.main_window.sound_page:
-                    pass
-                    # self.main_window.sound_page.play_weather_warning(False)
-                    # self.main_window.sound_page.play_weather_stop(True)
-            else:
-                if self.main_window.sound_page:
-                    pass
-                    # self.main_window.sound_page.play_weather_warning(False)
-                    # self.main_window.sound_page.play_weather_stop(False)
-                self.label.setStyleSheet("background-color : lightgreen; color: black")
-
-            self.label.setText(warning)
+                self.label.setText(warning)
+        except:
+            pass
 
 
 widget_class = WeatherDataWidget
