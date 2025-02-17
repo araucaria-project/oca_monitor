@@ -42,9 +42,9 @@ def ephemeris():
     
     lst = arm.sidereal_time()
     if str(sun.alt)[0] == '-':
-        text = 'UT:\t'+ut+'\nSIDT:\t\t'+str(lst)+'\nJD:\t\t'+str("{:.2f}".format(float(jd)))+'\nSUNRISE(UT):\t'+sunrise[-8:]+'\nMOON PHASE[%]:\t'+str(int(float(moon_ph)*100))+'\nMOON ALT:\t\t'+str(moon.alt.split(':')[0])
+        text = 'UT:\t'+ut+'\nSIDT:\t\t'+str(lst)+'\nJD:\t\t'+str("{:.2f}".format(float(jd)))+'\nSUNRISE(UT):\t'+sunrise[-8:]+'\nMOON PHASE[%]:\t'+str(int(float(moon_ph)*100))+'\nMOON ALT:\t\t'+str(moon.alt.split)(':')[0]
     else:
-        text = 'UT:\t'+ut+'\nLT:\t\t'+lt+'\nSIDT:\t'+str(lst)+'\nJD:\t\t'+str("{:.2f}".format(float(jd)))+'\nSUNSET(UT):\t'+sunset[-8:]+'\nMOON PHASE[%]:\t'+str(int(float(moon_ph)*100))+'\nMOON ALT:\t\t'+str(moon.alt.split(':')[0])
+        text = 'UT:\t'+ut+'\nLT:\t\t'+lt+'\nSIDT:\t'+str(lst)+'\nJD:\t\t'+str("{:.2f}".format(float(jd)))+'\nSUNSET(UT):\t'+sunset[-8:]+'\nMOON PHASE[%]:\t'+str(int(float(moon_ph)*100))+'\nMOON ALT:\t\t'+str(moon.alt.split)(':')[0]
     return text,sun.alt
         
 
