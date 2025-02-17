@@ -34,9 +34,10 @@ def ephemeris():
     sunrise=str(arm.next_rising(ephem.Sun()))
     sun = ephem.Sun()
     moon = ephem.Moon()
-    moon_ph = moon.moon_phase
+    
     sun.compute(arm)
     moon.compute(arm)
+    moon_ph = moon.moon_phase
     arm.horizon = '-18'
     
     lst = arm.sidereal_time()
