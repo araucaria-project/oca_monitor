@@ -236,9 +236,6 @@ class TouchButtonsControlroom(QWidget):
 
         return 1
 
-    def d_close_clicked(self):
-        self.d.close()
-        #self.c = QDialog()
 
 
     def d_close_clicked(self):
