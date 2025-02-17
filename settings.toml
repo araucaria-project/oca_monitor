@@ -173,6 +173,7 @@ log_level = "INFO"
 
 [touch_controlroom.panels.00.Buttons]
 source = "touch_buttons"  # page source - page is defined in oca_monitor/pages/example.py
+light='controlroom'
 
 ##--------------------------screen kitchen---------------
 
