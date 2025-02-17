@@ -1,6 +1,7 @@
 import logging
 from PyQt6.QtWidgets import QDialog,QWidget, QVBoxLayout, QHBoxLayout, QLabel,QSlider,QDial,QScrollBar,QPushButton,QCheckBox
 from PyQt6 import QtCore, QtGui
+from PyQt6.QtGui import QPixmap
 import json,requests
 import oca_monitor.config as config
 from qasync import asyncSlot
@@ -10,6 +11,7 @@ from serverish.messenger import Messenger
 import ephem
 import time
 from astropy.time import Time as czas_astro
+import os
 # please use logging like here, it will name the log record with the name of the module
 logger = logging.getLogger(__name__.rsplit('.')[-1])
 
@@ -166,6 +168,8 @@ class TouchButtonsWBedroom(QWidget):
         self.weather_subject = subject
         self.temp_subject = temp_subject
         self.room = room
+        self.freq = 2000
+        self.counter = 0
         self.initUI(example_parameter,subject)
 
     def initUI(self, text,subject):
@@ -200,6 +204,11 @@ class TouchButtonsWBedroom(QWidget):
         self.b_alarm.setChecked(False)
 
         self.vbox_right.addWidget(self.b_alarm)
+
+        self.label = QLabel()
+        self.label.resize(100,100)
+        self.vbox_right.addWidget(self.label,1)
+        
                 
         self.water_pump=bboxItem('hot_water',config.bbox_bedroom_west['hot_water'],QCheckBox())
         self.water_pump.button.setStyleSheet("QCheckBox::indicator{width: 200px; height:200px;} QCheckBox::indicator:checked {image: url(./Icons/hot_water_on.png)} QCheckBox::indicator:unchecked {image: url(./Icons/hot_water_off.png)}")
@@ -217,20 +226,35 @@ class TouchButtonsWBedroom(QWidget):
         self._update_weather()
         self._update_ephem()
         self._update_temp()
+        self._update_allsky()
         #self._update_water_status()
         
         logger.info("UI setup done")
 
-    
-    '''def _update_water_status(self):
-        
-        if self.water_pump.is_available():
-            self.water_pump.button.setStyleSheet("QCheckBox::indicator{width: 200px; height:200px;} QCheckBox::indicator:checked {image: url(./Icons/hot_water_on.png)} QCheckBox::indicator:unchecked {image: url(./Icons/hot_water_off.png)}")
-            else:
-                light.slide.setStyleSheet("QCheckBox::indicator{width: 200px; height:200px;} QCheckBox::indicator:checked {image: url(./Icons/"+light.name+"_lightna.png)} QCheckBox::indicator:unchecked {image: url(./Icons/"+light.name+"_lightna.png)}")
-            
+   
 
-        QtCore.QTimer.singleShot(15000, self._update_water_status)'''
+    def _update_allsky(self):
+        lista = os.popen('ls -tr '+self.dir+'lastimage*.jpg').read().split('\n')[:-1]
+        if len(lista) > 0:
+            try:
+                figure = QPixmap(lista[self.counter])
+                if self.vertical:
+                    self.label.setPixmap(figure.scaled(self.width(),self.width(), QtCore.Qt.AspectRatioMode.KeepAspectRatio))
+                else:
+                    self.label.setPixmap(figure.scaled(self.height(),self.height(), QtCore.Qt.AspectRatioMode.KeepAspectRatio))
+
+                self.counter = self.counter + 1
+                if self.counter == len(lista):
+                    self.counter = 0
+            except:
+                pass
+
+        QtCore.QTimer.singleShot(self.freq, self.update)
+        
+
+    
+
+
     @asyncSlot()
     async def water_button_pressed(self,wylacz=False):
         if wylacz:
@@ -321,7 +345,7 @@ class TouchButtonsWBedroom(QWidget):
             layout.addWidget(button)
             self.c.setLayout(layout)
             self.c.exec()
-            
+
         await self.siren(wyj)
         #if self.b_alarm.isChecked():
         #    QtCore.QTimer.singleShot(2000, self.raise_alarm(mes='',wyj=0))
