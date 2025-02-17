@@ -4,7 +4,7 @@
 #---------------------------default - controlroom---------------------
 
 [default]  # global configuration is used by all environments, setting from here override all other settings
-window_size = [1900, 1040]
+window_size = [1950, 1040]
 #window_size = [1800, 1000]
 panel_columns = [4,6,4]  # The size ratio of the columns in the panel grid
 panel_rows = [5,1]   # The size ratio of the rows in the panel grid
@@ -21,17 +21,17 @@ log_level = "INFO"
 # Panel page declaration:
 # environment.panels.rowcolumn.tabname
 
-[default.panels.00.wk06]
+#[default.panels.00.wk06]
 #auto_interval = 10  # seconds, how long to show this page before auto switching to next page
-source = "wk06_ofp"  # page source - page is defined in oca_monitor/pages/example.py
+#source = "wk06_ofp"  # page source - page is defined in oca_monitor/pages/example.py
 
-[default.panels.00.zb08]
+#[default.panels.00.zb08]
 #auto_interval = 10  # seconds, how long to show this page before auto switching to next page
-source = "zb08_ofp"  # page source - page is defined in oca_monitor/pages/example.py
+#source = "zb08_ofp"  # page source - page is defined in oca_monitor/pages/example.py
 
-[default.panels.00.jk15]
+#[default.panels.00.jk15]
 #auto_interval = 10  # seconds, how long to show this page before auto switching to next page
-source = "jk15_ofp"  # page source - page is defined in oca_monitor/pages/example.py
+#source = "jk15_ofp"  # page source - page is defined in oca_monitor/pages/example.py
 
 [default.panels.10.Message]
 #auto_interval = 10  # seconds, how long to show this page before auto switching to next page
