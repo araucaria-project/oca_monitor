@@ -171,6 +171,7 @@ class TouchButtonsWBedroom(QWidget):
         self.room = room
         self.freq = 2000
         self.counter = 0
+        self.dir = allsky_dir
         self.initUI(example_parameter,subject)
 
     def initUI(self, text,subject):
