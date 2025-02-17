@@ -229,7 +229,6 @@ class TouchButtonsWBedroom(QWidget):
         self._update_ephem()
         self._update_temp()
         self._update_allsky()
-        #self._update_water_status()
         
         logger.info("UI setup done")
 
@@ -240,10 +239,7 @@ class TouchButtonsWBedroom(QWidget):
         if len(lista) > 0:
             try:
                 figure = QPixmap(lista[self.counter])
-                if self.vertical:
-                    self.label_allsky.setPixmap(figure.scaled(self.width(),self.width(), QtCore.Qt.AspectRatioMode.KeepAspectRatio))
-                else:
-                    self.label_allsky.setPixmap(figure.scaled(self.height(),self.height(), QtCore.Qt.AspectRatioMode.KeepAspectRatio))
+                self.label_allsky.setPixmap(figure.scaled(100,100, QtCore.Qt.AspectRatioMode.KeepAspectRatio))
 
                 self.counter = self.counter + 1
                 if self.counter == len(lista):
