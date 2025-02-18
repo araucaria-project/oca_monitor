@@ -120,8 +120,9 @@ class ConditionsScreensWidget(QWidget):
         img = mpimg.imread('./oca_monitor/resources/gfx/oca_main_building.png')
         self.figure.gca().imshow(img)
         for s,sens in self.sensors.items():
-            print(s)
-            if int(sens.x)+int(sens.y)!=0:
+            
+            if int(sens.x)+int(sens.y)!=10:
+                print(s)
                 if sens.temp != "Undef":
                     self.figure.text(int(sens.x),int(sens.y),str(int(sens.temp))+'$^{\circ} C$',backgroundcolor='lightgreen',color='red',fontsize='x-large')
                 if sens.hum != "Undef":
