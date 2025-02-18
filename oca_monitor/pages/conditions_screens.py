@@ -54,6 +54,11 @@ class ConditionsScreensWidget(QWidget):
                 self.sensors[sens]=sensor(sens,params[0],params[1],params[2])
             subject = self.subject_conditions+'.'+sens
             await create_task(self.reader_loop_conditions(subject,sens), "reader_conditions")
+        for sens,params in self.tsensors.items():
+            if sens not in self.sensors.keys():
+                self.sensors[sens]=sensor(sens,params[0],params[1],params[2])
+            subject = self.subject_conditions+'.'+sens
+            await create_task(self.reader_loop_conditions(subject,sens), "reader_conditions")
 
 
 
@@ -79,7 +84,6 @@ class ConditionsScreensWidget(QWidget):
     async def reader_loop_conditions(self,subject,sens):
         msg = Messenger()
         
-        
         try:
 
             rdr = msg.get_reader(
@@ -97,7 +101,7 @@ class ConditionsScreensWidget(QWidget):
                     self.ts = dt_ensure_datetime(data['ts'])
                     measurement = data['measurements']
                     self.sensors[sens].temp = measurement['temperature']
-                    logger.info(f"Measured temperature {sself.sensors[sens].name+' '+str(self.sensors[sens].temp)}")
+                    logger.info(f"Measured temperature {self.sensors[sens].name+' '+str(self.sensors[sens].temp)}")
                         
                     self.sensors[sens].hum = measurement['humidity']
                     logger.info(f"Measured humidity {self.sensors[sens].name+' '+str(self.sensors[sens].hum)}")
