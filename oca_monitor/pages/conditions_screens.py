@@ -36,6 +36,7 @@ class ConditionsScreensWidget(QWidget):
         self.subject_energy = subject_energy
         self.subject_conditions = subject_conditions
         self.vertical = bool(vertical_screen)
+        self.sensors = {}
         self.htsensors = config.ht_subjects
         self.tsensors = config.t_subjects
         self.initUI()
@@ -48,13 +49,16 @@ class ConditionsScreensWidget(QWidget):
         #obs_config = await self.main_window.observatory_config()
         await create_task(self.reader_loop_water(), "reader_water")
         await create_task(self.reader_loop_energy(), "reader_energy")
-        await create_task(self.reader_loop_conditions(), "reader_conditions")
+        for sens,params in self.htsensors.items():
+            if sens not in self.sensors.keys():
+                self.sensors[sens]=sensor(sens,params[0],params[1],params[2])
+            subject = self.subject_conditions+'.'+sens
+            await create_task(self.reader_loop_conditions(subject,sens), "reader_conditions")
 
 
 
     def initUI(self):
         # Layout
-        self.sensors = {}
         self.layout = QVBoxLayout(self)
         self.label_water = QLabel()
         self.label_water.setStyleSheet("background-color : cyan; color: black")
@@ -72,68 +76,35 @@ class ConditionsScreensWidget(QWidget):
         self.layout.addWidget(self.canvas)
 
 
-    async def reader_loop_conditions(self):
+    async def reader_loop_conditions(self,subject,sens):
         msg = Messenger()
         
-        for sens,params in self.htsensors.items():
-            if sens not in self.sensors.keys():
-                self.sensors[sens]=sensor(sens,params[0],params[1],params[2])
-            subject = self.subject_conditions+'.'+sens
-            try:
-                # We want the data from the midnight of yesterday
+        
+        try:
 
-                rdr = msg.get_reader(
-                    subject,
-                    deliver_policy='last',
-                )
-                logger.info(f"Subscribed to {subject}")
+            rdr = msg.get_reader(
+                subject,
+                deliver_policy='last',
+            )
+            logger.info(f"Subscribed to {subject}")
 
                 
-                async for data, meta in rdr:
-                    
-                    if True:
-                        # if we crossed the midnight, we want to copy today's data to yesterday's and start today from scratch
-                        
-                        self.ts = dt_ensure_datetime(data['ts'])
-                        measurement = data['measurements']
-                        self.sensors[sens].temp = measurement['temperature']
-                        logger.info(f"Measured temperature {sens+' '+str(self.sensors[sens].temp)}")
-                        
-                        self.sensors[sens].hum = measurement['humidity']
-                        logger.info(f"Measured temperature {sens+' '+str(self.sensors[sens].hum)}")
-                        
-                        
-            except:
-                continue
-
-        for sens,params in self.tsensors.items():
-            if sens not in self.sensors.keys():
-                self.sensors[sens]=sensor(sens,params[0],params[1],params[2])
-            subject = self.subject_conditions+'.'+sens
-            try:
-                # We want the data from the midnight of yesterday
-
-                rdr = msg.get_reader(
-                    subject,
-                    deliver_policy='last',
-                )
+            async for data, meta in rdr:
                 
-                logger.info(f"Subscribed to {subject}")
-
-                
-                async for data, meta in rdr:
-                    
-                    if True:
-                        # if we crossed the midnight, we want to copy today's data to yesterday's and start today from scratch
+                if True:
+                    # if we crossed the midnight, we want to copy today's data to yesterday's and start today from scratch
                         
-                        self.ts = dt_ensure_datetime(data['ts'])
-                        measurement = data['measurements']
-                        print(measurement)
-                        self.sensors[sens].temp = measurement['temperature']
-                        logger.info(f"Measured temperature {sens+' '+str(self.sensors[sens].temp)}")
+                    self.ts = dt_ensure_datetime(data['ts'])
+                    measurement = data['measurements']
+                    self.sensors[sens].temp = measurement['temperature']
+                    logger.info(f"Measured temperature {sself.sensors[sens].name+' '+str(self.sensors[sens].temp)}")
                         
-            except:
-                continue
+                    self.sensors[sens].hum = measurement['humidity']
+                    logger.info(f"Measured humidity {self.sensors[sens].name+' '+str(self.sensors[sens].hum)}")
+                        
+                        
+        except:
+            pass
 
         
 
