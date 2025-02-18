@@ -19,13 +19,13 @@ import oca_monitor.config as config
 
 logger = logging.getLogger(__name__.rsplit('.')[-1])
 
-'''class sensors():
+class sensor():
     def __init__(self,name,t,h=None,x,y):
         self.name = name
         self.t = t
         self.h = h
         self.x = x
-        self.y = y'''
+        self.y = y
 
 class ConditionsScreensWidget(QWidget):
     def __init__(self, main_window, subject_conditions='telemetry.conditions', subject_water='telemetry.water.level', subject_energy='telemetry.power.data_manager', vertical_screen = True, **kwargs):
@@ -53,8 +53,7 @@ class ConditionsScreensWidget(QWidget):
 
     def initUI(self):
         # Layout
-        self.hum_to_plot = []
-        self.temp_to_plot = []
+        self.sensors = {}
         self.layout = QVBoxLayout(self)
         self.label_water = QLabel()
         self.label_water.setStyleSheet("background-color : cyan; color: black")
@@ -75,8 +74,10 @@ class ConditionsScreensWidget(QWidget):
     async def reader_loop_conditions(self):
         msg = Messenger()
         
-        for sensor,params in self.htsensors.items():
-            subject = self.subject_conditions+'.'+sensor
+        for sens,params in self.htsensors.items():
+            if sens not in self.sensors.keys():
+                self.sensors[sens]=sensor(sens,params[0],params[1],params[2])
+            subject = self.subject_conditions+'.'+sens
             try:
                 # We want the data from the midnight of yesterday
 
@@ -94,19 +95,20 @@ class ConditionsScreensWidget(QWidget):
                         
                         self.ts = dt_ensure_datetime(data['ts'])
                         measurement = data['measurements']
-                        print(measurement)
-                        temp = measurement['temperature']
-                        logger.info(f"Measured temperature {sensor+' '+str(temp)}")
-                        self.temp_to_plot.append([temp,params[0],params[1],params[2]])
-                        hum= measurement['temperature']
-                        logger.info(f"Measured temperature {sensor+' '+str(hum)}")
-                        self.hum_to_plot.append([hum,params[0],params[1],params[2]])
+                        self.sensors[sens].temp = measurement['temperature']
+                        logger.info(f"Measured temperature {sensor+' '+str(self.sensors[sens].temp)}")
+                        
+                        self.sensors[sens].hum = measurement['humidity']
+                        logger.info(f"Measured temperature {sensor+' '+str(self.sensors[sens].hum)}")
+                        
                         
             except:
                 continue
 
         for sensor,params in self.tsensors.items():
-            subject = self.subject_conditions+'.'+sensor
+            if sens not in self.sensors.keys():
+                self.sensors[sens]=sensor(sens,params[0],params[1],params[2])
+            subject = self.subject_conditions+'.'+sens
             try:
                 # We want the data from the midnight of yesterday
 
@@ -114,7 +116,7 @@ class ConditionsScreensWidget(QWidget):
                     subject,
                     deliver_policy='last',
                 )
-                print(rdr)
+                
                 logger.info(f"Subscribed to {subject}")
 
                 
@@ -126,9 +128,8 @@ class ConditionsScreensWidget(QWidget):
                         self.ts = dt_ensure_datetime(data['ts'])
                         measurement = data['measurements']
                         print(measurement)
-                        temp = measurement['temperature']
-                        logger.info(f"Measured temperature {sensor+' '+str(temp)}")
-                        self.temp_to_plot.append([temp,params[0],params[1],params[2]])
+                        self.sensors[sens].temp = measurement['temperature']
+                        logger.info(f"Measured temperature {sensor+' '+str(self.sensors[sens].temp)}")
                         
             except:
                 continue
