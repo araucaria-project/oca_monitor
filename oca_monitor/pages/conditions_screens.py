@@ -53,6 +53,8 @@ class ConditionsScreensWidget(QWidget):
 
     def initUI(self):
         # Layout
+        self.hum_to_plot = []
+        self.temp_to_plot = []
         self.layout = QVBoxLayout(self)
         self.label_water = QLabel()
         self.label_water.setStyleSheet("background-color : cyan; color: black")
@@ -61,18 +63,18 @@ class ConditionsScreensWidget(QWidget):
         self.label_energy.setStyleSheet("background-color : pink; color: black")
         self.label_energy.setFont(QtGui.QFont('Arial', 24))
         # Matplotlib setup
-        self.figure = Figure(figsize=(15,10),facecolor='lightgrey')
+        self.figure = Figure(figsize=(24,16),facecolor='lightgrey')
         self.canvas = FigureCanvas(self.figure)
         self.layout.addWidget(self.canvas)
-        #self.draw_figure()
+        self.draw_figure()
         self.layout.addWidget(self.label_water)
         self.layout.addWidget(self.label_energy)
         self.layout.addWidget(self.canvas)
 
+
     async def reader_loop_conditions(self):
         msg = Messenger()
-        self.hum_to_plot = []
-        self.temp_to_plot = []
+        
         for sensor,params in self.htsensors.items():
             subject = self.subject_conditions+sensor
             try:
@@ -112,6 +114,7 @@ class ConditionsScreensWidget(QWidget):
                     subject,
                     deliver_policy='last',
                 )
+                print(rdr)
                 logger.info(f"Subscribed to {subject}")
 
                 
@@ -130,7 +133,7 @@ class ConditionsScreensWidget(QWidget):
             except:
                 continue
 
-        self.draw_figure()
+        
 
     def draw_figure(self):
         self.figure.clf()
@@ -146,6 +149,7 @@ class ConditionsScreensWidget(QWidget):
                 self.figure.text(int(h[2]),int(h[3])+20,str(int(h[0]))+'$%',backgroundcolor='lightgreen',color='red',fontsize='x-large')
 
         self.canvas.draw()
+        QTimer.singleShot(10000, self.draw_figure)
 
         
         
