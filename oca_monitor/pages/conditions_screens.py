@@ -92,6 +92,7 @@ class ConditionsScreensWidget(QWidget):
                         
                         self.ts = dt_ensure_datetime(data['ts'])
                         measurement = data['measurements']
+                        print(measurement)
                         temp = measurement['temperature']
                         logger.info(f"Measured temperature {sensor+' '+str(temp)}")
                         self.temp_to_plot.append([temp,params[0],params[1],params[2]])
@@ -121,6 +122,7 @@ class ConditionsScreensWidget(QWidget):
                         
                         self.ts = dt_ensure_datetime(data['ts'])
                         measurement = data['measurements']
+                        print(measurement)
                         temp = measurement['temperature']
                         logger.info(f"Measured temperature {sensor+' '+str(temp)}")
                         self.temp_to_plot.append([temp,params[0],params[1],params[2]])
