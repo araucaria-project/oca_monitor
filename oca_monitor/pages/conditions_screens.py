@@ -76,7 +76,7 @@ class ConditionsScreensWidget(QWidget):
         msg = Messenger()
         
         for sensor,params in self.htsensors.items():
-            subject = self.subject_conditions+sensor
+            subject = self.subject_conditions+'.'+sensor
             try:
                 # We want the data from the midnight of yesterday
 
@@ -106,7 +106,7 @@ class ConditionsScreensWidget(QWidget):
                 continue
 
         for sensor,params in self.tsensors.items():
-            subject = self.subject_conditions+sensor
+            subject = self.subject_conditions+'.'+sensor
             try:
                 # We want the data from the midnight of yesterday
 
