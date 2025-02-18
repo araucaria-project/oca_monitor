@@ -313,4 +313,4 @@ class ConditionsScreensWidget(QWidget):
         
                                 
 
-widget_class = ConditionsWidget
+widget_class = ConditionsScreensWidget
