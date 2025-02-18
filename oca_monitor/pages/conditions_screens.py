@@ -124,7 +124,7 @@ class ConditionsScreensWidget(QWidget):
             if int(sens.x)+int(sens.y)!=10:
                 print(s)
                 if sens.temp != "Undef":
-                    self.figure.gca().text(int(sens.x),int(sens.y),str(int(sens.temp))+'^${\circ} C$',backgroundcolor='lightgreen',color='red',fontsize='large')
+                    self.figure.gca().text(int(sens.x),int(sens.y)-20,str(int(sens.temp))+'$^{\circ} C$',backgroundcolor='lightgreen',color='red',fontsize='large')
                 if sens.hum != "Undef":
                     self.figure.gca().text(int(sens.x),int(sens.y)+30,str(int(sens.hum))+'%',backgroundcolor='lightgreen',color='red',fontsize='large')
 
