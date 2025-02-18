@@ -20,10 +20,10 @@ import oca_monitor.config as config
 logger = logging.getLogger(__name__.rsplit('.')[-1])
 
 class sensor():
-    def __init__(self,name,t,h=None,x=0,y=0):
+    def __init__(self,name,x=0,y=0):
         self.name = name
-        self.t = t
-        self.h = h
+        self.temp = 0
+        self.hum = 0
         self.x = x
         self.y = y
 
@@ -96,16 +96,16 @@ class ConditionsScreensWidget(QWidget):
                         self.ts = dt_ensure_datetime(data['ts'])
                         measurement = data['measurements']
                         self.sensors[sens].temp = measurement['temperature']
-                        logger.info(f"Measured temperature {sensor+' '+str(self.sensors[sens].temp)}")
+                        logger.info(f"Measured temperature {sens+' '+str(self.sensors[sens].temp)}")
                         
                         self.sensors[sens].hum = measurement['humidity']
-                        logger.info(f"Measured temperature {sensor+' '+str(self.sensors[sens].hum)}")
+                        logger.info(f"Measured temperature {sens+' '+str(self.sensors[sens].hum)}")
                         
                         
             except:
                 continue
 
-        for sensor,params in self.tsensors.items():
+        for sens,params in self.tsensors.items():
             if sens not in self.sensors.keys():
                 self.sensors[sens]=sensor(sens,params[0],params[1],params[2])
             subject = self.subject_conditions+'.'+sens
@@ -129,7 +129,7 @@ class ConditionsScreensWidget(QWidget):
                         measurement = data['measurements']
                         print(measurement)
                         self.sensors[sens].temp = measurement['temperature']
-                        logger.info(f"Measured temperature {sensor+' '+str(self.sensors[sens].temp)}")
+                        logger.info(f"Measured temperature {sens+' '+str(self.sensors[sens].temp)}")
                         
             except:
                 continue
