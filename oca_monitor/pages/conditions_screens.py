@@ -51,12 +51,14 @@ class ConditionsScreensWidget(QWidget):
         await create_task(self.reader_loop_energy(), "reader_energy")
         for sens,params in self.htsensors.items():
             if sens not in self.sensors.keys():
-                self.sensors[sens]=sensor(sens,params[0],params[1],params[2])
+                self.sensors[sens]=sensor(sens,params[0],x=params[1],y=params[2])
+                print(sens,params[1],params[2])
             subject = self.subject_conditions+'.'+sens
             await create_task(self.reader_loop_conditions(subject,sens), "reader_conditions")
         for sens,params in self.tsensors.items():
             if sens not in self.sensors.keys():
-                self.sensors[sens]=sensor(sens,params[0],params[1],params[2])
+                self.sensors[sens]=sensor(sens,params[0],x=params[1],y=params[2])
+                print(sens,params[1],params[2])
             subject = self.subject_conditions+'.'+sens
             await create_task(self.reader_loop_conditions(subject,sens), "reader_conditions")
 
