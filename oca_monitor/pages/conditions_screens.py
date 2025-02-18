@@ -20,8 +20,9 @@ import oca_monitor.config as config
 logger = logging.getLogger(__name__.rsplit('.')[-1])
 
 class sensor():
-    def __init__(self,name,x=0,y=0):
+    def __init__(self,name,name_to_display='',x=0,y=0):
         self.name = name
+        self.name_to_display = name_to_display
         self.temp = 0
         self.hum = 0
         self.x = x
