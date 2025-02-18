@@ -79,7 +79,7 @@ class ConditionsScreensWidget(QWidget):
                 # We want the data from the midnight of yesterday
 
                 rdr = msg.get_reader(
-                    self.water_subject,
+                    subject,
                     deliver_policy='last',
                 )
                 logger.info(f"Subscribed to {subject}")
@@ -108,7 +108,7 @@ class ConditionsScreensWidget(QWidget):
                 # We want the data from the midnight of yesterday
 
                 rdr = msg.get_reader(
-                    self.water_subject,
+                    subject,
                     deliver_policy='last',
                 )
                 logger.info(f"Subscribed to {subject}")
@@ -134,7 +134,7 @@ class ConditionsScreensWidget(QWidget):
         self.figure.clf()
         self.figure.gca().tick_params(axis='both', left=False, top=False, right=False, bottom=False, labelleft=False, labeltop=False, labelright=False, labelbottom=False)
         img = mpimg.imread('./oca_monitor/resources/gfx/oca_main_building.png')
-        self.figure.imshow(img)
+        self.figure.gca().imshow(img)
         for t in self.temp_to_plot:
             if int(t[2])+int(t[3])!=0:
                 self.figure.text(int(t[2]),int(t[3]),str(int(t[0]))+'$^{\circ} C$',backgroundcolor='lightgreen',color='red',fontsize='x-large')
@@ -155,7 +155,7 @@ class ConditionsScreensWidget(QWidget):
 
             rdr = msg.get_reader(
                 self.water_subject,
-                deliver_policy='all',
+                deliver_policy='last',
             )
             logger.info(f"Subscribed to {self.water_subject}")
 
