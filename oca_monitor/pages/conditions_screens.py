@@ -23,8 +23,8 @@ class sensor():
     def __init__(self,name,name_to_display='',x=0,y=0):
         self.name = name
         self.name_to_display = name_to_display
-        self.temp = 0
-        self.hum = 0
+        self.temp = "Undef"
+        self.hum = "Undef"
         self.x = x
         self.y = y
 
@@ -120,9 +120,12 @@ class ConditionsScreensWidget(QWidget):
         img = mpimg.imread('./oca_monitor/resources/gfx/oca_main_building.png')
         self.figure.gca().imshow(img)
         for s,sens in self.sensors.items():
+            print(s)
             if int(sens.x)+int(sens.y)!=0:
-                self.figure.text(int(sens.x),int(sens.y),str(int(sens.temp))+'$^{\circ} C$',backgroundcolor='lightgreen',color='red',fontsize='x-large')
-                self.figure.text(int(sens.x),int(sens.y)+20,str(int(sens.hum))+'$%',backgroundcolor='lightgreen',color='red',fontsize='x-large')
+                if sens.temp != "Undef":
+                    self.figure.text(int(sens.x),int(sens.y),str(int(sens.temp))+'$^{\circ} C$',backgroundcolor='lightgreen',color='red',fontsize='x-large')
+                if sens.hum != "Undef":
+                    self.figure.text(int(sens.x),int(sens.y)+20,str(int(sens.hum))+'$%',backgroundcolor='lightgreen',color='red',fontsize='x-large')
 
         self.canvas.draw()
         QTimer.singleShot(10000, self.draw_figure)
