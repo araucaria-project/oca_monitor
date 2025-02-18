@@ -132,7 +132,7 @@ class ConditionsScreensWidget(QWidget):
 
     def draw_figure(self):
         self.figure.clf()
-        self.figure.tick_params(axis='both', left=False, top=False, right=False, bottom=False, labelleft=False, labeltop=False, labelright=False, labelbottom=False)
+        self.figure.gca().tick_params(axis='both', left=False, top=False, right=False, bottom=False, labelleft=False, labeltop=False, labelright=False, labelbottom=False)
         img = mpimg.imread('./oca_monitor/resources/gfx/oca_main_building.png')
         self.figure.imshow(img)
         for t in self.temp_to_plot:
@@ -187,11 +187,11 @@ class ConditionsScreensWidget(QWidget):
         yesterday_midnight = today_midnight - datetime.timedelta(days=1)
 
         rdr = msg.get_reader(
-            self.energy_subject,
+            self.subject_energy,
             deliver_policy='by_start_time',
             opt_start_time=today_midnight,
         )
-        logger.info(f"Subscribed to {self.energy_subject}")
+        logger.info(f"Subscribed to {self.subject_energy}")
 
         sample_measurement = {
                 "state_of_charge": 100,
