@@ -6,24 +6,38 @@ from PyQt6.QtCore import QTimer
 from PyQt6 import QtGui
 from matplotlib.backends.backend_qt5agg import FigureCanvasQTAgg as FigureCanvas
 from matplotlib.figure import Figure
+import matplotlib.pyplot as plt
+import matplotlib.image as mpimg
 from qasync import asyncSlot
 from serverish.base import dt_ensure_datetime
 from serverish.base.task_manager import create_task_sync, create_task
 from serverish.messenger import Messenger
 import numpy as np
 
+import oca_monitor.config as config
+
+
 logger = logging.getLogger(__name__.rsplit('.')[-1])
 
-class ConditionsWidget(QWidget):
-    def __init__(self, main_window, subject='telemetry.water.level', subject2 = 'telemetry.power.data-manager', vertical_screen = False, **kwargs):
+'''class sensors():
+    def __init__(self,name,t,h=None,x,y):
+        self.name = name
+        self.t = t
+        self.h = h
+        self.x = x
+        self.y = y'''
+
+class ConditionsScreensWidget(QWidget):
+    def __init__(self, main_window, subject_conditions='telemetry.conditions', subject_water='telemetry.water.level', subject_energy='telemetry.power.data_manager', vertical_screen = True, **kwargs):
         super().__init__()
         self.main_window = main_window
-        self.water_subject = subject
-        self.energy_subject = subject2
+        self.subject_water = subject_water
+        self.subject_energy = subject_energy
+        self.subject_conditions = subject_conditions
         self.vertical = bool(vertical_screen)
+        self.htsensors = config.ht_subjects
+        self.tsensors = config.t_subjects
         self.initUI()
-
-        self.water_level = 0
         QTimer.singleShot(0, self.async_init)
         # async init
         
@@ -32,8 +46,8 @@ class ConditionsWidget(QWidget):
     async def async_init(self):
         #obs_config = await self.main_window.observatory_config()
         await create_task(self.reader_loop_water(), "reader_water")
-        await create_task(self.reader_loop_energy(), "reader_water")
-
+        await create_task(self.reader_loop_energy(), "reader_energy")
+        await create_task(self.reader_loop_conditions(), "reader_conditions")
 
 
 
@@ -47,19 +61,92 @@ class ConditionsWidget(QWidget):
         self.label_energy.setStyleSheet("background-color : pink; color: black")
         self.label_energy.setFont(QtGui.QFont('Arial', 24))
         # Matplotlib setup
-        '''self.figure = Figure(facecolor='lightgrey')
+        self.figure = Figure(figsize=(15,10),facecolor='lightgrey')
         self.canvas = FigureCanvas(self.figure)
-        if self.vertical:
-        
-        x = [0,1,2,3,4,5,6,7,8,9,10,11,12,13,14,15,16,17,18,19,20,21,22,23,24]
-        self.ax_wind.fill_between(x,10,13,color='orange',alpha=0.3)
-        self.ax_wind.fill_between(x,13,20,color='red',alpha=0.3)
+        self.layout.addWidget(self.canvas)
+        #self.draw_figure()
+        self.layout.addWidget(self.label_water)
+        self.layout.addWidget(self.label_energy)
+        self.layout.addWidget(self.canvas)
+
+    async def reader_loop_conditions(self):
+        msg = Messenger()
+        self.hum_to_plot = []
+        self.temp_to_plot = []
+        for sensor,params in self.htsensors.items():
+            subject = self.subject_conditions+sensor
+            try:
+                # We want the data from the midnight of yesterday
+
+                rdr = msg.get_reader(
+                    self.water_subject,
+                    deliver_policy='last',
+                )
+                logger.info(f"Subscribed to {subject}")
+
+                
+                async for data, meta in rdr:
+                    
+                    if True:
+                        # if we crossed the midnight, we want to copy today's data to yesterday's and start today from scratch
+                        
+                        self.ts = dt_ensure_datetime(data['ts'])
+                        measurement = data['measurements']
+                        temp = measurement['temperature']
+                        logger.info(f"Measured temperature {sensor+' '+str(temp)}")
+                        self.temp_to_plot.append([temp,params[0],params[1],params[2]])
+                        hum= measurement['temperature']
+                        logger.info(f"Measured temperature {sensor+' '+str(hum)}")
+                        self.hum_to_plot.append([hum,params[0],params[1],params[2]])
+                        
+            except:
+                continue
+
+        for sensor,params in self.tsensors.items():
+            subject = self.subject_conditions+sensor
+            try:
+                # We want the data from the midnight of yesterday
+
+                rdr = msg.get_reader(
+                    self.water_subject,
+                    deliver_policy='last',
+                )
+                logger.info(f"Subscribed to {subject}")
+
+                
+                async for data, meta in rdr:
+                    
+                    if True:
+                        # if we crossed the midnight, we want to copy today's data to yesterday's and start today from scratch
+                        
+                        self.ts = dt_ensure_datetime(data['ts'])
+                        measurement = data['measurements']
+                        temp = measurement['temperature']
+                        logger.info(f"Measured temperature {sensor+' '+str(temp)}")
+                        self.temp_to_plot.append([temp,params[0],params[1],params[2]]))
+                        
+            except:
+                continue
+
+        self.draw_figure()
+
+    def draw_figure(self):
+        self.figure.clf()
+        self.figure.tick_params(axis='both', left=False, top=False, right=False, bottom=False, labelleft=False, labeltop=False, labelright=False, labelbottom=False)
+        img = mpimg.imread('./oca_monitor/resources/gfx/oca_main_building.png')
+        self.figure.imshow(img)
+        for t in self.temp_to_plot:
+            if int(t[2])+int(t[3])!=0:
+                self.figure.text(int(t[2]),int(t[3]),str(int(t[0]))+'$^{\circ} C$',backgroundcolor='lightgreen',color='red',fontsize='x-large')
+
+        for h in self.hum_to_plot:
+            if int(h[2])+int(h[3])!=0:
+                self.figure.text(int(h[2]),int(h[3])+20,str(int(h[0]))+'$%',backgroundcolor='lightgreen',color='red',fontsize='x-large')
+
+        self.canvas.draw()
 
         
         
-        self.layout.addWidget(self.canvas)'''
-        self.layout.addWidget(self.label_water)
-        self.layout.addWidget(self.label_energy)
 
     async def reader_loop_water(self):
         msg = Messenger()
@@ -90,20 +177,7 @@ class ConditionsWidget(QWidget):
         except:
             pass
 
-    def figure(self):
-	fig = plt.figure(figsize=(15,10))
-	plt.clf()
-	plt.tick_params(axis='both', left=False, top=False, right=False, bottom=False, labelleft=False, labeltop=False, labelright=False, labelbottom=False)
-	for h in hms:
-		
-		h.read_cond()
-		img = mpimg.imread('/home/piotr/Pobrane/oca_main_building.png')
-		plt.imshow(img)
-		plt.text(h.coo[0],h.coo[1],str(h.temp)+'$^{\circ} C$',backgroundcolor='lightgreen',color='red',fontsize='x-large')
-
-	plt.savefig('oca_temp.png')
-	plt.close()
-	time.sleep(10)
+    
 
     async def reader_loop_energy(self):
         msg = Messenger()

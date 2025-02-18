@@ -244,6 +244,11 @@ vertical_screen=1
 source = "satellite_animation"  # page source - page is defined in oca_monitor/pages/example.py
 vertical_screen=1
 
+[tvroom.panels.00.Conditions]
+#auto_interval = 10  # seconds, how long to show this page before auto switching to next page
+source = "conditions_screens"  # page source - page is defined in oca_monitor/pages/example.py
+vertical_screen=1
+
 [tvroom.panels.10.Weather]
 #auto_interval = 10  # seconds, how long to show this page before auto switching to next page
 source = "weather"  # page source - page is defined in oca_monitor/pages/example.py

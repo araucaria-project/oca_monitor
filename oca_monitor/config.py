@@ -12,7 +12,9 @@ settings = Dynaconf(
     environments=True,
     env_switcher='OCAMONITOR_ENV',
 )
-bbox_tsensors = {'westbedroom':'192.168.7.199','eastbedroom':'192.168.7.198','electricroom':'192.168.7.206','batteryroom':'192.168.7.207','zb08':'192.168.7.202','jk15':'192.168.7.204'}
+ht_subjects = {'controlroom-htsensor':['',900,350],'serverroom-htsensor':['',650,350],'iris-htsensor':['IRIS',0,0],'zb08-htsensor':['ZB08',0,0],'jk15-htsensor':['JK15',0,0],'wk06-htsensor':['WK06',0,0]}
+t_subjects = {'kitchen-tsensor':['',1150,350],'bodega-tsensor':['',0,0],'tvroom-tsensor':['',900,600],'bedroom-east-tsensor':['',1100,900],'bedroom-west-tsensor':['',1220,720],'electricroom-tsensor':['Electric room',0,0]}#',bedroom-small':['',650,600]}
+#small bathroom 1200,600, bath west 650,720, bath east 700,900
 bbox_htsensors = {'controlroom':'192.168.7.192','serverroom':'192.168.7.193'}
 bbox_led_control_main={'tvroom':'192.168.7.221','kitchen':'192.168.7.222','controlroom':'192.168.7.223'}
 bbox_led_control_tel = {'zb08':'192.168.7.216','wk06':'192.168.7.217','jk15':'192.168.7.218','iris':'192.168.7.215','wg25':'192.168.7.219','tmmt':'192.168.7.220'}
