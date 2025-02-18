@@ -20,7 +20,7 @@ import oca_monitor.config as config
 logger = logging.getLogger(__name__.rsplit('.')[-1])
 
 class sensor():
-    def __init__(self,name,t,h=None,x,y):
+    def __init__(self,name,t,h=None,x=0,y=0):
         self.name = name
         self.t = t
         self.h = h
@@ -141,13 +141,10 @@ class ConditionsScreensWidget(QWidget):
         self.figure.gca().tick_params(axis='both', left=False, top=False, right=False, bottom=False, labelleft=False, labeltop=False, labelright=False, labelbottom=False)
         img = mpimg.imread('./oca_monitor/resources/gfx/oca_main_building.png')
         self.figure.gca().imshow(img)
-        for t in self.temp_to_plot:
-            if int(t[2])+int(t[3])!=0:
-                self.figure.text(int(t[2]),int(t[3]),str(int(t[0]))+'$^{\circ} C$',backgroundcolor='lightgreen',color='red',fontsize='x-large')
-
-        for h in self.hum_to_plot:
-            if int(h[2])+int(h[3])!=0:
-                self.figure.text(int(h[2]),int(h[3])+20,str(int(h[0]))+'$%',backgroundcolor='lightgreen',color='red',fontsize='x-large')
+        for s,sens in self.sensors.items():
+            if int(sens.x)+int(sens.y)!=0:
+                self.figure.text(int(sens.x),int(sens.y),str(int(sens.temp))+'$^{\circ} C$',backgroundcolor='lightgreen',color='red',fontsize='x-large')
+                self.figure.text(int(sens.x),int(sens.y)+20,str(int(sens.hum))+'$%',backgroundcolor='lightgreen',color='red',fontsize='x-large')
 
         self.canvas.draw()
         QTimer.singleShot(10000, self.draw_figure)
