@@ -186,7 +186,7 @@ class ConditionsScreensWidget(QWidget):
 
         rdr = msg.get_reader(
             self.subject_energy,
-            deliver_policy='by_start_time',
+            deliver_policy='last',
             opt_start_time=today_midnight
         )
         logger.info(f"Subscribed to {self.subject_energy}")
@@ -308,6 +308,7 @@ class ConditionsScreensWidget(QWidget):
                 self.label_energy.setText(text)
             except:
                 self.label_energy.setText('No data')
+                self.label_energy.setText(text)
         
                                 
 
