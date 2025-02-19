@@ -71,7 +71,7 @@ class ConditionsScreensWidget(QWidget):
         self.label_water.setStyleSheet("background-color : cyan; color: black")
         self.label_water.setFont(QtGui.QFont('Arial', 24))
         self.label_conditions = QLabel()
-        self.label_water.setStyleSheet("background-color : white; color: black")
+        self.label_conditions.setStyleSheet("background-color : white; color: black")
         self.label_energy = QLabel()
         self.label_energy.setStyleSheet("background-color : pink; color: black")
         self.label_energy.setFont(QtGui.QFont('Arial', 24))
@@ -143,6 +143,8 @@ class ConditionsScreensWidget(QWidget):
                     text = text+str(int(sens.temp))+'C\t'
                 if sens.hum != "Undef":
                    text = text + str(int(sens.hum))+'%'
+
+        self.label_conditions.setText(text)
 
 
         self.canvas.draw()
