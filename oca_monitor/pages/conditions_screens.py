@@ -124,7 +124,7 @@ class ConditionsScreensWidget(QWidget):
         self.figure.gca().tick_params(axis='both', left=False, top=False, right=False, bottom=False, labelleft=False, labeltop=False, labelright=False, labelbottom=False)
         img = mpimg.imread('./oca_monitor/resources/gfx/oca_main_building.png')
         self.figure.gca().imshow(img)
-        text = 0
+        text = ''
         for s,sens in self.sensors.items():
             
             if int(sens.x)+int(sens.y)!=0:
