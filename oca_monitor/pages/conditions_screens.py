@@ -131,10 +131,10 @@ class ConditionsScreensWidget(QWidget):
                 print(s)
                 if sens.temp != "Undef":
                     if sens.name_to_display != '':
-                        self.figure.gca().text(int(sens.x),int(sens.y)-70,sens.name_to_display,backgroundcolor='lightgreen',color='red',fontsize='large')
+                        self.figure.gca().text(int(sens.x),int(sens.y)-90,sens.name_to_display,backgroundcolor='lightgreen',color='red',fontsize='large')
                     self.figure.gca().text(int(sens.x),int(sens.y)-20,str(int(sens.temp))+'$^{\circ} C$',backgroundcolor='lightgreen',color='red',fontsize='large')
                 if sens.hum != "Undef":
-                    self.figure.gca().text(int(sens.x),int(sens.y)+30,str(int(sens.hum))+'%',backgroundcolor='lightgreen',color='red',fontsize='large')
+                    self.figure.gca().text(int(sens.x),int(sens.y)+50,str(int(sens.hum))+'%',backgroundcolor='lightgreen',color='red',fontsize='large')
 
             else:
                 
