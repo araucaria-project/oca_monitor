@@ -70,6 +70,8 @@ class ConditionsScreensWidget(QWidget):
         self.label_water = QLabel()
         self.label_water.setStyleSheet("background-color : cyan; color: black")
         self.label_water.setFont(QtGui.QFont('Arial', 24))
+        self.label_conditions = QLabel()
+        self.label_water.setStyleSheet("background-color : white; color: black")
         self.label_energy = QLabel()
         self.label_energy.setStyleSheet("background-color : pink; color: black")
         self.label_energy.setFont(QtGui.QFont('Arial', 24))
@@ -80,7 +82,10 @@ class ConditionsScreensWidget(QWidget):
         self.draw_figure()
         self.layout.addWidget(self.label_water)
         self.layout.addWidget(self.label_energy)
-        self.layout.addWidget(self.canvas)
+        self.temp_layout = QHBoxLayout(self)
+        self.temp_layout.addWidget(self.label_conditions)
+        self.temp_layout.addWidget(self.canvas)
+        self.layout.addLayout(self.temp_layout)
 
 
     async def reader_loop_conditions(self,subject,sens):
@@ -119,14 +124,26 @@ class ConditionsScreensWidget(QWidget):
         self.figure.gca().tick_params(axis='both', left=False, top=False, right=False, bottom=False, labelleft=False, labeltop=False, labelright=False, labelbottom=False)
         img = mpimg.imread('./oca_monitor/resources/gfx/oca_main_building.png')
         self.figure.gca().imshow(img)
+        text = 0
         for s,sens in self.sensors.items():
             
-            if int(sens.x)+int(sens.y)!=10:
+            if int(sens.x)+int(sens.y)!=0:
                 print(s)
                 if sens.temp != "Undef":
+                    if sens.name_to_display != '':
+                        self.figure.gca().text(int(sens.x),int(sens.y)-70,sens.name_to_display,backgroundcolor='lightgreen',color='red',fontsize='large')
                     self.figure.gca().text(int(sens.x),int(sens.y)-20,str(int(sens.temp))+'$^{\circ} C$',backgroundcolor='lightgreen',color='red',fontsize='large')
                 if sens.hum != "Undef":
                     self.figure.gca().text(int(sens.x),int(sens.y)+30,str(int(sens.hum))+'%',backgroundcolor='lightgreen',color='red',fontsize='large')
+
+            else:
+                
+                if sens.temp != "Undef":
+                    text = text+'\n'+sens.name_to_display+'\t'
+                    text = text+str(int(sens.temp))+'C\t'
+                if sens.hum != "Undef":
+                   text = text + str(int(sens.hum))+'%'
+
 
         self.canvas.draw()
         QTimer.singleShot(10000, self.draw_figure)
@@ -140,8 +157,8 @@ class ConditionsScreensWidget(QWidget):
             # We want the data from the midnight of yesterday
 
             rdr = msg.get_reader(
-                self.water_subject,
-                deliver_policy='last',
+                self.subject_water,
+                deliver_policy='last'
             )
             logger.info(f"Subscribed to {self.water_subject}")
 
@@ -175,7 +192,7 @@ class ConditionsScreensWidget(QWidget):
         rdr = msg.get_reader(
             self.subject_energy,
             deliver_policy='by_start_time',
-            opt_start_time=today_midnight,
+            opt_start_time=today_midnight
         )
         logger.info(f"Subscribed to {self.subject_energy}")
 
