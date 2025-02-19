@@ -186,8 +186,8 @@ class ConditionsScreensWidget(QWidget):
 
         rdr = msg.get_reader(
             self.subject_energy,
-            deliver_policy='last'
-            #opt_start_time=today_midnight
+            deliver_policy='by_start_time',
+            opt_start_time=today_midnight,
         )
         logger.info(f"Subscribed to {self.subject_energy}")
 
