@@ -1,7 +1,7 @@
 import logging
 import datetime
 
-from PyQt6.QtWidgets import QApplication, QWidget, QVBoxLayout,QLabel
+from PyQt6.QtWidgets import QApplication, QWidget, QVBoxLayout,QHBoxLayout, QLabel
 from PyQt6.QtCore import QTimer
 from PyQt6 import QtGui
 from matplotlib.backends.backend_qt5agg import FigureCanvasQTAgg as FigureCanvas
