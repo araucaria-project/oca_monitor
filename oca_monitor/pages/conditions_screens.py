@@ -120,7 +120,7 @@ class ConditionsScreensWidget(QWidget):
         for s,sens in self.sensors.items():
             
             if int(sens.x)+int(sens.y)!=0:
-                print(s)
+                #print(s)
                 if sens.temp != "Undef":
                     if sens.name_to_display != '':
                         self.figure.gca().text(int(sens.x),int(sens.y)-90,sens.name_to_display,backgroundcolor='lightgreen',color='red',fontsize='large')
@@ -147,7 +147,8 @@ class ConditionsScreensWidget(QWidget):
 
     async def reader_loop_water(self):
         msg = Messenger()
-        try:
+        #try:
+        if True:
             # We want the data from the midnight of yesterday
 
             rdr = msg.get_reader(
@@ -171,8 +172,8 @@ class ConditionsScreensWidget(QWidget):
                         self.label_water.setText('Water '+str(self.water_level)+ ' litres')
                     except:
                         self.label_water.setText('No data')
-        except:
-            pass
+        #except:
+        #    pass
 
     
 
