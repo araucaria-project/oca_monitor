@@ -61,12 +61,12 @@ class ConditionsScreensWidget(QWidget):
         self.layout = QVBoxLayout(self)
         self.label_water = QLabel()
         self.label_water.setStyleSheet("background-color : cyan; color: black")
-        self.label_water.setFont(QtGui.QFont('Arial', 24))
+        self.label_water.setFont(QtGui.QFont('Arial', 22))
         self.label_conditions = QLabel()
         self.label_conditions.setStyleSheet("background-color : white; color: black")
         self.label_energy = QLabel()
         self.label_energy.setStyleSheet("background-color : pink; color: black")
-        self.label_energy.setFont(QtGui.QFont('Arial', 24))
+        self.label_energy.setFont(QtGui.QFont('Arial', 22))
         # Matplotlib setup
         self.figure = Figure(figsize=(24,16),facecolor='lightgrey')
         self.canvas = FigureCanvas(self.figure)
@@ -155,7 +155,7 @@ class ConditionsScreensWidget(QWidget):
                 self.subject_water,
                 deliver_policy='last'
             )
-            logger.info(f"Subscribed to {self.water_subject}")
+            logger.info(f"Subscribed to {self.subject_water}")
 
             
             async for data, meta in rdr:
