@@ -12,8 +12,7 @@ settings = Dynaconf(
     environments=True,
     env_switcher='OCAMONITOR_ENV',
 )
-ht_subjects = {'controlroom-htsensor':['',900,350],'serverroom-htsensor':['',650,350],'iris-htsensor':['IRIS',0,0],'zb08-htsensor':['ZB08',0,0],'jk15-htsensor':['JK15',0,0],'wk06-htsensor':['WK06',300,350]}
-t_subjects = {'kitchen-tsensor':['',1150,350],'bodega-tsensor':['',1350,350],'tvroom-tsensor':['',900,600],'bedroom-east-tsensor':['',1100,900],'bedroom-west-tsensor':['',650,900],'electricroom-tsensor':['Electric room',0,0],'batteryroom-tsensor':['Battery room',0,0]}#',bedroom-small':['',650,600]}
+ht_subjects = {'controlroom-htsensor':['',900,350],'serverroom-htsensor':['',650,350],'iris-htsensor':['IRIS',0,0],'zb08-htsensor':['ZB08',0,0],'jk15-htsensor':['JK15',0,0],'wk06-htsensor':['WK06',300,350],'kitchen-htsensor':['',1150,350],'bodega-tsensor':['',1350,350],'tvroom-htsensor':['',900,600],'bedroom-east-tsensor':['',1100,900],'bedroom-west-tsensor':['',650,900],'electricroom-tsensor':['Electric room',0,0],'batteryroom-tsensor':['Battery room',0,0]}#',bedroom-small':['',650,600]}
 #small bathroom 1200,600, bath west 650,720, bath east 700,900
 bbox_htsensors = {'controlroom':'192.168.7.192','serverroom':'192.168.7.193'}
 bbox_led_control_main={'tvroom':'192.168.7.221','kitchen':'192.168.7.222','controlroom':'192.168.7.223'}

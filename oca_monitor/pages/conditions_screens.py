@@ -38,7 +38,6 @@ class ConditionsScreensWidget(QWidget):
         self.vertical = bool(vertical_screen)
         self.sensors = {}
         self.htsensors = config.ht_subjects
-        self.tsensors = config.t_subjects
         self.initUI()
         QTimer.singleShot(0, self.async_init)
         # async init
@@ -55,13 +54,6 @@ class ConditionsScreensWidget(QWidget):
                 print(sens,params[1],params[2])
             subject = self.subject_conditions+'.'+sens
             await create_task(self.reader_loop_conditions(subject,sens), "reader_conditions")
-        for sens,params in self.tsensors.items():
-            if sens not in self.sensors.keys():
-                self.sensors[sens]=sensor(sens,params[0],x=params[1],y=params[2])
-                print(sens,params[1],params[2])
-            subject = self.subject_conditions+'.'+sens
-            await create_task(self.reader_loop_conditions(subject,sens), "reader_conditions")
-
 
 
     def initUI(self):
