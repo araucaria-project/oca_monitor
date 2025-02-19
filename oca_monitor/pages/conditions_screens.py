@@ -198,7 +198,8 @@ class ConditionsScreensWidget(QWidget):
                 "battery_discharge": 0,
         }
         async for data, meta in rdr:
-            try:
+            #try:
+            if True:
                 # if we crossed the midnight, we want to copy today's data to yesterday's and start today from scratch
                 now = datetime.datetime.now()
                 '''if now.date() > today_midnight.date():
@@ -296,19 +297,20 @@ class ConditionsScreensWidget(QWidget):
                 self.ax_pres.relim()
                 self.ax_pres.autoscale_view()
                 self.canvas.draw_idle()'''
-            except:
-                soc = 'NaN'
-                pv = 'NaN'
-                bc = 'NaN'
-                bd = 'NaN'
-                ec = 'NaN'
+            #except:
+            #    soc = 'NaN'
+            #    pv = 'NaN'
+            #    bc = 'NaN'
+            #    bd = 'NaN'
+            #    ec = 'NaN'
 
-            try:
+            #try:
+            if True:
                 text = 'ENERGY:\nClusters state of charge\t'+str(soc)+' %\n' + 'Solar Power\t\t'+str(pv)+' W\n'+ 'Power consumption\t'+str(ec)+' W'
                 self.label_energy.setText(text)
-            except:
-                self.label_energy.setText('No data')
-                self.label_energy.setText(text)
+            #except:
+            #    self.label_energy.setText('No data')
+            #    self.label_energy.setText(text)
         
                                 
 
