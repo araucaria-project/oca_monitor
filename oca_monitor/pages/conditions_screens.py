@@ -29,7 +29,7 @@ class sensor():
         self.y = y
 
 class ConditionsScreensWidget(QWidget):
-    def __init__(self, main_window, subject_conditions='telemetry.conditions', subject_water='telemetry.water.level', subject_energy='telemetry.power.data_manager', vertical_screen = True, **kwargs):
+    def __init__(self, main_window, subject_conditions='telemetry.conditions', subject_water='telemetry.water.level', subject_energy='telemetry.power.data-manager', vertical_screen = True, **kwargs):
         super().__init__()
         self.main_window = main_window
         self.subject_water = subject_water
@@ -305,13 +305,12 @@ class ConditionsScreensWidget(QWidget):
             #    ec = 'NaN'
 
             #try:
-            if True:
-                text = 'ENERGY:\nClusters state of charge\t'+str(soc)+' %\n' + 'Solar Power\t\t'+str(pv)+' W\n'+ 'Power consumption\t'+str(ec)+' W'
-                self.label_energy.setText(text)
-            #except:
-            #    self.label_energy.setText('No data')
-            #    self.label_energy.setText(text)
-        
-                                
+        if True:
+            text = 'ENERGY:\nClusters state of charge\t'+str(soc)+' %\n' + 'Solar Power\t\t'+str(pv)+' W\n'+ 'Power consumption\t'+str(ec)+' W'
+            self.label_energy.setText(text)
+        #except:
+        #    self.label_energy.setText('No data')
+        #    self.label_energy.setText(text)
+                                       
 
 widget_class = ConditionsScreensWidget
