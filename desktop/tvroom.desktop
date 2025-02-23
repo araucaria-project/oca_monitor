@@ -1,0 +1,9 @@
+[Desktop Entry]
+Name=OCM Monitor
+Comment=Monitoring various aspects of OCM Observatory
+Path=/src/oca_monitor
+Exec=poetry run ocam --env tvroom
+Icon=/src/oca_monitor/Icons/observatory.png
+Terminal=true
+Type=Application
+Categories=Science;Astronomy;Monitoring;Qt;
