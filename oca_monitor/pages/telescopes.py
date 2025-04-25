@@ -47,16 +47,20 @@ class TelecopeWindow(QWidget):
     @asyncSlot()
     async def async_init(self):
 
-        nats_cfg = await single_read(f'tic.config.observatory')
-        self.nats_cfg = nats_cfg[0]
+        # try:
+        #     nats_cfg = await single_read(f'tic.config.observatory')
+        #     self.nats_cfg = nats_cfg[0]
+        # except AttributeError:
+        #     logger.error(f'Can not get observatory config.')
+        #     self.nats_cfg = None
 
         self.filters = {t:None for t in self.main_window.telescope_names}
 
         for tel in self.main_window.telescope_names:
             try:
-                tmp = self.nats_cfg["config"]["telescopes"][tel]["observatory"]["components"]["filterwheel"]["filters"]
+                tmp = self.main_window.nats_cfg["config"]["telescopes"][tel]["observatory"]["components"]["filterwheel"]["filters"]
                 tmp_n = [item["name"] for item in sorted(tmp, key=lambda x: x["position"])]
-            except KeyError:
+            except (KeyError, TypeError):
                 tmp_n = None
             self.filters[tel] = tmp_n
 

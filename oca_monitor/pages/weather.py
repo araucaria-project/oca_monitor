@@ -59,7 +59,7 @@ class WeatherDataWidget(QWidget):
 
     @asyncSlot()
     async def async_init(self):
-        obs_config = await self.main_window.observatory_config()
+        # obs_config = await self.main_window.observatory_config()
         await create_task(self.reader_loop(), "wind reader")
 
 

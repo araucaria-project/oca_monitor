@@ -72,8 +72,8 @@ class WidgetTvsControlroom(QWidget):
 
     @asyncSlot()
     async def async_init(self):
-        nats_cfg = await single_read(f'tic.config.observatory')
-        self.nats_cfg = nats_cfg[0]
+        # nats_cfg = await single_read(f'tic.config.observatory')
+        # self.nats_cfg = nats_cfg[0]
         self.initUI()
         await create_task(self.reader_nats_downloader(),"message_reader")
         await create_task(self.reader_nats_ofp(), "message_reader")
@@ -149,7 +149,10 @@ class WidgetTvsControlroom(QWidget):
         font = QtGui.QFont()
         font.setBold(True)
         self.tel_e.setFont(font)
-        color = self.nats_cfg["config"]["telescopes"][self.tel]["observatory"]["style"]["color"]
+        try:
+            color = self.main_window.nats_cfg["config"]["telescopes"][self.tel]["observatory"]["style"]["color"]
+        except LookupError:
+            color = 'black' # TODO ??
         self.tel_e.setStyleSheet(f"background-color: {color};")
 
 

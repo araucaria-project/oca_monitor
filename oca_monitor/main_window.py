@@ -13,6 +13,7 @@ import logging
 from asyncio import Lock
 from importlib import import_module
 import dataclasses
+from typing import Dict
 
 from PyQt6.QtCore import QTimer
 from PyQt6.QtWidgets import QMainWindow, QGridLayout, QWidget, QTabWidget, QLabel, QToolBar
@@ -22,6 +23,7 @@ from serverish.messenger import Messenger, single_read
 
 from oca_monitor.config import settings
 from oca_monitor.tab_config_dialog import TabConfigDialog
+from qasync import asyncSlot
 
 logger = logging.getLogger('main')
 
@@ -105,6 +107,8 @@ class AsyncTabWidget(QTabWidget):
 
 
 
+
+
 class ConfigurableTabWidget(QWidget):
     def __init__(self, parent=None, **kwargs):
         super().__init__(parent)
@@ -134,6 +138,7 @@ class ConfigurableTabWidget(QWidget):
 
         self.layout.addWidget(self.tab_widget, 1)
         self.updateButtonStyles()
+
 
     def playClicked(self):
         self.tab_widget.auto_play = True
@@ -168,11 +173,13 @@ class ConfigurableTabWidget(QWidget):
 
 class MainWindow(QMainWindow):
     def __init__(self):
+        self.nats_cfg: Dict = {}
         super().__init__()
         self._config = None
         self.initUI()
 
     def initUI(self):
+        QTimer.singleShot(0, self.async_init)
         self.wind = 0
         self.hum = 0
         self.temp = 0
@@ -185,7 +192,6 @@ class MainWindow(QMainWindow):
         self.central_widget = QWidget()
         # We will divide the window into a grid of panels
         self.grid_layout = QGridLayout(self.central_widget)
-
         # The relative sizes of  rows and columns are defined in the settings
         rows, cols = settings.panel_rows, settings.panel_columns
 
@@ -236,9 +242,19 @@ class MainWindow(QMainWindow):
         self.setCentralWidget(self.central_widget)
         self.setWindowTitle("OCA Monitor")
         #self.resize(*settings.window_size)
-        self.setFixedSize(*settings.window_size) 
+        self.setFixedSize(*settings.window_size)
 
     _config_reading_in_progress = Lock()
+
+    @asyncSlot()
+    async def async_init(self):
+        logger.info('Starting to get observatory config...')
+        try:
+            nats_cfg = await single_read(f'tic.config.observatory')
+            self.nats_cfg = nats_cfg[0]
+        except AttributeError:
+            logger.error(f'Can not get observatory config.')
+            self.nats_cfg = {}
 
     async def observatory_config(self) -> dict:
         if self._config is None:
