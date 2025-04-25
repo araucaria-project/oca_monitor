@@ -256,6 +256,7 @@ class MainWindow(QMainWindow):
             logger.error(f'Can not get observatory config.')
             self.nats_cfg = {}
 
+    @asyncSlot()
     async def observatory_config(self) -> dict:
         if self._config is None:
             async with self._config_reading_in_progress:
