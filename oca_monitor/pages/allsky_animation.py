@@ -31,6 +31,7 @@ class AllskyAnimationWidget(QWidget):
         self.initUI()
         
     def initUI(self):
+        QTimer.singleShot(0, self.async_init)
         self.layout = QVBoxLayout(self)
         self.label = QLabel()
         if self.vertical:
@@ -39,7 +40,7 @@ class AllskyAnimationWidget(QWidget):
             self.label.resize(self.height(),self.height())
         self.layout.addWidget(self.label,1)
         self.update()
-        QTimer.singleShot(0, self.async_init)
+
     
    
 
