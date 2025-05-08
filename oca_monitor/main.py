@@ -69,11 +69,13 @@ def main():
         loglevel = args.log_level  # hard override
     else:
         loglevel = settings.log_level
-    logging.basicConfig(level=loglevel) #, format='%(asctime)s [%(levelname)s] [%(name)s] %(message)s')
+
     log_file_name = f'ocam.log'
     log_path = '~/.oca'
     log_file = os.path.expanduser(os.path.join(log_path, log_file_name))
-    formatter = logging.Formatter('%(asctime)s [%(levelname)s] %(name)s: %(message)s')
+    format_string = '%(asctime)s [%(levelname)s] %(name)s: %(message)s'
+    formatter = logging.Formatter(format_string)
+    logging.basicConfig(level=loglevel, format=format_string)
     try:
         os.makedirs(os.path.dirname(log_file), exist_ok=True)
         file_handler = RotatingFileHandler(filename=log_file, maxBytes=1000000, backupCount=5)
@@ -84,9 +86,9 @@ def main():
     except OSError:
         logger.warning(f'Can not create loging folder.')
 
-    console_handler = logging.StreamHandler()
-    console_handler.setFormatter(formatter)
-    logging.getLogger().addHandler(console_handler)
+    # console_handler = logging.StreamHandler()
+    # console_handler.setFormatter(formatter)
+    # logging.getLogger().addHandler(console_handler)
 
 
     logger.info(f'OCA Monitor logging level: {loglevel}')
