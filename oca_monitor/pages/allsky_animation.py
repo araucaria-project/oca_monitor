@@ -31,7 +31,6 @@ class AllskyAnimationWidget(QWidget):
         self.initUI()
         
     def initUI(self):
-        QTimer.singleShot(0, self.async_init)
         self.layout = QVBoxLayout(self)
         self.label = QLabel()
         if self.vertical:
@@ -64,10 +63,6 @@ class AllskyAnimationWidget(QWidget):
 
         QTimer.singleShot(self.freq, self.update)
         self._change_update_time()
-
-    @asyncSlot()
-    async def async_init(self):
-        logger.info('Starting sky animation')
 
     def _change_update_time(self):
         self.freq = 2000

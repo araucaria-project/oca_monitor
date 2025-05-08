@@ -166,7 +166,7 @@ class ConditionsScreensWidget(QWidget):
                     self.ts = dt_ensure_datetime(data['ts'])
                     measurement = data['measurements']
                     self.water_level = measurement['water_level']
-                    logger.info(f"Measured water level {self.water_level}")
+                    logger.debug(f"Measured water level {self.water_level}")
                     try:
             
                         self.label_water.setText('Water '+str(self.water_level)+ ' litres')

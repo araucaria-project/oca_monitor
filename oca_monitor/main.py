@@ -69,7 +69,7 @@ def main():
         loglevel = args.log_level  # hard override
     else:
         loglevel = settings.log_level
-    logging.basicConfig(level=loglevel, format='%(asctime)s [%(levelname)s] [%(name)s] %(message)s')
+    logging.basicConfig(level=loglevel) #, format='%(asctime)s [%(levelname)s] [%(name)s] %(message)s')
     log_file_name = f'ocam.log'
     log_path = '~/.oca'
     log_file = os.path.expanduser(os.path.join(log_path, log_file_name))

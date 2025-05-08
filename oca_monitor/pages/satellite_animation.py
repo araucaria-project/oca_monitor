@@ -6,6 +6,9 @@ from PyQt6.QtCore import QTimer
 from PyQt6 import QtCore
 from PyQt6.QtGui import QPixmap
 import os
+
+from qasync import asyncSlot
+
 #from PyQt6 import Qt
 #from matplotlib.backends.backend_qt5agg import FigureCanvasQTAgg as FigureCanvas
 #from matplotlib.figure import Figure
@@ -27,6 +30,7 @@ class SatelliteAnimationWidget(QWidget):
         self.initUI()
         
     def initUI(self):
+        QTimer.singleShot(0, self.async_init)
         self.layout = QVBoxLayout(self)
         self.label = QLabel()
         if self.vertical:
@@ -37,7 +41,6 @@ class SatelliteAnimationWidget(QWidget):
         self.w = self.width()
         self.h = self.height()
         self.label.setSizePolicy(QSizePolicy.Policy.Ignored,QSizePolicy.Policy.Ignored)
-
         self.update()
         
     def update(self):
@@ -63,6 +66,11 @@ class SatelliteAnimationWidget(QWidget):
 
         QTimer.singleShot(self.freq, self.update)
         self._change_update_time()
+
+    @asyncSlot()
+    async def async_init(self):
+
+        logger.info('Starting satelite')
 
     def _change_update_time(self):
         self.freq = 1000
