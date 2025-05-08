@@ -72,15 +72,20 @@ def main():
     log_file_name = f'ocam.log'
     log_path = '~/.oca'
     log_file = os.path.expanduser(os.path.join(log_path, log_file_name))
+    formatter = logging.Formatter('%(asctime)s [%(levelname)s] %(name)s: %(message)s')
     try:
         os.makedirs(os.path.dirname(log_file), exist_ok=True)
         file_handler = RotatingFileHandler(filename=log_file, maxBytes=1000000, backupCount=5)
-        file_handler.setFormatter(logging.Formatter('%(asctime)s [%(levelname)s] %(name)s: %(message)s'))
+        file_handler.setFormatter(formatter)
         logging.Formatter.converter = time.gmtime
         logging.getLogger().addHandler(file_handler)
         logger.info(f'Log file added at {log_file}')
     except OSError:
         logger.warning(f'Can not create loging folder.')
+
+    console_handler = logging.StreamHandler()
+    console_handler.setFormatter(formatter)
+    logging.getLogger().addHandler(console_handler)
 
     logging.basicConfig(level=loglevel,
                         format='%(asctime)s [%(levelname)s] [%(name)s] %(message)s')

@@ -7,6 +7,9 @@ from PyQt6 import QtCore
 from PyQt6.QtGui import QPixmap
 import os
 import math
+
+from qasync import asyncSlot
+
 #from PyQt6 import Qt
 #from matplotlib.backends.backend_qt5agg import FigureCanvasQTAgg as FigureCanvas
 #from matplotlib.figure import Figure
@@ -36,6 +39,7 @@ class AllskyAnimationWidget(QWidget):
             self.label.resize(self.height(),self.height())
         self.layout.addWidget(self.label,1)
         self.update()
+        QTimer.singleShot(0, self.async_init)
     
    
 
@@ -59,6 +63,10 @@ class AllskyAnimationWidget(QWidget):
 
         QTimer.singleShot(self.freq, self.update)
         self._change_update_time()
+
+    @asyncSlot()
+    async def async_init(self):
+        logger.info('Starting sky animation')
 
     def _change_update_time(self):
         self.freq = 2000
