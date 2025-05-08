@@ -44,25 +44,31 @@ class SatelliteAnimationWidget(QWidget):
         self.update()
         
     def update(self):
-        
         try:
-            lista = os.popen('ls -tr '+self.dir+'*600x600.jpg').read().split('\n')[:-1]
-            if len(lista) > 4:
-                lista = lista[-4:]
+            lista = os.popen('ls -tr ' + self.dir + '*600x600.jpg').read().split('\n')[:-1]
+        except OSError as e:
+            logger.error(f'Error: {e}.')
+            lista = []
 
-            if len(lista)> 0:
-                figure = QPixmap(lista[self.counter])
 
-                if self.vertical:
-                    self.label.setPixmap(figure.scaled(self.height(),self.height(), QtCore.Qt.AspectRatioMode.KeepAspectRatio))
-                else:
-                    self.label.setPixmap(figure.scaled(self.height(), self.height(), QtCore.Qt.AspectRatioMode.KeepAspectRatio))
+        # try:
+            # lista = os.popen('ls -tr '+self.dir+'*600x600.jpg').read().split('\n')[:-1]
+        if len(lista) > 4:
+            lista = lista[-4:]
 
-                self.counter = self.counter + 1
-                if self.counter == len(lista):
-                    self.counter = 0
-        except:
-            self.counter = 0
+        if len(lista)> 0:
+            figure = QPixmap(lista[self.counter])
+
+            if self.vertical:
+                self.label.setPixmap(figure.scaled(self.height(),self.height(), QtCore.Qt.AspectRatioMode.KeepAspectRatio))
+            else:
+                self.label.setPixmap(figure.scaled(self.height(), self.height(), QtCore.Qt.AspectRatioMode.KeepAspectRatio))
+
+            self.counter = self.counter + 1
+            if self.counter == len(lista):
+                self.counter = 0
+        # except:
+        #     self.counter = 0
 
         QTimer.singleShot(self.freq, self.update)
         self._change_update_time()
