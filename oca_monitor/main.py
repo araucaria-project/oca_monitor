@@ -8,7 +8,9 @@ import asyncio
 import os
 import sys
 import argparse
+import time
 from importlib import import_module
+from logging.handlers import RotatingFileHandler
 
 from PyQt6.QtWidgets import QMainWindow
 from qasync import QEventLoop, QApplication
@@ -67,6 +69,19 @@ def main():
         loglevel = args.log_level  # hard override
     else:
         loglevel = settings.log_level
+    log_file_name = f'ocam.log'
+    log_path = '~/.oca'
+    log_file = os.path.expanduser(os.path.join(log_path, log_file_name))
+    try:
+        os.makedirs(os.path.dirname(log_file), exist_ok=True)
+        file_handler = RotatingFileHandler(filename=log_file, maxBytes=1000000, backupCount=5)
+        file_handler.setFormatter(logging.Formatter('%(asctime)s [%(levelname)s] %(name)s: %(message)s'))
+        logging.Formatter.converter = time.gmtime
+        logging.getLogger().addHandler(file_handler)
+        logger.info(f'Log file added at {log_file}')
+    except OSError:
+        logger.warning(f'Can not create loging folder.')
+
     logging.basicConfig(level=loglevel,
                         format='%(asctime)s [%(levelname)s] [%(name)s] %(message)s')
     logger.info(f'OCA Monitor logging level: {loglevel}')
