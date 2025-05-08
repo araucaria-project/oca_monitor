@@ -30,7 +30,6 @@ class SatelliteAnimationWidget(QWidget):
         self.initUI()
         
     def initUI(self):
-        QTimer.singleShot(0, self.async_init)
         self.layout = QVBoxLayout(self)
         self.label = QLabel()
         if self.vertical:
@@ -41,34 +40,62 @@ class SatelliteAnimationWidget(QWidget):
         self.w = self.width()
         self.h = self.height()
         self.label.setSizePolicy(QSizePolicy.Policy.Ignored,QSizePolicy.Policy.Ignored)
-        self.update()
+        # QTimer.singleShot(0, self.async_init)
+        self.update_v2()
         
     def update(self):
+
+
         try:
-            lista = os.popen('ls -tr ' + self.dir + '*600x600.jpg').read().split('\n')[:-1]
-        except OSError as e:
-            logger.error(f'Error: {e}.')
-            lista = []
+            lista = os.popen('ls -tr '+self.dir+'*600x600.jpg').read().split('\n')[:-1]
+            if len(lista) > 4:
+                lista = lista[-4:]
+
+            if len(lista)> 0:
+                figure = QPixmap(lista[self.counter])
+
+                if self.vertical:
+                    self.label.setPixmap(figure.scaled(self.height(),self.height(), QtCore.Qt.AspectRatioMode.KeepAspectRatio))
+                else:
+                    self.label.setPixmap(figure.scaled(self.height(), self.height(), QtCore.Qt.AspectRatioMode.KeepAspectRatio))
+
+                self.counter = self.counter + 1
+                if self.counter == len(lista):
+                    self.counter = 0
+        except:
+            self.counter = 0
+
+        QTimer.singleShot(self.freq, self.update)
+        self._change_update_time()
 
 
-        # try:
-            # lista = os.popen('ls -tr '+self.dir+'*600x600.jpg').read().split('\n')[:-1]
-        if len(lista) > 4:
-            lista = lista[-4:]
+    def update_v2(self):
 
-        if len(lista)> 0:
-            figure = QPixmap(lista[self.counter])
+        try:
+            files_list = os.listdir(self.dir)
+        except OSError:
+            logger.error(f'Can not access {self.dir}.')
+            files_list = []
 
-            if self.vertical:
-                self.label.setPixmap(figure.scaled(self.height(),self.height(), QtCore.Qt.AspectRatioMode.KeepAspectRatio))
-            else:
-                self.label.setPixmap(figure.scaled(self.height(), self.height(), QtCore.Qt.AspectRatioMode.KeepAspectRatio))
+        if len(files_list) == 0:
+            logger.warning(f'No files.')
 
-            self.counter = self.counter + 1
-            if self.counter == len(lista):
-                self.counter = 0
-        # except:
-        #     self.counter = 0
+        else:
+            lista = [os.path.join(self.dir, f) for f in files_list]
+            if len(lista) > 4:
+                lista = lista[-4:]
+
+            if len(lista) > 0:
+                figure = QPixmap(lista[self.counter])
+
+                if self.vertical:
+                    self.label.setPixmap(figure.scaled(self.height(),self.height(), QtCore.Qt.AspectRatioMode.KeepAspectRatio))
+                else:
+                    self.label.setPixmap(figure.scaled(self.height(), self.height(), QtCore.Qt.AspectRatioMode.KeepAspectRatio))
+
+                self.counter = self.counter + 1
+                if self.counter == len(lista):
+                    self.counter = 0
 
         QTimer.singleShot(self.freq, self.update)
         self._change_update_time()
