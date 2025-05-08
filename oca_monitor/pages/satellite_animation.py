@@ -97,7 +97,7 @@ class SatelliteAnimationWidget(QWidget):
                 if self.counter == len(lista):
                     self.counter = 0
 
-        QTimer.singleShot(self.freq, self.update)
+        QTimer.singleShot(self.freq, self.update_v2)
         self._change_update_time()
 
     @asyncSlot()
