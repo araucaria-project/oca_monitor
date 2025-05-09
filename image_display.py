@@ -50,10 +50,7 @@ class ImageDisplay:
                         for new_file in new_files:
                             if self.image_queue.qsize() > len(current_files_list_path) - 1:
                                 _ = await self.image_queue.get()
-                            await self.image_queue.put({
-                                'path': new_file,
-                                'instance': await image_instance_clb(image_path=new_file)
-                            })
+                            await self.image_queue.put(await image_instance_clb(image_path=new_file))
                 logger.info(f'{self.name} files list updated by new files no: {new_files_no}.')
             await asyncio.sleep(self.refresh_image_time_sec)
 
@@ -63,7 +60,7 @@ class ImageDisplay:
                 display_queue = copy.deepcopy(self.image_queue)
                 for n in range(display_queue.qsize()):
                     image_to_display = await display_queue.get()
-                    await image_display_clb(image_to_display=image_to_display['instance'])
+                    await image_display_clb(image_to_display=image_to_display)
                     await asyncio.sleep(self.image_change_sec)
             await asyncio.sleep(self.image_change_sec)
 
