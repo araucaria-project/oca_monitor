@@ -3,7 +3,6 @@ import copy
 import logging
 import os
 
-from PyQt6.QtGui import QPixmap
 from serverish.base.task_manager import create_task
 
 
