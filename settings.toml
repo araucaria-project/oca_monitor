@@ -39,8 +39,8 @@ source = "message"  # page source - page is defined in oca_monitor/pages/example
 
 [default.panels.01.Allsky]
 #auto_interval = 10  # seconds, how long to show this page before auto switching to next page
-#source = "allsky_animation_mpl"  # page source - page is defined in oca_monitor/pages/example.py
-source = "allsky_animation"  # page source - page is defined in oca_monitor/pages/example.py
+source = "allsky_animation_mpl"  # page source - page is defined in oca_monitor/pages/example.py
+#source = "allsky_animation"  # page source - page is defined in oca_monitor/pages/example.py
 vertical_screen = 0
 
 [default.panels.01.Satellite]
