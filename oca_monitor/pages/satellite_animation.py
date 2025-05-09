@@ -144,7 +144,10 @@ class SatelliteAnimationWidget(QWidget):
                         for new_file in new_files:
                             if self.image_queue.qsize() > self.MAX_IMAGES_NO - 1:
                                 _ = await self.image_queue.get()
-                            await self.image_queue.put(QPixmap(new_file))
+                            new_pixmap = QPixmap(new_file)
+                            print(new_pixmap)
+                            print(type(new_pixmap))
+                            await self.image_queue.put(new_pixmap)
                 logger.info(f'Satellite files list updated: {new_files_no}.')
             await asyncio.sleep(self.REFRESH_IMAGE_TIME_SEC)
 
