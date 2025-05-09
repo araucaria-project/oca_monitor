@@ -28,6 +28,7 @@ class SatelliteAnimationWidget(QWidget):
     IMAGE_PREFIX = '600x600'
     REFRESH_IMAGE_TIME_SEC = 2
     IMAGE_CHANGE_SEC = 1
+    MAX_IMAGES_NO = 5
 
     def __init__(self, main_window, allsky_dir='/data/misc/GOES_satellite/', vertical_screen = False, **kwargs):
         super().__init__()
@@ -141,7 +142,7 @@ class SatelliteAnimationWidget(QWidget):
                     async with self.lock:
                         self.files_list = copy.deepcopy(current_files_list)
                         for new_file in new_files:
-                            if self.image_queue.qsize() > 0:
+                            if self.image_queue.qsize() > self.MAX_IMAGES_NO - 1:
                                 _ = await self.image_queue.get()
                             await self.image_queue.put(QPixmap(new_file))
                         logger.info(f'{self.image_queue.qsize()}')
