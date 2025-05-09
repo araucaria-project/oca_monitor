@@ -65,7 +65,7 @@ class ImageDisplay:
                     await image_display_clb(image_to_display=image_to_display)
                     await self.image_queue.put(image_to_display)
                 await asyncio.sleep(self.image_change_sec)
-            if not self.last_refresh or self.last_refresh + self.refresh_image_time_sec > time.time():
+            if not self.last_refresh or time.time() > self.last_refresh + self.refresh_image_time_sec:
                 await self.image_list_refresh(image_instance_clb=image_instance_clb)
                 self.last_refresh = time.time()
             await asyncio.sleep(self.image_change_sec)
