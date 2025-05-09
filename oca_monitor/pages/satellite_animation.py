@@ -132,7 +132,6 @@ class SatelliteAnimationWidget(QWidget):
                     current_files_list.append(file)
             current_files_list.sort()
             current_files_list_path = [os.path.join(self.dir, f) for f in current_files_list[:self.MAX_IMAGES_NO]]
-            logger.info(f'{len(current_files_list_path)} {len(self.files_list)}')
             if current_files_list_path != self.files_list:
                 logger.info(f'Satellite files list updating...')
                 new_files = [x for x in current_files_list_path if x not in self.files_list]
@@ -171,9 +170,6 @@ class SatelliteAnimationWidget(QWidget):
         logger.info('Starting satellite display.')
         await create_task(self.a_image_list_refresh(), 'satellite_refresh_images')
         await create_task(self.a_display(), 'satellite_display_images')
-        # logger.info('Starting satellite display started.')
-
-
 
     def _change_update_time(self):
         self.freq = 1000
