@@ -19,7 +19,7 @@ class ImageDisplay:
         self.name = name
         self.images_dir = images_dir
         self.lock = asyncio.Lock()
-        self.image_queue = asyncio.PriorityQueue()
+        self.image_queue = asyncio.Queue()
         self.files_list = []
         self.images_prefix = images_prefix
         self.image_change_sec = image_change_sec
