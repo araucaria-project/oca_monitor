@@ -136,7 +136,7 @@ class SatelliteAnimationWidget(QWidget):
                 new_files = [x for x in current_files_list if x not in self.files_list]
                 new_files_no = len(new_files)
                 if new_files_no > 0:
-                    with self.lock:
+                    async with self.lock:
                         self.files_list = copy.deepcopy(current_files_list)
                         for new_file in new_files:
                             _ = await self.image_queue.get()
