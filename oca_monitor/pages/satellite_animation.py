@@ -55,6 +55,18 @@ class SatelliteAnimationWidget(QWidget):
         self.label.setSizePolicy(QSizePolicy.Policy.Ignored,QSizePolicy.Policy.Ignored)
         QTimer.singleShot(0, self.async_init)
         # self.update_v2()
+
+    async def image_display(self, image_to_display: QPixmap):
+        if self.vertical:
+            self.label.setPixmap(
+                image_to_display.scaled(
+                    self.height(), self.height(), QtCore.Qt.AspectRatioMode.KeepAspectRatio)
+            )
+        else:
+            self.label.setPixmap(
+                image_to_display.scaled(
+                    self.height(), self.height(), QtCore.Qt.AspectRatioMode.KeepAspectRatio)
+            )
         
     # def update(self):
     #
@@ -146,21 +158,12 @@ class SatelliteAnimationWidget(QWidget):
                 logger.info(f'Satellite files list updated by new files no: {new_files_no}.')
             await asyncio.sleep(self.REFRESH_IMAGE_TIME_SEC)
 
-    async def a_display(self):
+    async def a_display(self, image_display_clb: callable):
         while True:
             async with self.lock:
                 if self.image_queue.qsize() > 0:
                     image_to_display = await self.image_queue.get()
-                    if self.vertical:
-                        self.label.setPixmap(
-                            image_to_display.scaled(
-                                self.height(), self.height(), QtCore.Qt.AspectRatioMode.KeepAspectRatio)
-                        )
-                    else:
-                        self.label.setPixmap(
-                            image_to_display.scaled(
-                                self.height(), self.height(), QtCore.Qt.AspectRatioMode.KeepAspectRatio)
-                        )
+                    await image_display_clb(image_to_display=image_to_display)
                     await self.image_queue.put(image_to_display)
 
             await asyncio.sleep(self.IMAGE_CHANGE_SEC)
@@ -169,7 +172,7 @@ class SatelliteAnimationWidget(QWidget):
     async def async_init(self):
         logger.info('Starting satellite display.')
         await create_task(self.a_image_list_refresh(), 'satellite_refresh_images')
-        await create_task(self.a_display(), 'satellite_display_images')
+        await create_task(self.a_display(image_display_clb=self.image_display), 'satellite_display_images')
 
     # def _change_update_time(self):
     #     self.freq = 1000
