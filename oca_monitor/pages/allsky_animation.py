@@ -64,6 +64,8 @@ class AllskyAnimationWidget(QWidget):
         QTimer.singleShot(self.freq, self.update)
         self._change_update_time()
 
+
+
     def _change_update_time(self):
         self.freq = 2000
 

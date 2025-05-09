@@ -13,7 +13,7 @@ logger = logging.getLogger(__name__.rsplit('.')[-1])
 class ImageDisplay:
 
     def __init__(
-            self, name: str, images_dir: str, images_prefix: str = '600x600', max_images_no: int = 12,
+            self, name: str, images_dir: str, images_prefix: str = '600x600',
             image_change_sec: float = 0.75, refresh_image_time_sec: float = 10) -> None:
         self.name = name
         self.images_dir = images_dir
@@ -21,7 +21,6 @@ class ImageDisplay:
         self.image_queue = asyncio.Queue()
         self.files_list = []
         self.images_prefix = images_prefix
-        self.max_images_no = max_images_no
         self.image_change_sec = image_change_sec
         self.refresh_image_time_sec = refresh_image_time_sec
         super().__init__()
@@ -38,7 +37,7 @@ class ImageDisplay:
             for file in files_found:
                 if self.images_prefix in file:
                     current_files_list.append(file)
-            current_files_list_path = [os.path.join(self.images_dir, f) for f in current_files_list[:self.max_images_no]]
+            current_files_list_path = [os.path.join(self.images_dir, f) for f in current_files_list]
             current_files_list_path.sort()
             if current_files_list_path != self.files_list:
                 logger.info(f'{self.name} files list updating...')
@@ -48,7 +47,7 @@ class ImageDisplay:
                     async with self.lock:
                         self.files_list = copy.deepcopy(current_files_list_path)
                         for new_file in new_files:
-                            if self.image_queue.qsize() > self.max_images_no - 1:
+                            if self.image_queue.qsize() > len(current_files_list_path) - 1:
                                 _ = await self.image_queue.get()
                             await self.image_queue.put(QPixmap(new_file))
                 logger.info(f'{self.name} files list updated by new files no: {new_files_no}.')
