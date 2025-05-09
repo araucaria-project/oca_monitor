@@ -27,8 +27,8 @@ class SatelliteAnimationWidget(QWidget):
 
     IMAGE_PREFIX = '600x600'
     REFRESH_IMAGE_TIME_SEC = 10
-    IMAGE_CHANGE_SEC = 1.5
-    MAX_IMAGES_NO = 5
+    IMAGE_CHANGE_SEC = 0.5
+    MAX_IMAGES_NO = 12
 
     def __init__(self, main_window, allsky_dir='/data/misc/GOES_satellite/', vertical_screen = False, **kwargs):
         super().__init__()
@@ -130,9 +130,8 @@ class SatelliteAnimationWidget(QWidget):
             for file in files_found:
                 if self.IMAGE_PREFIX in file:
                     current_files_list.append(file)
-            print(current_files_list)
             current_files_list.sort()
-            print(current_files_list)
+            current_files_list = current_files_list[:self.MAX_IMAGES_NO]
             current_files_list_path = [os.path.join(self.dir, f) for f in current_files_list]
             if current_files_list_path != self.files_list:
                 logger.info(f'Satellite files list updating...')
