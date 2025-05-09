@@ -19,6 +19,9 @@ from qasync import asyncSlot
 #from qasync import asyncSlot
 #from serverish.base import dt_ensure_datetime
 from serverish.base.task_manager import create_task
+
+from image_display import ImageDisplay
+
 #from serverish.messenger import Messenger
 
 logger = logging.getLogger(__name__.rsplit('.')[-1])
@@ -67,6 +70,15 @@ class SatelliteAnimationWidget(QWidget):
                 image_to_display.scaled(
                     self.height(), self.height(), QtCore.Qt.AspectRatioMode.KeepAspectRatio)
             )
+
+    @asyncSlot()
+    async def async_init(self):
+        logger.info('Starting satellite display.')
+        display = ImageDisplay(
+            name='satellite', images_dir=self.dir, images_prefix = '600x600', max_images_no = 12,
+            image_change_sec = 0.75, refresh_image_time_sec = 10
+        )
+        await display.display_init(image_display_clb=self.image_display)
         
     # def update(self):
     #
@@ -129,50 +141,6 @@ class SatelliteAnimationWidget(QWidget):
     #
     #     QTimer.singleShot(self.freq, self.update_v2)
     #     self._change_update_time()
-
-    async def a_image_list_refresh(self):
-        while True:
-            current_files_list = []
-            try:
-                files_found = os.listdir(self.dir)
-            except OSError:
-                logger.error(f'Can not access {self.dir}.')
-                files_found = []
-
-            for file in files_found:
-                if self.IMAGE_PREFIX in file:
-                    current_files_list.append(file)
-            current_files_list_path = [os.path.join(self.dir, f) for f in current_files_list[:self.MAX_IMAGES_NO]]
-            current_files_list_path.sort()
-            if current_files_list_path != self.files_list:
-                logger.info(f'Satellite files list updating...')
-                new_files = [x for x in current_files_list_path if x not in self.files_list]
-                new_files_no = len(new_files)
-                if new_files_no > 0:
-                    async with self.lock:
-                        self.files_list = copy.deepcopy(current_files_list_path)
-                        for new_file in new_files:
-                            if self.image_queue.qsize() > self.MAX_IMAGES_NO - 1:
-                                _ = await self.image_queue.get()
-                            await self.image_queue.put(QPixmap(new_file))
-                logger.info(f'Satellite files list updated by new files no: {new_files_no}.')
-            await asyncio.sleep(self.REFRESH_IMAGE_TIME_SEC)
-
-    async def a_display(self, image_display_clb: callable):
-        while True:
-            async with self.lock:
-                if self.image_queue.qsize() > 0:
-                    image_to_display = await self.image_queue.get()
-                    await image_display_clb(image_to_display=image_to_display)
-                    await self.image_queue.put(image_to_display)
-
-            await asyncio.sleep(self.IMAGE_CHANGE_SEC)
-
-    @asyncSlot()
-    async def async_init(self):
-        logger.info('Starting satellite display.')
-        await create_task(self.a_image_list_refresh(), 'satellite_refresh_images')
-        await create_task(self.a_display(image_display_clb=self.image_display), 'satellite_display_images')
 
     # def _change_update_time(self):
     #     self.freq = 1000
