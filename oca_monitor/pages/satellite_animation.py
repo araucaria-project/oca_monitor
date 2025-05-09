@@ -88,6 +88,7 @@ class SatelliteAnimationWidget(QWidget):
             logger.warning(f'No files.')
 
         else:
+            files_list.sort()
             lista = [os.path.join(self.dir, f) for f in files_list]
             if len(lista) > 4:
                 lista = lista[-4:]
