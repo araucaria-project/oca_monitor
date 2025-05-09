@@ -56,8 +56,8 @@ class ImageDisplay:
 
     async def display(self, image_display_clb: callable) -> None:
         while True:
+            display_queue = self.image_queue
             async with self.lock:
-                display_queue = self.image_queue
                 for n in range(display_queue.qsize()):
                     image_to_display = await display_queue.get()
                     await image_display_clb(image_to_display=image_to_display)
