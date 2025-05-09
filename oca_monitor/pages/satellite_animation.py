@@ -75,7 +75,7 @@ class SatelliteAnimationWidget(QWidget):
     async def async_init(self):
         logger.info('Starting satellite display.')
         display = ImageDisplay(
-            name='satellite', images_dir=self.dir, images_prefix = '600x600', max_images_no = 12,
+            name='satellite', images_dir=self.dir, images_prefix = '600x600',
             image_change_sec = 0.75, refresh_image_time_sec = 10
         )
         await display.display_init(image_display_clb=self.image_display)
