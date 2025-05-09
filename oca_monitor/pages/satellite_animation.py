@@ -27,7 +27,7 @@ class SatelliteAnimationWidget(QWidget):
 
     IMAGE_PREFIX = '600x600'
     REFRESH_IMAGE_TIME_SEC = 10
-    IMAGE_CHANGE_SEC = 2
+    IMAGE_CHANGE_SEC = 1.5
     MAX_IMAGES_NO = 5
 
     def __init__(self, main_window, allsky_dir='/data/misc/GOES_satellite/', vertical_screen = False, **kwargs):
