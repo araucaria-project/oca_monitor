@@ -11,9 +11,11 @@ logger = logging.getLogger(__name__.rsplit('.')[-1])
 
 class ImageDisplay:
 
+    MODES = {'new_files': {}, 'modify_time': {}}
+
     def __init__(
             self, name: str, images_dir: str, images_prefix: str = '',
-            image_change_sec: float = 0.75, refresh_image_time_sec: float = 10) -> None:
+            image_change_sec: float = 0.75, refresh_image_time_sec: float = 10, mode: str = 'new_files') -> None:
         self.name = name
         self.images_dir = images_dir
         self.lock = asyncio.Lock()
@@ -24,7 +26,7 @@ class ImageDisplay:
         self.refresh_image_time_sec = refresh_image_time_sec
         super().__init__()
 
-    async def a_image_list_refresh(self, image_instance_clb: callable):
+    async def image_list_refresh(self, image_instance_clb: callable):
         while True:
             current_files_list = []
             try:
@@ -37,7 +39,7 @@ class ImageDisplay:
                 if self.images_prefix in file:
                     current_files_list.append(file)
             current_files_list_path = [os.path.join(self.images_dir, f) for f in current_files_list]
-            current_files_list_path.sort()
+            current_files_list_path.sort(reverse=True)
             if current_files_list_path != self.files_list:
                 logger.info(f'{self.name} files list updating...')
                 new_files = [x for x in current_files_list_path if x not in self.files_list]
@@ -52,7 +54,7 @@ class ImageDisplay:
                 logger.info(f'{self.name} files list updated by new files no: {new_files_no}.')
             await asyncio.sleep(self.refresh_image_time_sec)
 
-    async def a_display(self, image_display_clb: callable) -> None:
+    async def display(self, image_display_clb: callable) -> None:
         while True:
             async with self.lock:
                 if self.image_queue.qsize() > 0:
@@ -64,6 +66,6 @@ class ImageDisplay:
     async def display_init(self, image_display_clb: callable, image_instance_clb: callable):
         logger.info(f'Starting {self.name} display.')
         await create_task(
-            self.a_image_list_refresh(image_instance_clb=image_instance_clb), f'{self.name}_refresh_images'
+            self.image_list_refresh(image_instance_clb=image_instance_clb), f'{self.name}_refresh_images'
         )
-        await create_task(self.a_display(image_display_clb=image_display_clb), f'{self.name}_display_images')
+        await create_task(self.display(image_display_clb=image_display_clb), f'{self.name}_display_images')
