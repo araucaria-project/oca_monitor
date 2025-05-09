@@ -27,32 +27,32 @@ class ImageDisplay:
         super().__init__()
 
     async def image_list_refresh(self, image_instance_clb: callable):
-        while True:
-            current_files_list = []
-            try:
-                files_found = os.listdir(self.images_dir)
-            except OSError:
-                logger.error(f'Can not access {self.images_dir}.')
-                files_found = []
+        # while True:
+        current_files_list = []
+        try:
+            files_found = os.listdir(self.images_dir)
+        except OSError:
+            logger.error(f'Can not access {self.images_dir}.')
+            files_found = []
 
-            for file in files_found:
-                if self.images_prefix in file:
-                    current_files_list.append(file)
-            current_files_list_path = [os.path.join(self.images_dir, f) for f in current_files_list]
-            current_files_list_path.sort()
-            if current_files_list_path != self.files_list:
-                logger.info(f'{self.name} files list updating...')
-                new_files = [x for x in current_files_list_path if x not in self.files_list]
-                new_files_no = len(new_files)
-                if new_files_no > 0:
-                    async with self.lock:
-                        self.files_list = copy.deepcopy(current_files_list_path)
-                        for new_file in new_files:
-                            if self.image_queue.qsize() > len(current_files_list_path) - 1:
-                                _ = await self.image_queue.get()
-                            await self.image_queue.put(await image_instance_clb(image_path=new_file))
-                logger.info(f'{self.name} files list updated by new files no: {new_files_no}.')
-            await asyncio.sleep(self.refresh_image_time_sec)
+        for file in files_found:
+            if self.images_prefix in file:
+                current_files_list.append(file)
+        current_files_list_path = [os.path.join(self.images_dir, f) for f in current_files_list]
+        current_files_list_path.sort()
+        if current_files_list_path != self.files_list:
+            logger.info(f'{self.name} files list updating...')
+            new_files = [x for x in current_files_list_path if x not in self.files_list]
+            new_files_no = len(new_files)
+            if new_files_no > 0:
+                async with self.lock:
+                    self.files_list = copy.deepcopy(current_files_list_path)
+                    for new_file in new_files:
+                        if self.image_queue.qsize() > len(current_files_list_path) - 1:
+                            _ = await self.image_queue.get()
+                        await self.image_queue.put(await image_instance_clb(image_path=new_file))
+            logger.info(f'{self.name} files list updated by new files no: {new_files_no}.')
+            # await asyncio.sleep(self.refresh_image_time_sec)
 
     async def display(self, image_display_clb: callable, image_instance_clb: callable) -> None:
         while True:
