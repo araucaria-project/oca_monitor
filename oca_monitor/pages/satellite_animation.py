@@ -131,8 +131,7 @@ class SatelliteAnimationWidget(QWidget):
                 if self.IMAGE_PREFIX in file:
                     current_files_list.append(file)
             current_files_list.sort()
-            current_files_list = current_files_list[:self.MAX_IMAGES_NO]
-            current_files_list_path = [os.path.join(self.dir, f) for f in current_files_list]
+            current_files_list_path = [os.path.join(self.dir, f) for f in current_files_list[:self.MAX_IMAGES_NO]]
             if current_files_list_path != self.files_list:
                 logger.info(f'Satellite files list updating...')
                 new_files = [x for x in current_files_list_path if x not in self.files_list]
