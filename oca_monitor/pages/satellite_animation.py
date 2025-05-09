@@ -26,7 +26,7 @@ logger = logging.getLogger(__name__.rsplit('.')[-1])
 class SatelliteAnimationWidget(QWidget):
 
     IMAGE_PREFIX = '600x600'
-    REFRESH_IMAGE_TIME_SEC = 10
+    REFRESH_IMAGE_TIME_SEC = 2
     IMAGE_CHANGE_SEC = 1
 
     def __init__(self, main_window, allsky_dir='/data/misc/GOES_satellite/', vertical_screen = False, **kwargs):
@@ -129,7 +129,8 @@ class SatelliteAnimationWidget(QWidget):
             for file in files_found:
                 if self.IMAGE_PREFIX in file:
                     current_files_list.append(file)
-
+            logger.info('fff')
+            print('fff')
             current_files_list.sort()
 
             if not current_files_list == self.files_list:
@@ -142,6 +143,7 @@ class SatelliteAnimationWidget(QWidget):
                             _ = await self.image_queue.get()
                             await self.image_queue.put(QPixmap(new_file))
             logger.info(f'{self.files_list}')
+            print(self.files_list)
             await asyncio.sleep(self.REFRESH_IMAGE_TIME_SEC)
 
     async def a_display(self):
