@@ -145,21 +145,35 @@ class SatelliteAnimationWidget(QWidget):
                             if self.image_queue.qsize() > self.MAX_IMAGES_NO - 1:
                                 _ = await self.image_queue.get()
                             await self.image_queue.put(QPixmap(new_file))
-                        logger.info(f'{self.image_queue.qsize()}')
+                logger.info(f'Satellite files list updated: {new_files_no}.')
             await asyncio.sleep(self.REFRESH_IMAGE_TIME_SEC)
 
     async def a_display(self):
         while True:
-            files_found = os.listdir(self.dir)
+            async with self.lock:
+                if self.image_queue.qsize() > 0:
+                    image_to_display = await self.image_queue.get()
+                    if self.vertical:
+                        self.label.setPixmap(
+                            image_to_display.scaled(
+                                self.height(), self.height(), QtCore.Qt.AspectRatioMode.KeepAspectRatio)
+                        )
+                    else:
+                        self.label.setPixmap(
+                            image_to_display.scaled(
+                                self.height(), self.height(), QtCore.Qt.AspectRatioMode.KeepAspectRatio)
+                        )
+                    await self.image_queue.put(image_to_display)
 
-            await asyncio.sleep(self.REFRESH_IMAGE_TIME_SEC)
+            await asyncio.sleep(self.IMAGE_CHANGE_SEC)
 
     @asyncSlot()
     async def async_init(self):
         logger.info('Starting satellite display.')
         await create_task(self.a_image_list_refresh(), 'satellite_refresh_images')
-        logger.info('Starting satellite display started.')
-        # await create_task(self.a_display(), 'satellite_display_images')
+        await create_task(self.a_display(), 'satellite_display_images')
+        # logger.info('Starting satellite display started.')
+
 
 
     def _change_update_time(self):
