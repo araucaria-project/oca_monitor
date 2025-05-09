@@ -25,7 +25,7 @@ class ImageDisplay:
         self.refresh_image_time_sec = refresh_image_time_sec
         super().__init__()
 
-    async def a_image_list_refresh(self):
+    async def a_image_list_refresh(self, image_instance_clb: callable):
         while True:
             current_files_list = []
             try:
@@ -49,11 +49,11 @@ class ImageDisplay:
                         for new_file in new_files:
                             if self.image_queue.qsize() > len(current_files_list_path) - 1:
                                 _ = await self.image_queue.get()
-                            await self.image_queue.put(QPixmap(new_file))
+                            await self.image_queue.put(await image_instance_clb())
                 logger.info(f'{self.name} files list updated by new files no: {new_files_no}.')
             await asyncio.sleep(self.refresh_image_time_sec)
 
-    async def a_display(self, image_display_clb: callable):
+    async def a_display(self, image_display_clb: callable) -> None:
         while True:
             async with self.lock:
                 if self.image_queue.qsize() > 0:
@@ -62,7 +62,9 @@ class ImageDisplay:
                     await self.image_queue.put(image_to_display)
             await asyncio.sleep(self.image_change_sec)
 
-    async def display_init(self, image_display_clb: callable):
+    async def display_init(self, image_display_clb: callable, image_instance_clb: callable):
         logger.info(f'Starting {self.name} display.')
-        await create_task(self.a_image_list_refresh(), f'{self.name}_refresh_images')
+        await create_task(
+            self.a_image_list_refresh(image_instance_clb=image_instance_clb), f'{self.name}_refresh_images'
+        )
         await create_task(self.a_display(image_display_clb=image_display_clb), f'{self.name}_display_images')

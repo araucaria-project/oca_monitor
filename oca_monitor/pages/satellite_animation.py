@@ -3,6 +3,7 @@ import copy
 import logging
 import datetime
 import time
+from typing import Any
 
 import numpy as np
 from PyQt6.QtWidgets import QApplication, QWidget, QVBoxLayout,QLabel,QSizePolicy
@@ -59,6 +60,10 @@ class SatelliteAnimationWidget(QWidget):
         QTimer.singleShot(0, self.async_init)
         # self.update_v2()
 
+    @staticmethod
+    async def image_instance(image_path: str) -> Any:
+        return QPixmap(image_path)
+
     async def image_display(self, image_to_display: QPixmap):
         if self.vertical:
             self.label.setPixmap(
@@ -78,7 +83,7 @@ class SatelliteAnimationWidget(QWidget):
             name='satellite', images_dir=self.dir, images_prefix = '600x600',
             image_change_sec = 0.75, refresh_image_time_sec = 10
         )
-        await display.display_init(image_display_clb=self.image_display)
+        await display.display_init(image_display_clb=self.image_display, image_instance_clb=self.image_instance)
         
     # def update(self):
     #
