@@ -52,9 +52,9 @@ class AllskyAnimationWidget(QWidget):
 
     @asyncSlot()
     async def async_init(self):
-        logger.info('Starting satellite display.')
+        logger.info('Starting allsky display.')
         display = ImageDisplay(
-            name='satellite', images_dir=self.dir, images_prefix = '',
+            name='allsky', images_dir=self.dir, images_prefix = '',
             image_change_sec = 0.75, refresh_image_time_sec = 10
         )
         await display.display_init(image_display_clb=self.image_display)
