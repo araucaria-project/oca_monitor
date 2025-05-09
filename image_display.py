@@ -39,7 +39,8 @@ class ImageDisplay:
                 if self.images_prefix in file:
                     current_files_list.append(file)
             current_files_list_path = [os.path.join(self.images_dir, f) for f in current_files_list]
-            current_files_list_path.sort(reverse=True)
+            current_files_list_path.sort()
+            print(current_files_list_path)
             if current_files_list_path != self.files_list:
                 logger.info(f'{self.name} files list updating...')
                 new_files = [x for x in current_files_list_path if x not in self.files_list]
