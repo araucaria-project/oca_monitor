@@ -54,20 +54,22 @@ class ImageDisplay:
                 logger.info(f'{self.name} files list updated by new files no: {new_files_no}.')
             await asyncio.sleep(self.refresh_image_time_sec)
 
-    async def display(self, image_display_clb: callable) -> None:
+    async def display(self, image_display_clb: callable, image_instance_clb: callable) -> None:
         while True:
-            async with self.lock:
-                for n in range(self.image_queue.qsize()):
-                    if self.image_queue.qsize() > 0:
-                        image_to_display = await self.image_queue.get()
-                        await image_display_clb(image_to_display=image_to_display)
-                        await self.image_queue.put(image_to_display)
-                    await asyncio.sleep(self.image_change_sec)
+
+            for n in range(self.image_queue.qsize()):
+                if self.image_queue.qsize() > 0:
+                    image_to_display = await self.image_queue.get()
+                    await image_display_clb(image_to_display=image_to_display)
+                    await self.image_queue.put(image_to_display)
+                await asyncio.sleep(self.image_change_sec)
+
+            await self.image_list_refresh(image_instance_clb=image_instance_clb)
             await asyncio.sleep(self.image_change_sec)
 
     async def display_init(self, image_display_clb: callable, image_instance_clb: callable):
         logger.info(f'Starting {self.name} display.')
-        await create_task(
-            self.image_list_refresh(image_instance_clb=image_instance_clb), f'{self.name}_refresh_images'
-        )
-        await create_task(self.display(image_display_clb=image_display_clb), f'{self.name}_display_images')
+        # await create_task(
+        #     self.image_list_refresh(image_instance_clb=image_instance_clb), f'{self.name}_refresh_images'
+        # )
+        await create_task(self.display(image_display_clb=image_display_clb, image_instance_clb=image_instance_clb), f'{self.name}_display_images')
