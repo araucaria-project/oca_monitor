@@ -54,7 +54,7 @@ class SatelliteAnimationWidget(QWidget):
         self.h = self.height()
         self.label.setSizePolicy(QSizePolicy.Policy.Ignored,QSizePolicy.Policy.Ignored)
         QTimer.singleShot(0, self.async_init)
-        self.update_v2()
+        # self.update_v2()
         
     def update(self):
 
