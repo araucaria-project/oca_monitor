@@ -19,7 +19,7 @@ class ImageDisplay:
         self.name = name
         self.images_dir = images_dir
         self.lock = asyncio.Lock()
-        self.image_queue = asyncio.Queue()
+        self.image_queue = asyncio.PriorityQueue()
         self.files_list = []
         self.images_prefix = images_prefix
         self.image_change_sec = image_change_sec
@@ -40,7 +40,6 @@ class ImageDisplay:
                     current_files_list.append(file)
             current_files_list_path = [os.path.join(self.images_dir, f) for f in current_files_list]
             current_files_list_path.sort()
-            print(current_files_list_path)
             if current_files_list_path != self.files_list:
                 logger.info(f'{self.name} files list updating...')
                 new_files = [x for x in current_files_list_path if x not in self.files_list]
@@ -51,8 +50,10 @@ class ImageDisplay:
                         for new_file in new_files:
                             if self.image_queue.qsize() > len(current_files_list_path) - 1:
                                 _ = await self.image_queue.get()
-                            await self.image_queue.put(await image_instance_clb(image_path=new_file))
-                        print(self.image_queue)
+                            await self.image_queue.put({
+                                'path': new_file,
+                                'instance': await image_instance_clb(image_path=new_file)
+                            })
                 logger.info(f'{self.name} files list updated by new files no: {new_files_no}.')
             await asyncio.sleep(self.refresh_image_time_sec)
 
@@ -61,7 +62,7 @@ class ImageDisplay:
             async with self.lock:
                 if self.image_queue.qsize() > 0:
                     image_to_display = await self.image_queue.get()
-                    await image_display_clb(image_to_display=image_to_display)
+                    await image_display_clb(image_to_display=image_to_display['instance'])
                     await self.image_queue.put(image_to_display)
             await asyncio.sleep(self.image_change_sec)
 
