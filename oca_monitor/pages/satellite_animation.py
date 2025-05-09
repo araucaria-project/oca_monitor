@@ -130,20 +130,18 @@ class SatelliteAnimationWidget(QWidget):
                 if self.IMAGE_PREFIX in file:
                     current_files_list.append(file)
             logger.info('fff')
-            print('fff')
             current_files_list.sort()
-
-            # if not current_files_list == self.files_list:
-            #     new_files = [x for x in current_files_list if x not in self.files_list]
-            #     new_files_no = len(new_files)
-            #     if new_files_no > 0:
-            #         async with self.lock:
-            #             self.files_list = copy.deepcopy(current_files_list)
-            #             for new_file in new_files:
-            #                 _ = await self.image_queue.get()
-            #                 await self.image_queue.put(QPixmap(new_file))
+            if not current_files_list == self.files_list:
+                new_files = [x for x in current_files_list if x not in self.files_list]
+                new_files_no = len(new_files)
+                if new_files_no > 0:
+                    print('ffffffff')
+                    # async with self.lock:
+                    #     self.files_list = copy.deepcopy(current_files_list)
+                    #     for new_file in new_files:
+                    #         _ = await self.image_queue.get()
+                    #         await self.image_queue.put(QPixmap(new_file))
             logger.info(f'{self.files_list}')
-            print(self.files_list)
             await asyncio.sleep(self.REFRESH_IMAGE_TIME_SEC)
 
     async def a_display(self):
