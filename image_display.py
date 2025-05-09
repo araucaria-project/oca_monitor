@@ -57,10 +57,10 @@ class ImageDisplay:
     async def display(self, image_display_clb: callable) -> None:
         while True:
             async with self.lock:
-                if self.image_queue.qsize() > 0:
-                    image_to_display = await self.image_queue.get()
+                display_queue = self.image_queue
+                if display_queue.qsize() > 0:
+                    image_to_display = await display_queue.get()
                     await image_display_clb(image_to_display=image_to_display)
-                    await self.image_queue.put(image_to_display)
             await asyncio.sleep(self.image_change_sec)
 
     async def display_init(self, image_display_clb: callable, image_instance_clb: callable):
