@@ -2,6 +2,7 @@ import asyncio
 import copy
 import logging
 import os
+import time
 
 from serverish.base.task_manager import create_task
 
@@ -24,6 +25,7 @@ class ImageDisplay:
         self.images_prefix = images_prefix
         self.image_change_sec = image_change_sec
         self.refresh_image_time_sec = refresh_image_time_sec
+        self.last_refresh = None
         super().__init__()
 
     async def image_list_refresh(self, image_instance_clb: callable):
@@ -63,8 +65,9 @@ class ImageDisplay:
                     await image_display_clb(image_to_display=image_to_display)
                     await self.image_queue.put(image_to_display)
                 await asyncio.sleep(self.image_change_sec)
-
-            await self.image_list_refresh(image_instance_clb=image_instance_clb)
+            if self.last_refresh and self.last_refresh + self.refresh_image_time_sec > time.time():
+                await self.image_list_refresh(image_instance_clb=image_instance_clb)
+                self.last_refresh = time.time()
             await asyncio.sleep(self.image_change_sec)
 
     async def display_init(self, image_display_clb: callable, image_instance_clb: callable):
