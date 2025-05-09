@@ -49,7 +49,7 @@ class ImageDisplay:
                         for new_file in new_files:
                             if self.image_queue.qsize() > len(current_files_list_path) - 1:
                                 _ = await self.image_queue.get()
-                            await self.image_queue.put(await image_instance_clb())
+                            await self.image_queue.put(await image_instance_clb(image_path=new_file))
                 logger.info(f'{self.name} files list updated by new files no: {new_files_no}.')
             await asyncio.sleep(self.refresh_image_time_sec)
 
