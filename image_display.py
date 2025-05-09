@@ -13,7 +13,7 @@ logger = logging.getLogger(__name__.rsplit('.')[-1])
 class ImageDisplay:
 
     def __init__(
-            self, name: str, images_dir: str, images_prefix: str = '600x600',
+            self, name: str, images_dir: str, images_prefix: str = '',
             image_change_sec: float = 0.75, refresh_image_time_sec: float = 10) -> None:
         self.name = name
         self.images_dir = images_dir
