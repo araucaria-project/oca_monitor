@@ -19,7 +19,6 @@ class ImageDisplay:
             image_change_sec: float = 0.75, refresh_image_time_sec: float = 10, mode: str = 'new_files') -> None:
         self.name = name
         self.images_dir = images_dir
-        self.lock = asyncio.Lock()
         self.image_queue = asyncio.Queue()
         self.files_list = []
         self.images_prefix = images_prefix
@@ -47,12 +46,11 @@ class ImageDisplay:
             new_files = [x for x in current_files_list_path if x not in self.files_list]
             new_files_no = len(new_files)
             if new_files_no > 0:
-                async with self.lock:
-                    self.files_list = copy.deepcopy(current_files_list_path)
-                    for new_file in new_files:
-                        if self.image_queue.qsize() > len(current_files_list_path) - 1:
-                            _ = await self.image_queue.get()
-                        await self.image_queue.put(await image_instance_clb(image_path=new_file))
+                self.files_list = copy.deepcopy(current_files_list_path)
+                for new_file in new_files:
+                    if self.image_queue.qsize() > len(current_files_list_path) - 1:
+                        _ = await self.image_queue.get()
+                    await self.image_queue.put(await image_instance_clb(image_path=new_file))
             logger.info(f'{self.name} files list updated by new files no: {new_files_no}.')
             # await asyncio.sleep(self.refresh_image_time_sec)
 
