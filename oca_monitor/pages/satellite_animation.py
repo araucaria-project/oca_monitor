@@ -20,6 +20,9 @@ from qasync import asyncSlot
 logger = logging.getLogger(__name__.rsplit('.')[-1])
 
 class SatelliteAnimationWidget(QWidget):
+
+    IMAGE_PREFIX = '600x600'
+
     def __init__(self, main_window, allsky_dir='/data/misc/GOES_satellite/', vertical_screen = False, **kwargs):
         super().__init__()
         self.main_window = main_window
@@ -70,12 +73,16 @@ class SatelliteAnimationWidget(QWidget):
 
 
     def update_v2(self):
-
+        files_list = []
         try:
-            files_list = os.listdir(self.dir)
+            files_found = os.listdir(self.dir)
         except OSError:
             logger.error(f'Can not access {self.dir}.')
-            files_list = []
+            files_found = []
+
+        for file in files_found:
+            if self.IMAGE_PREFIX in file:
+                files_list.append(file)
 
         if len(files_list) == 0:
             logger.warning(f'No files.')
