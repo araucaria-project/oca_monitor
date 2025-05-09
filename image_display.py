@@ -62,6 +62,7 @@ class ImageDisplay:
                         image_to_display = await self.image_queue.get()
                         await image_display_clb(image_to_display=image_to_display)
                         await self.image_queue.put(image_to_display)
+                    await asyncio.sleep(self.image_change_sec)
             await asyncio.sleep(self.image_change_sec)
 
     async def display_init(self, image_display_clb: callable, image_instance_clb: callable):
