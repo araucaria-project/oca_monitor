@@ -117,6 +117,7 @@ class SatelliteAnimationWidget(QWidget):
         QTimer.singleShot(self.freq, self.update_v2)
         self._change_update_time()
 
+    @asyncSlot()
     async def a_image_list_refresh(self):
         while True:
             current_files_list = []
@@ -146,6 +147,7 @@ class SatelliteAnimationWidget(QWidget):
             print(self.files_list)
             await asyncio.sleep(self.REFRESH_IMAGE_TIME_SEC)
 
+    @asyncSlot()
     async def a_display(self):
         while True:
             files_found = os.listdir(self.dir)
