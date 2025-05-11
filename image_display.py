@@ -52,6 +52,7 @@ class ImageDisplay:
         # logger.info(f'Display {self.name} files list updating...')
         ok = True
         if self.image_queue.qsize() == 0:
+            logger.info(self.image_queue)
             ok = False
         else:
             for file in files_list:
