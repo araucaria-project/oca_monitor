@@ -1,6 +1,8 @@
 import logging
 import datetime
 import time
+from typing import Any
+
 from PyQt6.QtWidgets import QApplication, QWidget, QVBoxLayout,QLabel,QSizePolicy
 from PyQt6.QtCore import QTimer
 from PyQt6 import QtCore
@@ -11,6 +13,11 @@ from matplotlib.patches import Arrow
 import matplotlib.pyplot as plt
 import os
 import math
+
+from qasync import asyncSlot
+
+from image_display import ImageDisplay
+
 #from PyQt6 import Qt
 #from matplotlib.backends.backend_qt5agg import FigureCanvasQTAgg as FigureCanvas
 #from matplotlib.figure import Figure
@@ -42,7 +49,8 @@ class AllskyAnimationMplWidget(QWidget):
         #    self.label.resize(self.height(),self.height())
         #self.label.addWidget(self.canvas)
         self.layout.addWidget(self.canvas,1)
-        self.update()
+        QTimer.singleShot(0, self.async_init)
+        # self.update()
 
     def calc_tel_xy(self,x_0,y_0,alt,az):
         pi = 3.14159
@@ -119,6 +127,54 @@ class AllskyAnimationMplWidget(QWidget):
 
     def _change_update_time(self):
         self.freq = 2000
+
+
+    async def image_instance(self, image_path: str) -> Any:
+        figure = Figure()
+        figure.clf()
+        ax = figure.add_subplot(111)
+        image = plt.imread(image_path)
+        ax.imshow(image)
+
+        try:
+            for t in self.main_window.telescope_names:
+                if self.main_window.telescopes_alt and self.main_window.telescopes_az:
+                    if t in self.main_window.telescopes_alt.keys() and t in self.main_window.telescopes_az.keys():
+                        x, y = self.calc_tel_xy(625, 625, float(self.main_window.telescopes_alt[t]),
+                                                float(self.main_window.telescopes_az[t]))
+                        if t == "wk06":
+                            ax.plot(x, y, "o", color='#14AD4E')
+                            ax.text(10, 30, "wk06", color='#14AD4E', fontsize=12)
+                        if t == "zb08":
+                            ax.plot(x, y, "o", color='#0082E8')
+                            ax.text(10, 70, "zb08", color='#0082E8', fontsize=12)
+                        if t == "jk15":
+                            ax.plot(x, y, "o", color='#67F4F5')
+                            ax.text(10, 110, "jk15", color='#67F4F5', fontsize=12)
+        except Exception as e:
+            print(f"EXCEPTION 32: {e}")
+
+        x_arrow, y_arrow, dx_arrow, dy_arrow = self.calc_wind_arrow(600, 600, 550., 500.)
+        wind_arrow = Arrow(x_arrow, y_arrow, dx_arrow, dy_arrow, width=20., color="magenta")
+        ax.add_artist(wind_arrow)
+        ax.axis('off')
+        figure.tight_layout()
+
+        return figure
+
+    async def image_display(self, image_to_display: Any):
+        self.figure = image_to_display
+        self.canvas.draw()
+
+    @asyncSlot()
+    async def async_init(self):
+        logger.info('Starting allsky display.')
+        display = ImageDisplay(
+            name='allsky', images_dir=self.dir, image_display_clb=self.image_display,
+            image_instance_clb=self.image_instance, images_prefix='lastimage',
+            image_cascade_sec=0.75, image_pause_sec=1.25, refresh_list_sec=10, mode='update_files'
+        )
+        await display.display_init()
 
 widget_class = AllskyAnimationMplWidget
 
