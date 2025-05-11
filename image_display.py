@@ -49,6 +49,24 @@ class ImageDisplay:
 
     async def update_files_refresh(self, files_list: List):
         logger.info(f'Display {self.name} files list updating...')
+        ok = True
+        for file in files_list:
+            if not ok:
+                break
+            for n in range(self.image_queue.qsize()):
+                image_queue = await self.image_queue.get()
+                if file == image_queue[0]:
+                    if os.path.getmtime(file) != image_queue[2]:
+                        ok = False
+                        break
+                    await self.image_queue.put(image_queue)
+        if not ok:
+            self.image_queue = asyncio.Queue()
+            for new_file in files_list:
+                last_mod = os.path.getmtime(new_file)
+                await self.image_queue.put((new_file, await self.image_instance_clb(image_path=new_file), last_mod))
+            logger.info(f'{self.name} files list updated by new files no: {len(files_list)}.')
+            return
         # current_images = []
         # for n in range(self.image_queue.qsize()):
         #     image_queue = await self.image_queue.get()
