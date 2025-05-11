@@ -33,7 +33,7 @@ class ImageDisplay:
         super().__init__()
 
     async def new_files_refresh(self, files_list: List):
-        logger.info(f'{self.name} files list updating...')
+        logger.info(f'Display {self.name} files list updating...')
         current_images = []
         for n in range(self.image_queue.qsize()):
             image_queue = await self.image_queue.get()
@@ -45,7 +45,22 @@ class ImageDisplay:
         if new_files_no > 0:
             for new_file in new_files:
                 await self.image_queue.put((new_file, await self.image_instance_clb(image_path=new_file)))
-        logger.info(f'{self.name} files list updated by new files no: {new_files_no}.')
+            logger.info(f'{self.name} files list updated by new files no: {new_files_no}.')
+
+    async def update_files_refresh(self, files_list: List):
+        logger.info(f'Display {self.name} files list updating...')
+        # current_images = []
+        # for n in range(self.image_queue.qsize()):
+        #     image_queue = await self.image_queue.get()
+        #     if image_queue[0] in files_list:
+        #         await self.image_queue.put(image_queue)
+        #         current_images.append(image_queue[0])
+        # new_files = [x for x in files_list if x not in current_images]
+        # new_files_no = len(new_files)
+        # if new_files_no > 0:
+        #     for new_file in new_files:
+        #         await self.image_queue.put((new_file, await self.image_instance_clb(image_path=new_file)))
+        # logger.info(f'{self.name} files list updated by new files no: {new_files_no}.')
 
     async def image_list_refresh(self):
         current_files_list = []
@@ -64,7 +79,7 @@ class ImageDisplay:
             if self.mode == 'new_files':
                 await self.new_files_refresh(files_list=current_files_list_path)
             elif self.mode == 'update_files':
-                raise NotImplementedError
+                await self.update_files_refresh(files_list=current_files_list_path)
         else:
             logger.error(f'No mode in modes, select: {self.MODES}.')
 
