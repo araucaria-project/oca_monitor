@@ -80,10 +80,11 @@ class SatelliteAnimationWidget(QWidget):
     async def async_init(self):
         logger.info('Starting satellite display.')
         display = ImageDisplay(
-            name='satellite', images_dir=self.dir, images_prefix = '600x600',
-            image_change_sec = 0.75, refresh_image_time_sec = 10
+            name='satellite', images_dir=self.dir, image_display_clb=self.image_display,
+            image_instance_clb=self.image_instance, images_prefix = '600x600',
+            image_cascade_sec = 0.75, image_pause_sec=1.5, refresh_list_sec = 10, mode='new_files'
         )
-        await display.display_init(image_display_clb=self.image_display, image_instance_clb=self.image_instance)
+        await display.display_init()
         
     # def update(self):
     #

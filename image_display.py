@@ -17,16 +17,16 @@ class ImageDisplay:
 
     def __init__(
             self, name: str, images_dir: str, image_display_clb: callable, image_instance_clb: callable,
-            images_prefix: str = '', image_change_sec: float = 0.75, image_pause_sec: float = 1.5,
-            refresh_image_sec: float = 10, mode: str = 'new_files') -> None:
+            images_prefix: str = '', image_cascade_sec: float = 0.75, image_pause_sec: float = 1.5,
+            refresh_list_sec: float = 10, mode: str = 'new_files') -> None:
         self.name = name
         self.images_dir = images_dir
         self.image_queue = asyncio.Queue()
         self.image_display_clb = image_display_clb
         self.image_instance_clb = image_instance_clb
         self.images_prefix = images_prefix
-        self.image_change_sec = image_change_sec
-        self.refresh_image_sec = refresh_image_sec
+        self.image_cascade_sec = image_cascade_sec
+        self.refresh_list_sec = refresh_list_sec
         self.image_pause_sec = image_pause_sec
         self.last_refresh = None
         self.mode = mode
@@ -90,12 +90,12 @@ class ImageDisplay:
                     image_to_display = await self.image_queue.get()
                     await self.image_display_clb(image_to_display=image_to_display[1])
                     await self.image_queue.put(image_to_display)
-                await asyncio.sleep(self.image_change_sec)
-            if not self.last_refresh or time.time() > self.last_refresh + self.refresh_image_sec:
+                await asyncio.sleep(self.image_cascade_sec)
+            if not self.last_refresh or time.time() > self.last_refresh + self.refresh_list_sec:
                 await self.image_list_refresh()
                 self.last_refresh = time.time()
-            await asyncio.sleep(self.image_change_sec)
+            await asyncio.sleep(self.image_pause_sec)
 
-    async def display_init(self, image_display_clb: callable, image_instance_clb: callable):
+    async def display_init(self):
         logger.info(f'Starting {self.name} display.')
         await create_task(self.display(), f'{self.name}_display_images')
