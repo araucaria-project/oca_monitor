@@ -18,15 +18,9 @@ from qasync import asyncSlot
 
 from image_display import ImageDisplay
 
-#from PyQt6 import Qt
-#from matplotlib.backends.backend_qt5agg import FigureCanvasQTAgg as FigureCanvas
-#from matplotlib.figure import Figure
-#from qasync import asyncSlot
-#from serverish.base import dt_ensure_datetime
-#from serverish.base.task_manager import create_task_sync, create_task
-#from serverish.messenger import Messenger
 
 logger = logging.getLogger(__name__.rsplit('.')[-1])
+
 
 class AllskyAnimationMplWidget(QWidget):
     def __init__(self, main_window, allsky_dir='/data/misc/allsky/', vertical_screen = False, **kwargs):
@@ -40,15 +34,8 @@ class AllskyAnimationMplWidget(QWidget):
         
     def initUI(self):
         self.layout = QVBoxLayout(self)
-        #self.label = QLabel()
         self.figure = Figure()
-
         self.canvas = FigureCanvas(self.figure)
-        #if self.vertical:
-        #    self.label.resize(self.width(),self.width())
-        #else:
-        #    self.label.resize(self.height(),self.height())
-        # self.label.addWidget(self.canvas)
         self.layout.addWidget(self.canvas,1)
         QTimer.singleShot(0, self.async_init)
         # self.update()
@@ -80,62 +67,54 @@ class AllskyAnimationMplWidget(QWidget):
 
         return x,y,x_prim-x,y_prim-y
 
-    def update(self):
-        lista = os.popen('ls -tr '+self.dir+'lastimage*.jpg').read().split('\n')[:-1]
-        if len(lista) > 0:
-            try:
-            #if True:
-                self.figure.clf()
-                ax = self.figure.add_subplot(111)
-                image = plt.imread(lista[self.counter])
-                ax.imshow(image)
-
-                try:
-                    for t in self.main_window.telescope_names:
-                        if self.main_window.telescopes_alt and self.main_window.telescopes_az:
-                            if t in self.main_window.telescopes_alt.keys() and t in self.main_window.telescopes_az.keys():
-                                x,y = self.calc_tel_xy(625,625,float(self.main_window.telescopes_alt[t]),float(self.main_window.telescopes_az[t]))
-                                if t == "wk06":
-                                    ax.plot(x,y,"o", color='#14AD4E')
-                                    ax.text(10,30,"wk06", color='#14AD4E', fontsize = 12)
-                                if t == "zb08":
-                                    ax.plot(x, y, "o", color='#0082E8')
-                                    ax.text(10, 70, "zb08", color='#0082E8', fontsize=12)
-                                if t == "jk15":
-                                    ax.plot(x, y, "o", color='#67F4F5')
-                                    ax.text(10, 110, "jk15", color='#67F4F5', fontsize=12)
-                except Exception as e:
-                    print(f"EXCEPTION 32: {e}")
-
-
-                x_arrow,y_arrow,dx_arrow,dy_arrow = self.calc_wind_arrow(600,600,550.,500.)
-                wind_arrow = Arrow(x_arrow,y_arrow,dx_arrow,dy_arrow,width=20.,color="magenta")
-                ax.add_artist(wind_arrow)
-                ax.axis('off')
-
-                self.canvas.draw()
-
-                self.counter = self.counter + 1
-                if self.counter == len(lista):
-                    self.counter = 0
-            except:
-                pass
-
-        
-
-        QTimer.singleShot(self.freq, self.update)
-        self._change_update_time()
-
-    def _change_update_time(self):
-        self.freq = 2000
+    # def update(self):
+    #     lista = os.popen('ls -tr '+self.dir+'lastimage*.jpg').read().split('\n')[:-1]
+    #     if len(lista) > 0:
+    #         try:
+    #         #if True:
+    #             self.figure.clf()
+    #             ax = self.figure.add_subplot(111)
+    #             image = plt.imread(lista[self.counter])
+    #             ax.imshow(image)
     #
-    # async def fimage_instance(self, image_path: str) -> Any:
-    #     figure = Figure()
-    #     ax = figure.add_subplot(111)
-    #     image = plt.imread(image_path)
-    #     ax.imshow(image)
-    #     return figure
-
+    #             try:
+    #                 for t in self.main_window.telescope_names:
+    #                     if self.main_window.telescopes_alt and self.main_window.telescopes_az:
+    #                         if t in self.main_window.telescopes_alt.keys() and t in self.main_window.telescopes_az.keys():
+    #                             x,y = self.calc_tel_xy(625,625,float(self.main_window.telescopes_alt[t]),float(self.main_window.telescopes_az[t]))
+    #                             if t == "wk06":
+    #                                 ax.plot(x,y,"o", color='#14AD4E')
+    #                                 ax.text(10,30,"wk06", color='#14AD4E', fontsize = 12)
+    #                             if t == "zb08":
+    #                                 ax.plot(x, y, "o", color='#0082E8')
+    #                                 ax.text(10, 70, "zb08", color='#0082E8', fontsize=12)
+    #                             if t == "jk15":
+    #                                 ax.plot(x, y, "o", color='#67F4F5')
+    #                                 ax.text(10, 110, "jk15", color='#67F4F5', fontsize=12)
+    #             except Exception as e:
+    #                 print(f"EXCEPTION 32: {e}")
+    #
+    #
+    #             x_arrow,y_arrow,dx_arrow,dy_arrow = self.calc_wind_arrow(600,600,550.,500.)
+    #             wind_arrow = Arrow(x_arrow,y_arrow,dx_arrow,dy_arrow,width=20.,color="magenta")
+    #             ax.add_artist(wind_arrow)
+    #             ax.axis('off')
+    #
+    #             self.canvas.draw()
+    #
+    #             self.counter = self.counter + 1
+    #             if self.counter == len(lista):
+    #                 self.counter = 0
+    #         except:
+    #             pass
+    #
+    #
+    #
+    #     QTimer.singleShot(self.freq, self.update)
+    #     self._change_update_time()
+    #
+    # def _change_update_time(self):
+    #     self.freq = 2000
 
     async def image_instance(self, image_path: str) -> Any:
 
@@ -177,22 +156,8 @@ class AllskyAnimationMplWidget(QWidget):
 
         self.layout.removeWidget(self.canvas)
         self.canvas.setParent(None)
-
         self.canvas = object_to_display
-        # if self.vertical:
-        #    self.label.resize(self.width(),self.width())
-        # else:
-        #    self.label.resize(self.height(),self.height())
-        # self.label.addWidget(self.canvas)
-
-        # self.figure = image_to_display
-        # self.figure.tight_layout()
-        # self.layout.addWidget(self.canvas, 1)self.canvas = FigureCanvas(self.figure)
         self.layout.insertWidget(0, object_to_display)
-
-
-        # self.canvas = FigureCanvas(self.figure)
-        # self.layout.insertWidget(self.canvas,1)
         self.canvas.draw()
 
     @asyncSlot()
