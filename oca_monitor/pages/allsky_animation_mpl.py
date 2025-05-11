@@ -42,15 +42,16 @@ class AllskyAnimationMplWidget(QWidget):
         self.layout = QVBoxLayout(self)
         #self.label = QLabel()
         self.figure = Figure()
+
         self.canvas = FigureCanvas(self.figure)
         #if self.vertical:
         #    self.label.resize(self.width(),self.width())
         #else:
         #    self.label.resize(self.height(),self.height())
-        #self.label.addWidget(self.canvas)
+        # self.label.addWidget(self.canvas)
         self.layout.addWidget(self.canvas,1)
-        # QTimer.singleShot(0, self.async_init)
-        self.update()
+        QTimer.singleShot(0, self.async_init)
+        # self.update()
 
     def calc_tel_xy(self,x_0,y_0,alt,az):
         pi = 3.14159
@@ -111,7 +112,7 @@ class AllskyAnimationMplWidget(QWidget):
                 wind_arrow = Arrow(x_arrow,y_arrow,dx_arrow,dy_arrow,width=20.,color="magenta")
                 ax.add_artist(wind_arrow)
                 ax.axis('off')
-                self.figure.tight_layout()
+
                 self.canvas.draw()
 
                 self.counter = self.counter + 1
@@ -127,9 +128,17 @@ class AllskyAnimationMplWidget(QWidget):
 
     def _change_update_time(self):
         self.freq = 2000
+    #
+    # async def fimage_instance(self, image_path: str) -> Any:
+    #     figure = Figure()
+    #     ax = figure.add_subplot(111)
+    #     image = plt.imread(image_path)
+    #     ax.imshow(image)
+    #     return figure
 
 
     async def image_instance(self, image_path: str) -> Any:
+
         figure = Figure()
         figure.clf()
         ax = figure.add_subplot(111)
@@ -158,12 +167,32 @@ class AllskyAnimationMplWidget(QWidget):
         wind_arrow = Arrow(x_arrow, y_arrow, dx_arrow, dy_arrow, width=20., color="magenta")
         ax.add_artist(wind_arrow)
         ax.axis('off')
-        figure.tight_layout()
 
-        return figure
+        figure.tight_layout()
+        canvas = FigureCanvas(figure)
+
+        return canvas
 
     async def image_display(self, image_to_display: Any):
-        self.figure = image_to_display
+
+        self.layout.removeWidget(self.canvas)
+        self.canvas.setParent(None)
+
+        self.canvas = image_to_display
+        # if self.vertical:
+        #    self.label.resize(self.width(),self.width())
+        # else:
+        #    self.label.resize(self.height(),self.height())
+        # self.label.addWidget(self.canvas)
+
+        # self.figure = image_to_display
+        # self.figure.tight_layout()
+        # self.layout.addWidget(self.canvas, 1)self.canvas = FigureCanvas(self.figure)
+        self.layout.insertWidget(0, image_to_display)
+
+
+        # self.canvas = FigureCanvas(self.figure)
+        # self.layout.insertWidget(self.canvas,1)
         self.canvas.draw()
 
     @asyncSlot()
