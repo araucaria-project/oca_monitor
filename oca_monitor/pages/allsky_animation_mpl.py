@@ -173,12 +173,12 @@ class AllskyAnimationMplWidget(QWidget):
 
         return canvas
 
-    async def image_display(self, image_to_display: Any):
+    async def image_display(self, object_to_display: Any):
 
         self.layout.removeWidget(self.canvas)
         self.canvas.setParent(None)
 
-        self.canvas = image_to_display
+        self.canvas = object_to_display
         # if self.vertical:
         #    self.label.resize(self.width(),self.width())
         # else:
@@ -188,7 +188,7 @@ class AllskyAnimationMplWidget(QWidget):
         # self.figure = image_to_display
         # self.figure.tight_layout()
         # self.layout.addWidget(self.canvas, 1)self.canvas = FigureCanvas(self.figure)
-        self.layout.insertWidget(0, image_to_display)
+        self.layout.insertWidget(0, object_to_display)
 
 
         # self.canvas = FigureCanvas(self.figure)
@@ -201,7 +201,8 @@ class AllskyAnimationMplWidget(QWidget):
         display = ImageDisplay(
             name='allsky', images_dir=self.dir, image_display_clb=self.image_display,
             image_instance_clb=self.image_instance, images_prefix='lastimage',
-            image_cascade_sec=0.75, image_pause_sec=1.25, refresh_list_sec=10, mode='update_files'
+            image_cascade_sec=0.75, image_pause_sec=1.25, refresh_list_sec=10, mode='update_files',
+            sort_reverse=True
         )
         await display.display_init()
 

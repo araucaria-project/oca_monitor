@@ -18,7 +18,7 @@ class ImageDisplay:
     def __init__(
             self, name: str, images_dir: str, image_display_clb: callable, image_instance_clb: callable,
             images_prefix: str = '', image_cascade_sec: float = 0.75, image_pause_sec: float = 1.5,
-            refresh_list_sec: float = 10, mode: str = 'new_files') -> None:
+            refresh_list_sec: float = 10, mode: str = 'new_files', sort_reverse: bool = False) -> None:
         self.name = name
         self.images_dir = images_dir
         self.image_queue = asyncio.Queue()
@@ -30,10 +30,11 @@ class ImageDisplay:
         self.image_pause_sec = image_pause_sec
         self.last_refresh = None
         self.mode = mode
+        self.sort_reverse = sort_reverse
         super().__init__()
 
     async def new_files_refresh(self, files_list: List):
-        logger.info(f'Display {self.name} files list updating...')
+        # logger.info(f'Display {self.name} files list updating...')
         current_images = []
         for n in range(self.image_queue.qsize()):
             image_queue = await self.image_queue.get()
@@ -48,7 +49,7 @@ class ImageDisplay:
             logger.info(f'{self.name} files list updated by new files no: {new_files_no}.')
 
     async def update_files_refresh(self, files_list: List):
-        logger.info(f'Display {self.name} files list updating...')
+        # logger.info(f'Display {self.name} files list updating...')
         ok = True
         if self.image_queue.qsize() == 0:
             ok = False
@@ -95,7 +96,7 @@ class ImageDisplay:
             if self.images_prefix in file:
                 current_files_list.append(file)
         current_files_list_path = [os.path.join(self.images_dir, f) for f in current_files_list]
-        current_files_list_path.sort()
+        current_files_list_path.sort(reverse=self.sort_reverse)
         if self.mode in self.MODES:
             if self.mode == 'new_files':
                 await self.new_files_refresh(files_list=current_files_list_path)
@@ -109,7 +110,7 @@ class ImageDisplay:
             for n in range(self.image_queue.qsize()):
                 if self.image_queue.qsize() > 0:
                     image_to_display = await self.image_queue.get()
-                    await self.image_display_clb(image_to_display=image_to_display[1])
+                    await self.image_display_clb(object_to_display=image_to_display[1])
                     await self.image_queue.put(image_to_display)
                 await asyncio.sleep(self.image_cascade_sec)
             if not self.last_refresh or time.time() > self.last_refresh + self.refresh_list_sec:
