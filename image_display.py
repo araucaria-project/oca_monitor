@@ -74,18 +74,6 @@ class ImageDisplay:
                 await self.image_queue.put((new_file, await self.image_instance_clb(image_path=new_file), last_mod))
             logger.info(f'{self.name} files list updated by new files no: {len(files_list)}.')
             return
-        # current_images = []
-        # for n in range(self.image_queue.qsize()):
-        #     image_queue = await self.image_queue.get()
-        #     if image_queue[0] in files_list:
-        #         await self.image_queue.put(image_queue)
-        #         current_images.append(image_queue[0])
-        # new_files = [x for x in files_list if x not in current_images]
-        # new_files_no = len(new_files)
-        # if new_files_no > 0:
-        #     for new_file in new_files:
-        #         await self.image_queue.put((new_file, await self.image_instance_clb(image_path=new_file)))
-        # logger.info(f'{self.name} files list updated by new files no: {new_files_no}.')
 
     async def image_list_refresh(self):
         current_files_list = []
