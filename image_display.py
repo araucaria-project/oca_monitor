@@ -61,6 +61,7 @@ class ImageDisplay:
                     image_queue = await self.image_queue.get()
                     if file == image_queue[0]:
                         if os.path.getmtime(file) != image_queue[2]:
+                            logger.info(f'{os.path.getmtime(file)}!={image_queue[2]}')
                             ok = False
                             break
                         await self.image_queue.put(image_queue)
