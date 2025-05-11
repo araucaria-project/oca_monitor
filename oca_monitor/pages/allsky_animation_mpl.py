@@ -49,8 +49,8 @@ class AllskyAnimationMplWidget(QWidget):
         #    self.label.resize(self.height(),self.height())
         #self.label.addWidget(self.canvas)
         self.layout.addWidget(self.canvas,1)
-        QTimer.singleShot(0, self.async_init)
-        # self.update()
+        # QTimer.singleShot(0, self.async_init)
+        self.update()
 
     def calc_tel_xy(self,x_0,y_0,alt,az):
         pi = 3.14159
