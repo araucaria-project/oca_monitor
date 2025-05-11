@@ -82,7 +82,7 @@ class SatelliteAnimationWidget(QWidget):
         display = ImageDisplay(
             name='satellite', images_dir=self.dir, image_display_clb=self.image_display,
             image_instance_clb=self.image_instance, images_prefix = '600x600',
-            image_cascade_sec = 0.75, image_pause_sec=1.5, refresh_list_sec = 10, mode='new_files'
+            image_cascade_sec = 0.75, image_pause_sec=1.25, refresh_list_sec = 10, mode='new_files'
         )
         await display.display_init()
         
