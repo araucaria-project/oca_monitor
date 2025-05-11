@@ -60,12 +60,13 @@ class ImageDisplay:
                     break
                 for n in range(self.image_queue.qsize()):
                     image_queue = await self.image_queue.get()
+                    await self.image_queue.put(image_queue)
                     if file == image_queue[0]:
                         if os.path.getmtime(file) != image_queue[2]:
                             logger.info(f'{os.path.getmtime(file)}!={image_queue[2]}')
                             ok = False
                             break
-                        await self.image_queue.put(image_queue)
+
         if not ok:
             self.image_queue = asyncio.Queue()
             for new_file in files_list:
