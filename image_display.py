@@ -7,6 +7,7 @@ from typing import List
 
 from serverish.base.task_manager import create_task
 
+from iter_async import AsyncListIter, AsyncRangeIter
 
 logger = logging.getLogger(__name__.rsplit('.')[-1])
 
@@ -36,15 +37,15 @@ class ImageDisplay:
     async def new_files_refresh(self, files_list: List):
         # logger.info(f'Display {self.name} files list updating...')
         current_images = []
-        for n in range(self.image_queue.qsize()):
+        async for n in AsyncRangeIter(start=1, end=self.image_queue.qsize()):
             image_queue = await self.image_queue.get()
             if image_queue[0] in files_list:
                 await self.image_queue.put(image_queue)
                 current_images.append(image_queue[0])
-        new_files = [x for x in files_list if x not in current_images]
+        new_files = [x async for x in AsyncListIter(files_list) if x not in current_images]
         new_files_no = len(new_files)
         if new_files_no > 0:
-            for new_file in new_files:
+            async for new_file in AsyncListIter(new_files):
                 await self.image_queue.put((new_file, await self.image_instance_clb(image_path=new_file)))
             logger.info(f'{self.name} files list updated by new files no: {new_files_no}.')
 
@@ -55,10 +56,10 @@ class ImageDisplay:
             logger.info(self.image_queue)
             ok = False
         else:
-            for file in files_list:
+            async for file in AsyncListIter(files_list):
                 if not ok:
                     break
-                for n in range(self.image_queue.qsize()):
+                async for n in AsyncRangeIter(start=1, end=self.image_queue.qsize()):
                     image_queue = await self.image_queue.get()
                     await self.image_queue.put(image_queue)
                     if file == image_queue[0]:
@@ -69,7 +70,7 @@ class ImageDisplay:
 
         if not ok:
             self.image_queue = asyncio.Queue()
-            for new_file in files_list:
+            async for new_file in AsyncListIter(files_list):
                 last_mod = os.path.getmtime(new_file)
                 await self.image_queue.put((new_file, await self.image_instance_clb(image_path=new_file), last_mod))
             logger.info(f'{self.name} files list updated by new files no: {len(files_list)}.')
@@ -83,7 +84,7 @@ class ImageDisplay:
             logger.error(f'Can not access {self.images_dir}.')
             files_found = []
 
-        for file in files_found:
+        async for file in AsyncListIter(files_found):
             if self.images_prefix in file:
                 current_files_list.append(file)
         current_files_list_path = [os.path.join(self.images_dir, f) for f in current_files_list]
@@ -98,7 +99,7 @@ class ImageDisplay:
 
     async def display(self) -> None:
         while True:
-            for n in range(self.image_queue.qsize()):
+            async for n in AsyncRangeIter(start=1, end=self.image_queue.qsize()):
                 if self.image_queue.qsize() > 0:
                     image_to_display = await self.image_queue.get()
                     await self.image_display_clb(object_to_display=image_to_display[1])
