@@ -46,7 +46,10 @@ class ImageDisplay:
         new_files_no = len(new_files)
         if new_files_no > 0:
             async for new_file in AsyncListIter(new_files):
-                await self.image_queue.put((new_file, await self.image_instance_clb(image_path=new_file)))
+                try:
+                    await self.image_queue.put((new_file, await self.image_instance_clb(image_path=new_file)))
+                except OSError:
+                    logger.warning(f'Can not read image {new_file}.')
             logger.info(f'{self.name} files list updated by new files no: {new_files_no}.')
 
     async def update_files_refresh(self, files_list: List):
@@ -62,16 +65,23 @@ class ImageDisplay:
                     image_queue = await self.image_queue.get()
                     await self.image_queue.put(image_queue)
                     if file == image_queue[0]:
-                        if os.path.getmtime(file) != image_queue[2]:
-                            # logger.info(f'{os.path.getmtime(file)}!={image_queue[2]}')
+                        try:
+                            if os.path.getmtime(file) != image_queue[2]:
+                                ok = False
+                                break
+                        except OSError:
+                            logger.warning(f'Can not read image {file}.')
                             ok = False
                             break
 
         if not ok:
             self.image_queue = asyncio.Queue()
             async for new_file in AsyncListIter(files_list):
-                last_mod = os.path.getmtime(new_file)
-                await self.image_queue.put((new_file, await self.image_instance_clb(image_path=new_file), last_mod))
+                try:
+                    last_mod = os.path.getmtime(new_file)
+                    await self.image_queue.put((new_file, await self.image_instance_clb(image_path=new_file), last_mod))
+                except OSError:
+                    logger.warning(f'Can not read image {new_file}.')
             logger.info(f'{self.name} files list updated by new files no: {len(files_list)}.')
             return
 
