@@ -53,7 +53,6 @@ class ImageDisplay:
         # logger.info(f'Display {self.name} files list updating...')
         ok = True
         if self.image_queue.qsize() == 0:
-            logger.info(self.image_queue)
             ok = False
         else:
             async for file in AsyncListIter(files_list):
@@ -64,7 +63,7 @@ class ImageDisplay:
                     await self.image_queue.put(image_queue)
                     if file == image_queue[0]:
                         if os.path.getmtime(file) != image_queue[2]:
-                            logger.info(f'{os.path.getmtime(file)}!={image_queue[2]}')
+                            # logger.info(f'{os.path.getmtime(file)}!={image_queue[2]}')
                             ok = False
                             break
 
