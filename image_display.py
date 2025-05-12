@@ -46,10 +46,7 @@ class ImageDisplay:
         new_files_no = len(new_files)
         if new_files_no > 0:
             async for new_file in AsyncListIter(new_files):
-                try:
-                    await self.image_queue.put((new_file, await self.image_instance_clb(image_path=new_file)))
-                except OSError:
-                    logger.warning(f'Can not read image {new_file}.')
+                await self.image_queue.put((new_file, await self.image_instance_clb(image_path=new_file)))
             logger.info(f'{self.name} files list updated by new files no: {new_files_no}.')
 
     async def update_files_refresh(self, files_list: List):
