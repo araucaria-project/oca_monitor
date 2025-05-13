@@ -80,16 +80,17 @@ class WidgetEphem(QWidget):
         # self._update_ephem()
 
     async def a_update_ephem(self):
-        text, sunalt = ephemeris()
-        sunalt = str(sunalt)
-        self.ephem.setText(text)
-        if float(sunalt.split(':')[0]) < 0. and float(sunalt.split(':')[0]) > -17.:
-            self.ephem.setStyleSheet("background-color : yellow; color: black")
-        elif float(sunalt.split(':')[0]) <= -17.:
-            self.ephem.setStyleSheet("background-color : lightgreen; color: black")
-        else:
-            self.ephem.setStyleSheet("background-color : coral; color: black")
-        await asyncio.sleep(1)
+        while True:
+            text, sunalt = ephemeris()
+            sunalt = str(sunalt)
+            self.ephem.setText(text)
+            if float(sunalt.split(':')[0]) < 0. and float(sunalt.split(':')[0]) > -17.:
+                self.ephem.setStyleSheet("background-color : yellow; color: black")
+            elif float(sunalt.split(':')[0]) <= -17.:
+                self.ephem.setStyleSheet("background-color : lightgreen; color: black")
+            else:
+                self.ephem.setStyleSheet("background-color : coral; color: black")
+            await asyncio.sleep(1)
 
     # def _update_ephem(self):
     #     text,sunalt = ephemeris()
