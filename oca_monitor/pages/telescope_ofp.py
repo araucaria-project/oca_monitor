@@ -14,6 +14,7 @@ logger = logging.getLogger(__name__.rsplit('.')[-1])
 
 
 class TelescopeOfp(QWidget):
+
     # You can use just def __init__(self, **kwargs) if you don't want to bother with the arguments
     def __init__(self,
                  main_window, # always passed
@@ -26,6 +27,14 @@ class TelescopeOfp(QWidget):
         self.main_window = main_window
         self.tel = tel
         QtCore.QTimer.singleShot(0, self.async_init)
+
+    @property
+    def thumbnail_path(self) -> str:
+        return f"/data/fits/{self.tel}/processed-ofp/thumbnails/thumbnail_display.png"
+
+    @property
+    def light_curve_chart_path(self) -> str:
+        return f"/data/fits/{self.tel}/processed-ofp/thumbnails/last_light_curve_chart_display.png"
 
     @asyncSlot()
     async def async_init(self):
@@ -62,8 +71,8 @@ class TelescopeOfp(QWidget):
 
     def update_pictures(self):
         self.info_e.clear()
-        pix1 = QtGui.QPixmap(f"/data/fits/{self.tel}/processed-ofp/thumbnails/thumbnail_display.png")
-        pix2 = QtGui.QPixmap(f"/data/fits/{self.tel}/processed-ofp/thumbnails/last_light_curve_chart_display.png")
+        pix1 = QtGui.QPixmap(self.thumbnail_path)
+        pix2 = QtGui.QPixmap(self.light_curve_chart_path)
         pix1 = pix1.scaled(500,500)
         pix2 = pix2.scaled(500,150)
         self.fits_pic.setPixmap(pix1)
@@ -113,11 +122,9 @@ class TelescopeOfp(QWidget):
         self.curve_pix = QLabel()
         self.info_e = QTextEdit("")
 
-
-
         # DUPA
-        pix1 = QtGui.QPixmap(f"/data/fits/{self.tel}/processed-ofp/thumbnails/thumbnail_display.png")
-        pix2 = QtGui.QPixmap(f"/data/fits/{self.tel}/processed-ofp/thumbnails/last_light_curve_chart_display.png")
+        pix1 = QtGui.QPixmap(self.thumbnail_path)
+        pix2 = QtGui.QPixmap(self.light_curve_chart_path)
         pix1 = pix1.scaled(500,500)
         pix2 = pix2.scaled(500,150)
         self.fits_pic.setPixmap(pix1)
@@ -130,19 +137,19 @@ class TelescopeOfp(QWidget):
         self.layout.addWidget(self.curve_pix)
 
         # Some async operation
-        self._update_ephem()
+        # self._update_ephem()
         logger.info("UI setup done")
 
-    def _update_ephem(self):
-        text,sunalt = utils.ephemeris()
-        sunalt = str(sunalt)
-        self.ephem.setText(text)
-        if float(sunalt.split(':')[0]) <0. and float(sunalt.split(':')[0])  > -17.:
-            self.ephem.setStyleSheet("background-color : yellow; color: black")
-        elif float(sunalt.split(':')[0])  <= -17.:
-            self.ephem.setStyleSheet("background-color : lightgreen; color: black")
-        else:
-            self.ephem.setStyleSheet("background-color : coral; color: black")
-
-        QtCore.QTimer.singleShot(1000, self._update_ephem)
+    # def _update_ephem(self):
+    #     text,sunalt = utils.ephemeris()
+    #     sunalt = str(sunalt)
+    #     self.ephem.setText(text)
+    #     if float(sunalt.split(':')[0]) <0. and float(sunalt.split(':')[0])  > -17.:
+    #         self.ephem.setStyleSheet("background-color : yellow; color: black")
+    #     elif float(sunalt.split(':')[0])  <= -17.:
+    #         self.ephem.setStyleSheet("background-color : lightgreen; color: black")
+    #     else:
+    #         self.ephem.setStyleSheet("background-color : coral; color: black")
+    #
+    #     QtCore.QTimer.singleShot(1000, self._update_ephem)
 
