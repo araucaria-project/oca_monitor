@@ -45,12 +45,12 @@ class AllskyAnimationWidget(QWidget):
     async def image_instance(image_path: str) -> Any:
         return QPixmap(image_path)
 
-    async def image_display(self, image_to_display: QPixmap):
+    async def image_display(self, object_to_display: QPixmap):
 
         if self.vertical:
-            self.label.setPixmap(image_to_display.scaled(self.width(),self.width(), QtCore.Qt.AspectRatioMode.KeepAspectRatio))
+            self.label.setPixmap(object_to_display.scaled(self.width(),self.width(), QtCore.Qt.AspectRatioMode.KeepAspectRatio))
         else:
-            self.label.setPixmap(image_to_display.scaled(self.height(),self.height(), QtCore.Qt.AspectRatioMode.KeepAspectRatio))
+            self.label.setPixmap(object_to_display.scaled(self.height(),self.height(), QtCore.Qt.AspectRatioMode.KeepAspectRatio))
 
     @asyncSlot()
     async def async_init(self):
