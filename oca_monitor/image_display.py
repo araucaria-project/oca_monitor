@@ -108,7 +108,8 @@ class ImageDisplay:
             async for n in AsyncRangeIter(start=1, end=self.image_queue.qsize()):
                 if self.image_queue.qsize() > 0:
                     image_to_display = await self.image_queue.get()
-                    await self.image_display_clb(object_to_display=image_to_display[1])
+                    if image_to_display[1] is not None:
+                        await self.image_display_clb(object_to_display=image_to_display[1])
                     await self.image_queue.put(image_to_display)
                 await asyncio.sleep(self.image_cascade_sec)
             if not self.last_refresh or time.time() > self.last_refresh + self.refresh_list_sec:

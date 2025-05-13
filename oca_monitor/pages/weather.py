@@ -62,10 +62,6 @@ class WeatherDataWidget(QWidget):
         # obs_config = await self.main_window.observatory_config()
         await create_task(self.reader_loop(), "wind reader")
 
-
-
-
-
     def initUI(self,):
         # Layout
 
