@@ -58,7 +58,7 @@ class AllskyAnimationWidget(QWidget):
         display = ImageDisplay(
             name='allsky', images_dir=self.dir, image_display_clb=self.image_display,
             image_instance_clb=self.image_instance, images_prefix = 'lastimage',
-            image_cascade_sec = 0.75, image_pause_sec=1.25, refresh_list_sec = 10, mode='new_files'
+            image_cascade_sec = 0.75, image_pause_sec=1.25, refresh_list_sec = 10, mode='new_files', sort_reverse=True
         )
         await display.display_init()
 
