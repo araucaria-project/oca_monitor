@@ -277,7 +277,7 @@ class TelecopeWindow(QWidget):
 
             self.obs_t.horizontalHeader().setSectionResizeMode(QHeaderView.ResizeMode.Stretch)
 
-        QtCore.QTimer.singleShot(1000, self.update_table)
+        # QtCore.QTimer.singleShot(1000, self.update_table)
 
     def mkUI(self):
 
