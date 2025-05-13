@@ -25,9 +25,6 @@ class TelescopeOfp(QWidget):
         super().__init__()
         self.main_window = main_window
         self.tel = tel
-
-
-
         QtCore.QTimer.singleShot(0, self.async_init)
 
     @asyncSlot()
