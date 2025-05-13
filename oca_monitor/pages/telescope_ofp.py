@@ -1,13 +1,11 @@
 import logging
 import asyncio
 
-from PyQt6.QtWidgets import QWidget, QVBoxLayout, QHBoxLayout, QLabel,QSlider,QDial,QScrollBar,QPushButton,QCheckBox, QTextEdit, QLineEdit
+from PyQt6.QtWidgets import QWidget, QVBoxLayout, QLabel, QTextEdit, QLineEdit
 from PyQt6 import QtCore, QtGui
 from qasync import asyncSlot
-from serverish.base.task_manager import create_task_sync, create_task
-from serverish.messenger import Messenger, single_read, get_reader
-
-import utils
+from serverish.base.task_manager import create_task
+from serverish.messenger import get_reader
 
 # please use logging like here, it will name the log record with the name of the module
 logger = logging.getLogger(__name__.rsplit('.')[-1])

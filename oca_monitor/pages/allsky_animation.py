@@ -1,18 +1,14 @@
 import logging
-import datetime
-import time
 from typing import Any
 
-from PyQt6.QtWidgets import QApplication, QWidget, QVBoxLayout,QLabel,QSizePolicy
+from PyQt6.QtWidgets import QWidget, QVBoxLayout,QLabel
 from PyQt6.QtCore import QTimer
 from PyQt6 import QtCore
 from PyQt6.QtGui import QPixmap
-import os
-import math
 
 from qasync import asyncSlot
 
-from image_display import ImageDisplay
+from oca_monitor.image_display import ImageDisplay
 
 #from PyQt6 import Qt
 #from matplotlib.backends.backend_qt5agg import FigureCanvasQTAgg as FigureCanvas

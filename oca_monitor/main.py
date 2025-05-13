@@ -93,6 +93,7 @@ def main():
 
     logger.info(f'OCA Monitor logging level: {loglevel}')
     logger.info(f'OCA Monitor configuration environment: {settings.env_for_dynaconf}')
+    logger.info(f'OCAM version {"0.4.0"}.')
 
     # Standard Qt Application
     app = QApplication(sys.argv)

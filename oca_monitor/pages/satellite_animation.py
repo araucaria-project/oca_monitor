@@ -1,16 +1,11 @@
 import asyncio
-import copy
 import logging
-import datetime
-import time
 from typing import Any
 
-import numpy as np
-from PyQt6.QtWidgets import QApplication, QWidget, QVBoxLayout,QLabel,QSizePolicy
+from PyQt6.QtWidgets import QWidget, QVBoxLayout,QLabel,QSizePolicy
 from PyQt6.QtCore import QTimer
 from PyQt6 import QtCore
 from PyQt6.QtGui import QPixmap
-import os
 
 from qasync import asyncSlot
 
@@ -19,9 +14,8 @@ from qasync import asyncSlot
 #from matplotlib.figure import Figure
 #from qasync import asyncSlot
 #from serverish.base import dt_ensure_datetime
-from serverish.base.task_manager import create_task
 
-from image_display import ImageDisplay
+from oca_monitor.image_display import ImageDisplay
 
 #from serverish.messenger import Messenger
 
