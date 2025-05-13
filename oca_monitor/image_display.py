@@ -7,7 +7,7 @@ from typing import List
 
 from serverish.base.task_manager import create_task
 
-from utils import AsyncListIter, AsyncRangeIter
+from oca_monitor.utils import AsyncListIter, AsyncRangeIter
 
 logger = logging.getLogger(__name__.rsplit('.')[-1])
 
