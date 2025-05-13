@@ -1,4 +1,6 @@
 import logging
+
+from PyQt6.QtCore import QTimer
 from PyQt6.QtWidgets import QWidget, QVBoxLayout, QHBoxLayout, QLabel,QSlider,QDial,QScrollBar,QPushButton,QCheckBox, QTextEdit, QLineEdit
 from PyQt6 import QtCore, QtGui
 import json,requests
@@ -73,24 +75,40 @@ class WidgetEphem(QWidget):
         self.ephem.setFont(QtGui.QFont('Arial', 22))
 
         self.layout.addWidget(self.ephem)
-        
 
-        self._update_ephem()
+        QTimer.singleShot(0, self.async_init)
+        # self._update_ephem()
 
-    def _update_ephem(self):
-        text,sunalt = ephemeris()
+    async def a_update_ephem(self):
+        text, sunalt = ephemeris()
         sunalt = str(sunalt)
         self.ephem.setText(text)
-        if float(sunalt.split(':')[0]) <0. and float(sunalt.split(':')[0])  > -17.:
+        if float(sunalt.split(':')[0]) < 0. and float(sunalt.split(':')[0]) > -17.:
             self.ephem.setStyleSheet("background-color : yellow; color: black")
-        elif float(sunalt.split(':')[0])  <= -17.:
+        elif float(sunalt.split(':')[0]) <= -17.:
             self.ephem.setStyleSheet("background-color : lightgreen; color: black")
         else:
             self.ephem.setStyleSheet("background-color : coral; color: black")
+        await asyncio.sleep(1)
 
-        
+    # def _update_ephem(self):
+    #     text,sunalt = ephemeris()
+    #     sunalt = str(sunalt)
+    #     self.ephem.setText(text)
+    #     if float(sunalt.split(':')[0]) <0. and float(sunalt.split(':')[0])  > -17.:
+    #         self.ephem.setStyleSheet("background-color : yellow; color: black")
+    #     elif float(sunalt.split(':')[0])  <= -17.:
+    #         self.ephem.setStyleSheet("background-color : lightgreen; color: black")
+    #     else:
+    #         self.ephem.setStyleSheet("background-color : coral; color: black")
+    #
+    #
+    #
+    #     QtCore.QTimer.singleShot(1000, self._update_ephem)
 
-        QtCore.QTimer.singleShot(1000, self._update_ephem)
+    @asyncSlot()
+    async def async_init(self):
+        await create_task(self.a_update_ephem(), f'ephemeris_update')
 
 
 widget_class = WidgetEphem
