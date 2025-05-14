@@ -70,6 +70,7 @@ class ImageDisplay:
                     if file == image_queue[0]:
                         try:
                             if os.path.getmtime(file) != image_queue[2]:
+                                logger.info(f'{file} {os.path.getmtime(file)} != {image_queue[2]}')
                                 ok = False
                                 break
                         except OSError:
@@ -104,7 +105,7 @@ class ImageDisplay:
         async for file in AsyncListIter(files_found):
             if self.images_prefix in file:
                 current_files_list.append(file)
-        logger.info(f'Files found: {current_files_list}')
+
         current_files_list_path = [os.path.join(self.images_dir, f) async for f in AsyncListIter(current_files_list)]
         current_files_list_path.sort(reverse=self.sort_reverse)
         if self.mode in self.MODES:
