@@ -78,6 +78,7 @@ class ImageDisplay:
                             break
 
         if not ok:
+            logger.info(f'Start to update files...')
             self.image_queue = asyncio.Queue()
             async for new_file in AsyncListIter(files_list):
                 try:
