@@ -96,7 +96,6 @@ class ImageDisplay:
         current_files_list = []
         try:
             files_found = os.listdir(self.images_dir)
-            files_found = os.listdir(self.images_dir)
         except OSError:
             logger.error(f'Can not access {self.images_dir}.')
             files_found = []
@@ -104,6 +103,7 @@ class ImageDisplay:
         async for file in AsyncListIter(files_found):
             if self.images_prefix in file:
                 current_files_list.append(file)
+        logger.info(f'Files found: {current_files_list}')
         current_files_list_path = [os.path.join(self.images_dir, f) async for f in AsyncListIter(current_files_list)]
         current_files_list_path.sort(reverse=self.sort_reverse)
         if self.mode in self.MODES:
