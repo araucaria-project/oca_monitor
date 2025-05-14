@@ -44,10 +44,16 @@ class ImageDisplay:
                 current_images.append(image_queue[0])
         new_files = [x async for x in AsyncListIter(files_list) if x not in current_images]
         new_files_no = len(new_files)
+        real_new_files_no = 0
         if new_files_no > 0:
             async for new_file in AsyncListIter(new_files):
-                await self.image_queue.put((new_file, await self.image_instance_clb(image_path=new_file)))
-            logger.info(f'{self.name} files list updated by new files no: {new_files_no}.')
+                image_object = await self.image_instance_clb(image_path=new_file)
+                if image_object is not None:
+                    await self.image_queue.put((new_file, image_object))
+                    real_new_files_no += 1
+                else:
+                    logger.warning(f'Image {new_file} in {self.name} is None.')
+            logger.info(f'{self.name} files list updated by new files no: {real_new_files_no}.')
 
     async def update_files_refresh(self, files_list: List):
         # logger.info(f'Display {self.name} files list updating...')
@@ -67,7 +73,7 @@ class ImageDisplay:
                                 ok = False
                                 break
                         except OSError:
-                            logger.warning(f'Can not read image {file}.')
+                            logger.warning(f'Can not read image {file}  in {self.name}.')
                             ok = False
                             break
 
@@ -75,10 +81,14 @@ class ImageDisplay:
             self.image_queue = asyncio.Queue()
             async for new_file in AsyncListIter(files_list):
                 try:
-                    last_mod = os.path.getmtime(new_file)
-                    await self.image_queue.put((new_file, await self.image_instance_clb(image_path=new_file), last_mod))
+                    image_object = await self.image_instance_clb(image_path=new_file)
+                    if image_object is not None:
+                        last_mod = os.path.getmtime(new_file)
+                        await self.image_queue.put((new_file, image_object, last_mod))
+                    else:
+                        logger.warning(f'Image {new_file} in {self.name} is None.')
                 except OSError:
-                    logger.warning(f'Can not read image {new_file}.')
+                    logger.warning(f'Can not read image {new_file} in {self.name}.')
             logger.info(f'{self.name} files list updated by new files no: {len(files_list)}.')
             return
 
@@ -110,7 +120,7 @@ class ImageDisplay:
                     image_to_display = await self.image_queue.get()
                     if image_to_display[1] is not None:
                         await self.image_display_clb(object_to_display=image_to_display[1])
-                    await self.image_queue.put(image_to_display)
+                        await self.image_queue.put(image_to_display)
                 await asyncio.sleep(self.image_cascade_sec)
             if not self.last_refresh or time.time() > self.last_refresh + self.refresh_list_sec:
                 await self.image_list_refresh()

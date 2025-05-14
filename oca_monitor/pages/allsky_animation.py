@@ -43,7 +43,11 @@ class AllskyAnimationWidget(QWidget):
 
     @staticmethod
     async def image_instance(image_path: str) -> Any:
-        return QPixmap(image_path)
+        image_instance = QPixmap(image_path)
+        if image_instance.isNull():
+            return None
+        else:
+            return QPixmap(image_path)
 
     async def image_display(self, object_to_display: QPixmap):
 
