@@ -96,6 +96,7 @@ class ImageDisplay:
         current_files_list = []
         try:
             files_found = os.listdir(self.images_dir)
+            files_found = os.listdir(self.images_dir)
         except OSError:
             logger.error(f'Can not access {self.images_dir}.')
             files_found = []
