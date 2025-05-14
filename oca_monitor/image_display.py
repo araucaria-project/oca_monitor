@@ -67,8 +67,12 @@ class ImageDisplay:
                 async for n in AsyncRangeIter(start=1, end=self.image_queue.qsize()):
                     image_queue = await self.image_queue.get()
                     await self.image_queue.put(image_queue)
-                    if file == image_queue[0]:
+                    try:
                         logger.info(f'{file} {os.path.getmtime(file)}')
+                    except OSError as e:
+                        logger.error(f'Can not read file m time: {e}.')
+                    if file == image_queue[0]:
+
                         try:
                             if os.path.getmtime(file) != image_queue[2]:
                                 logger.info(f'{file} {os.path.getmtime(file)} != {image_queue[2]}')
