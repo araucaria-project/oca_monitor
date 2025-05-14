@@ -60,6 +60,8 @@ class ImageDisplay:
         ok = True
         if self.image_queue.qsize() == 0:
             ok = False
+        elif len(files_list) > self.image_queue.qsize():
+            ok = False
         else:
             async for file in AsyncListIter(files_list):
                 if not ok:
