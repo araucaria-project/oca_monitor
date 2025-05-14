@@ -67,15 +67,9 @@ class ImageDisplay:
                 async for n in AsyncRangeIter(start=1, end=self.image_queue.qsize()):
                     image_queue = await self.image_queue.get()
                     await self.image_queue.put(image_queue)
-                    try:
-                        logger.info(f'{file} {os.path.getmtime(file)}')
-                    except OSError as e:
-                        logger.error(f'Can not read file m time: {e}.')
                     if file == image_queue[0]:
-
                         try:
                             if os.path.getmtime(file) != image_queue[2]:
-                                logger.info(f'{file} {os.path.getmtime(file)} != {image_queue[2]}')
                                 ok = False
                                 break
                         except OSError:
@@ -84,7 +78,6 @@ class ImageDisplay:
                             break
 
         if not ok:
-            logger.info(f'Start to update files...')
             self.image_queue = asyncio.Queue()
             async for new_file in AsyncListIter(files_list):
                 try:
