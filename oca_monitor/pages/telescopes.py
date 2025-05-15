@@ -17,6 +17,17 @@ from serverish.messenger import get_reader, single_read
 logger = logging.getLogger(__name__.rsplit('.')[-1])
 
 class TelecopeWindow(QWidget):
+
+    # COLORS in (R, G, B) format
+    COLORS = {
+        'yellow': (255, 255, 0),
+        'red': (255, 0, 0),
+        'light_gray': (150, 150, 150),
+        'green': (0, 255, 0),
+        'gray': (100, 100, 100),
+        'lime': (0, 255, 0)
+    }
+
     def __init__(self, main_window, subject='telemetry.weather.davis', vertical_screen = False, **kwargs):
         super().__init__()
         self.main_window = main_window
@@ -133,7 +144,7 @@ class TelecopeWindow(QWidget):
 
             # TELESKOPY
 
-            rgb = (150, 150, 150)
+            rgb = self.COLORS['light_gray']
             status_ok = True
             try:
                 if self.toi_op_status[t]:
@@ -149,7 +160,7 @@ class TelecopeWindow(QWidget):
                 txt = ""
             else:
                 txt = "\u26A0 "
-                rgb = (255, 160, 0)
+                rgb = self.COLORS['yellow']
             txt = txt + f'{t}'
 
             item = QTableWidgetItem(txt)
@@ -163,16 +174,16 @@ class TelecopeWindow(QWidget):
             moving = self.oca_tel_state[t]["dome_slewing"]["val"]
 
             if shutter != None or moving != None:
-                if shutter == None and moving == None : state,rgb = "SHUTTER and STATUS ERROR",(150, 0, 0)
-                elif shutter == None: state,rgb = "SHUTTER ERROR",(150, 0, 0)
-                elif moving == None : state,rgb = "DOME STATUS ERROR",(150, 0, 0)
+                if shutter == None and moving == None : state,rgb = "SHUTTER and STATUS ERROR", self.COLORS['red']
+                elif shutter == None: state,rgb = "SHUTTER ERROR", self.COLORS['red']
+                elif moving == None : state,rgb = "DOME STATUS ERROR", self.COLORS['red']
                 else:
-                    if moving: state,rgb = "MOVING",(255, 160, 0)
-                    elif shutter==0: state,rgb = "OPEN",(0, 150, 0)
-                    elif shutter==1: state,rgb = "CLOSED",(150, 150, 150)
-                    elif shutter==2: state,rgb = "OPENING",(255, 160, 0)
-                    elif shutter==3: state,rgb = "CLOSING",(255, 160, 0)
-                    else: state,rgb = "SHUTTER ERROR",(150, 0, 0)
+                    if moving: state,rgb = "MOVING", self.COLORS['yellow']
+                    elif shutter==0: state,rgb = "OPEN", self.COLORS['green']
+                    elif shutter==1: state,rgb = "CLOSED", self.COLORS['light_gray']
+                    elif shutter==2: state,rgb = "OPENING", self.COLORS['yellow']
+                    elif shutter==3: state,rgb = "CLOSING", self.COLORS['yellow']
+                    else: state,rgb = "SHUTTER ERROR", self.COLORS['red']
 
             item = QTableWidgetItem(state)
             item.setForeground(QtGui.QBrush(QtGui.QColor(*rgb)))
@@ -186,10 +197,10 @@ class TelecopeWindow(QWidget):
             if status == None:
                 state, rgb = "NO IDEA", (0, 0, 0)
             else:
-                if status == 3: state,rgb = "OPEN",(0, 150, 0)
-                elif status == 1: state, rgb = "CLOSED", (150, 150, 150)
-                elif status == 2: state, rgb = "MOVING", (255, 160, 0)
-                else: state,rgb = "ERROR",(150, 0, 0)
+                if status == 3: state,rgb = "OPEN", self.COLORS['green']
+                elif status == 1: state, rgb = "CLOSED", self.COLORS['light_gray']
+                elif status == 2: state, rgb = "MOVING", self.COLORS['yellow']
+                else: state,rgb = "ERROR", self.COLORS['red']
 
             item = QTableWidgetItem(state)
             item.setForeground(QtGui.QBrush(QtGui.QColor(*rgb)))
@@ -205,10 +216,10 @@ class TelecopeWindow(QWidget):
             motors = self.oca_tel_state[t]["mount_motor"]["val"]
 
             if slewing != None or tracking != None:
-                if motors == "false": state,rgb = "MOTORS OFF", (150, 150, 150)
-                elif slewing: state,rgb = "SLEWING", (255, 160, 0)
-                elif tracking: state,rgb = "TRACKING",(0, 150, 0)
-                else: state,rgb = "IDLE",(150, 150, 150)
+                if motors == "false": state,rgb = "MOTORS OFF", self.COLORS['light_gray']
+                elif slewing: state,rgb = "SLEWING", self.COLORS['yellow']
+                elif tracking: state,rgb = "TRACKING", self.COLORS['green']
+                else: state,rgb = "IDLE", self.COLORS['light_gray']
 
             item = QTableWidgetItem(state)
             item.setForeground(QtGui.QBrush(QtGui.QColor(*rgb)))
@@ -231,11 +242,11 @@ class TelecopeWindow(QWidget):
 
             if ccd != None :
                 if ccd == 2:
-                    state,rgb = f"EXP [{filtr}]", (0, 150, 0)
+                    state,rgb = f"EXP [{filtr}]", self.COLORS['green']
                 elif ccd == 0:
-                    state,rgb = f"IDLE [{filtr}]", (150, 150, 150)
+                    state,rgb = f"IDLE [{filtr}]", self.COLORS['light_gray']
                 else:
-                   state, rgb = f"NO IDEA [{filtr}]", (100, 100, 100)
+                   state, rgb = f"NO IDEA [{filtr}]", self.COLORS['gray']
 
             item = QTableWidgetItem(state)
             item.setForeground(QtGui.QBrush(QtGui.QColor(*rgb)))
@@ -251,22 +262,22 @@ class TelecopeWindow(QWidget):
             dt = self.ob_prog_status[t]["ob_expected_time"]
             if started and not done:
                 if "OBJECT" in program:
-                    state,rgb = f"{program.split()[1]}", (0, 150, 0)
+                    state,rgb = f"{program.split()[1]}", self.COLORS['green']
                 else:
                     if len(program.split())>1:
-                        state, rgb = f"{program.split()[0]} {program.split()[1]}", (0, 150, 0)
+                        state, rgb = f"{program.split()[0]} {program.split()[1]}", self.COLORS['green']
                     else:
-                        state, rgb = f"{program.split()[0]}", (0, 150, 0)
+                        state, rgb = f"{program.split()[0]}", self.COLORS['green']
                 if dt == None or dt == 0 or t0 == None:
                     state = f"{state} (??)"
                 else:
                     t = time.time() - t0
                     p = t / dt
                     if p > 1.2:
-                        rgb = (255, 160, 0)
+                        rgb = self.COLORS['yellow']
                     state = f"{state} ({int(p*100)}%)"
             else:
-                rgb = (150, 150, 150)
+                rgb = self.COLORS['light_gray']
                 state = f"IDLE"
 
 
