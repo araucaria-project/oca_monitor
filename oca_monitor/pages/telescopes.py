@@ -34,6 +34,7 @@ class TelecopeWindow(QWidget):
         self.subject = subject
         self.vertical = bool(vertical_screen)
         self.mkUI()
+        self.lock = asyncio.Lock()
         templeate = {
             "mount_motor":{"val":None, "pms_topic":".mount.motorstatus"},
             "mirror_status": {"val": None, "pms_topic": ".covercalibrator.coverstate"},
@@ -91,7 +92,8 @@ class TelecopeWindow(QWidget):
             reader = get_reader(f'tic.status.{tel}.toi.status', deliver_policy='last')
             async for data, meta in reader:
                 self.toi_op_status[tel] = data
-                self.update_table()
+                async with self.lock:
+                    self.update_table()
         except (asyncio.CancelledError, asyncio.TimeoutError):
             raise
         except Exception as e:
@@ -123,7 +125,8 @@ class TelecopeWindow(QWidget):
             async for data, meta in r:
                 txt = data["measurements"][f"{tel}{self.oca_tel_state[tel][key]['pms_topic']}"]
                 self.oca_tel_state[tel][key]["val"] = txt
-                self.update_table()
+                async with self.lock:
+                    self.update_table()
         except Exception as e:
             logger.warning(f'ERROR: {e}')
 
@@ -132,7 +135,8 @@ class TelecopeWindow(QWidget):
             reader = get_reader(f'tic.status.{tel}.toi.ob', deliver_policy='last')
             async for status, meta in reader:
                 self.ob_prog_status[tel] = status
-                self.update_table()
+                async with self.lock:
+                    self.update_table()
         except Exception as e:
                 logger.warning(f'ERROR: {e}')
 
