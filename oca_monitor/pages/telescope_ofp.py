@@ -67,14 +67,26 @@ class TelescopeOfp(QWidget):
         except Exception as e:
             logger.warning(f'TOI: EXCEPTION 4a: {e}')
 
-    def update_pictures(self):
-        self.info_e.clear()
+    def set_pix_maps(self):
+
         pix1 = QtGui.QPixmap(self.thumbnail_path)
         pix2 = QtGui.QPixmap(self.light_curve_chart_path)
-        pix1 = pix1.scaled(500,500)
-        pix2 = pix2.scaled(500,150)
+        # pix1 = pix1.scaled(600,600)
+        width = self.fits_pic.width()
+        height = self.fits_pic.height()
+        pix1 = pix1.scaled(
+            width, height, QtCore.Qt.AspectRatioMode.KeepAspectRatio, QtCore.Qt.TransformationMode.SmoothTransformation
+        )
+
+        pix2 = pix2.scaled(width,150)
         self.fits_pic.setPixmap(pix1)
+        self.fits_pic.setAlignment(QtCore.Qt.AlignmentFlag.AlignCenter)
         self.curve_pix.setPixmap(pix2)
+
+    def update_pictures(self):
+        self.info_e.clear()
+
+        self.set_pix_maps()
 
         object = self.ofp_data["raw"]["header"]["OBJECT"]
         date = self.ofp_data["raw"]["header"]["DATE-OBS"]
@@ -120,16 +132,10 @@ class TelescopeOfp(QWidget):
         self.curve_pix = QLabel()
         self.info_e = QTextEdit("")
 
-        # DUPA
-        pix1 = QtGui.QPixmap(self.thumbnail_path)
-        pix2 = QtGui.QPixmap(self.light_curve_chart_path)
-        pix1 = pix1.scaled(500,500)
-        pix2 = pix2.scaled(500,150)
-        self.fits_pic.setPixmap(pix1)
-        self.curve_pix.setPixmap(pix2)
+        self.set_pix_maps()
 
         #self.layout.addWidget(self.ephem)
-        self.layout.addWidget(self.tel_e)
+        # self.layout.addWidget(self.tel_e)
         self.layout.addWidget(self.fits_pic)
         self.layout.addWidget(self.info_e)
         self.layout.addWidget(self.curve_pix)

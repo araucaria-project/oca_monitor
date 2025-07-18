@@ -68,11 +68,13 @@ class SatelliteAnimationWidget(QWidget):
                 object_to_display.scaled(
                     self.height(), self.height(), QtCore.Qt.AspectRatioMode.KeepAspectRatio)
             )
+            self.label.setAlignment(QtCore.Qt.AlignmentFlag.AlignCenter)
         else:
             self.label.setPixmap(
                 object_to_display.scaled(
                     self.height(), self.height(), QtCore.Qt.AspectRatioMode.KeepAspectRatio)
             )
+            self.label.setAlignment(QtCore.Qt.AlignmentFlag.AlignCenter)
 
     @asyncSlot()
     async def async_init(self):
@@ -83,70 +85,6 @@ class SatelliteAnimationWidget(QWidget):
             image_cascade_sec = 0.75, image_pause_sec=1.25, refresh_list_sec = 10, mode='new_files'
         )
         await display.display_init()
-        
-    # def update(self):
-    #
-    #
-    #     try:
-    #         lista = os.popen('ls -tr '+self.dir+'*600x600.jpg').read().split('\n')[:-1]
-    #         if len(lista) > 4:
-    #             lista = lista[-4:]
-    #
-    #         if len(lista)> 0:
-    #             figure = QPixmap(lista[self.counter])
-    #
-    #             if self.vertical:
-    #                 self.label.setPixmap(figure.scaled(self.height(),self.height(), QtCore.Qt.AspectRatioMode.KeepAspectRatio))
-    #             else:
-    #                 self.label.setPixmap(figure.scaled(self.height(), self.height(), QtCore.Qt.AspectRatioMode.KeepAspectRatio))
-    #
-    #             self.counter = self.counter + 1
-    #             if self.counter == len(lista):
-    #                 self.counter = 0
-    #     except:
-    #         self.counter = 0
-    #
-    #     QTimer.singleShot(self.freq, self.update)
-    #     self._change_update_time()
-    #
-    #
-    # def update_v2(self):
-    #     files_list = []
-    #     try:
-    #         files_found = os.listdir(self.dir)
-    #     except OSError:
-    #         logger.error(f'Can not access {self.dir}.')
-    #         files_found = []
-    #
-    #     for file in files_found:
-    #         if self.IMAGE_PREFIX in file:
-    #             files_list.append(file)
-    #
-    #     if len(files_list) == 0:
-    #         logger.warning(f'No files.')
-    #
-    #     else:
-    #         files_list.sort()
-    #         lista = [os.path.join(self.dir, f) for f in files_list]
-    #         if len(lista) > 4:
-    #             lista = lista[-4:]
-    #
-    #         if len(lista) > 0:
-    #             figure = QPixmap(lista[self.counter])
-    #
-    #             if self.vertical:
-    #                 self.label.setPixmap(figure.scaled(self.height(),self.height(), QtCore.Qt.AspectRatioMode.KeepAspectRatio))
-    #             else:
-    #                 self.label.setPixmap(figure.scaled(self.height(), self.height(), QtCore.Qt.AspectRatioMode.KeepAspectRatio))
-    #
-    #             self.counter = self.counter + 1
-    #             if self.counter == len(lista):
-    #                 self.counter = 0
-    #
-    #     QTimer.singleShot(self.freq, self.update_v2)
-    #     self._change_update_time()
 
-    # def _change_update_time(self):
-    #     self.freq = 1000
 
 widget_class = SatelliteAnimationWidget
