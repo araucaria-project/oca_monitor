@@ -58,7 +58,7 @@ class TelescopeOfp(QWidget):
 
     async def reader_nats_ofp(self):
         try:
-            r = get_reader(f'tic.status.{self.tel}.fits.pipeline.zdf', deliver_policy='last')
+            r = get_reader(f'tic.status.{self.tel}.fits.pipeline.raw', deliver_policy='last')
             async for data, meta in r:
                 self.ofp_data = data
                 self.update_pictures()
@@ -90,15 +90,15 @@ class TelescopeOfp(QWidget):
 
         self.set_pix_maps()
 
-        object = self.ofp_data["zdf"]["header"]["OBJECT"]
-        date = self.ofp_data["zdf"]["header"]["DATE-OBS"]
-        fname = self.ofp_data["zdf"]["file_name"]
-        type = self.ofp_data["zdf"]["header"]["IMAGETYP"]
-        obs_type = self.ofp_data["zdf"]["header"]["OBSTYPE"]
-        filter = self.ofp_data["zdf"]["header"]["FILTER"]
-        n = self.ofp_data["zdf"]["header"]["LOOP"]
-        ndit = self.ofp_data["zdf"]["header"]["NLOOPS"]
-        exptime = self.ofp_data["zdf"]["header"]["EXPTIME"]
+        object = self.ofp_data["raw"]["header"]["OBJECT"]
+        date = self.ofp_data["raw"]["header"]["DATE-OBS"]
+        fname = self.ofp_data["raw"]["file_name"]
+        type = self.ofp_data["raw"]["header"]["IMAGETYP"]
+        obs_type = self.ofp_data["raw"]["header"]["OBSTYPE"]
+        filter = self.ofp_data["raw"]["header"]["FILTER"]
+        n = self.ofp_data["raw"]["header"]["LOOP"]
+        ndit = self.ofp_data["raw"]["header"]["NLOOPS"]
+        exptime = self.ofp_data["raw"]["header"]["EXPTIME"]
 
         txt = ""
         txt = txt + f" <p style='font-size: 15pt;'> {date.split('T')[0]} {date.split('T')[1].split('.')[0]} "
