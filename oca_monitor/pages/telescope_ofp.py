@@ -72,12 +72,12 @@ class TelescopeOfp(QWidget):
         pix1 = QtGui.QPixmap(self.thumbnail_path)
         pix2 = QtGui.QPixmap(self.light_curve_chart_path)
         # pix1 = pix1.scaled(600,600)
-        # width = self.fits_pic.width()
-        width = 600
+        width = self.fits_pic.width()
+        # width = 600
         # height = self.fits_pic.height()
-        height = 600
+        # height = 600
         pix1 = pix1.scaled(
-            width, height, QtCore.Qt.AspectRatioMode.KeepAspectRatio, QtCore.Qt.TransformationMode.SmoothTransformation
+            width, width, QtCore.Qt.AspectRatioMode.KeepAspectRatio, QtCore.Qt.TransformationMode.SmoothTransformation
         )
 
         pix2 = pix2.scaled(width,150)
