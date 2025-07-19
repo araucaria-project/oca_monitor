@@ -132,6 +132,7 @@ class TelescopeOfp(QWidget):
 
         self.fits_pic = QLabel()
         self.curve_pix = QLabel()
+        self.curve_pix.setFixedHeight(150)
         self.info_e = QTextEdit("")
         self.info_e.setFixedHeight(50)
 
