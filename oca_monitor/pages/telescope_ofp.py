@@ -62,8 +62,8 @@ class TelescopeOfp(QWidget):
             async for data, meta in r:
                 self.ofp_data = data
                 self.update_pictures()
-        except (asyncio.CancelledError, asyncio.TimeoutError):
-            raise
+        except (asyncio.CancelledError, asyncio.TimeoutError) as e:
+            logger.warning(f'TOI: EXCEPTION 4b: {e}')
         except Exception as e:
             logger.warning(f'TOI: EXCEPTION 4a: {e}')
 
