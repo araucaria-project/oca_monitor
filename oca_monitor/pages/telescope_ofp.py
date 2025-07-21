@@ -86,7 +86,7 @@ class TelescopeOfp(QWidget):
             content = json.loads(file_content)
         else:
             content = None
-        logger.info(content)
+        # logger.info(content)
         if content:
             try:
                 date = content["date_obs"]
