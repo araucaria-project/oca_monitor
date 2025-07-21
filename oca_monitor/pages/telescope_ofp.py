@@ -123,19 +123,21 @@ class TelescopeOfp(QWidget):
         font = QtGui.QFont()
         font.setBold(True)
         self.tel_e.setFont(font)
+        self.tel_e.setStyleSheet(f"background-color: black; color: black")
+
         try:
             color = self.main_window.nats_cfg["config"]["telescopes"][self.tel]["observatory"]["style"]["color"]
         except (LookupError, TypeError):
-            color = 'black' # TODO ??
-        self.tel_e.setStyleSheet(f"background-color: {color}; color: black")
-
+            color = 'black'
 
         self.fits_pic = QLabel()
+
         self.curve_pix = QLabel()
-        self.curve_pix.setFixedHeight(150)
+        self.curve_pix.setFixedHeight(140)
+
         self.info_e = QTextEdit("")
         self.info_e.setFixedHeight(50)
-
+        self.info_e.setStyleSheet(f"background-color: {color}; color: white")
         self.set_pix_maps()
 
         #self.layout.addWidget(self.ephem)
