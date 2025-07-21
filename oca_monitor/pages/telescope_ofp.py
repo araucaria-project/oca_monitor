@@ -102,7 +102,7 @@ class TelescopeOfp(QWidget):
             txt = ""
             txt = txt + f" <p style='font-size: 15pt;'> {date.split('T')[0]} {date.split('T')[1].split('.')[0]} "
             txt = txt + f" <i>{type}</i> <b>{obj}</b>"
-            txt = txt + f" {n}/{ndit} <b>{filter}</b>  <b>{exptime:.2f}</b> s. <br> </p>"
+            txt = txt + f" {n}/{ndit} <b>{filter}</b>  <b>{exptime:.1f}</b> s. <br> </p>"
             self.info_e.clear()
             self.info_e.setStyleSheet(f"background-color: {color}; color: black")
             self.info_e.setHtml(txt)
