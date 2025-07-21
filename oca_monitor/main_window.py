@@ -251,8 +251,8 @@ class MainWindow(QMainWindow):
         logger.info('Starting to get observatory config...')
         try:
             nats_cfg = await single_read(f'tic.config.observatory')
-            self.nats_cfg = nats_cfg[0]
-        except AttributeError:
+            self.nats_cfg = nats_cfg
+        except (AttributeError, LookupError, ValueError):
             logger.error(f'Can not get observatory config.')
             self.nats_cfg = {}
 

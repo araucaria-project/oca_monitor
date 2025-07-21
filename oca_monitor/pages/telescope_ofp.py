@@ -87,6 +87,12 @@ class TelescopeOfp(QWidget):
 
     def update_pictures(self):
         self.info_e.clear()
+        try:
+            color = self.main_window.nats_cfg["config"]["telescopes"][self.tel]["observatory"]["style"]["color"]
+        except (LookupError, TypeError):
+            color = 'black'
+
+        self.info_e.setStyleSheet(f"background-color: {color}; color: white")
 
         self.set_pix_maps()
 
@@ -124,7 +130,6 @@ class TelescopeOfp(QWidget):
         font.setBold(True)
         self.tel_e.setFont(font)
         self.tel_e.setStyleSheet(f"background-color: black; color: black")
-
         try:
             color = self.main_window.nats_cfg["config"]["telescopes"][self.tel]["observatory"]["style"]["color"]
         except (LookupError, TypeError):
@@ -133,7 +138,7 @@ class TelescopeOfp(QWidget):
         self.fits_pic = QLabel()
 
         self.curve_pix = QLabel()
-        self.curve_pix.setFixedHeight(140)
+        self.curve_pix.setFixedHeight(150)
 
         self.info_e = QTextEdit("")
         self.info_e.setFixedHeight(50)
