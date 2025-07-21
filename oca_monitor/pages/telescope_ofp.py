@@ -4,17 +4,14 @@ import os.path
 from typing import Any
 import json
 
-from PyQt6.QtCore import QTimer
 from PyQt6.QtWidgets import QWidget, QVBoxLayout, QLabel, QTextEdit, QLineEdit
 from PyQt6 import QtCore, QtGui
 from qasync import asyncSlot
-from serverish.base.task_manager import create_task
-from serverish.messenger import get_reader
 from PyQt6.QtGui import QPixmap
 from oca_monitor.image_display import ImageDisplay
 from oca_monitor.utils import a_read_file
 
-# please use logging like here, it will name the log record with the name of the module
+
 logger = logging.getLogger(__name__.rsplit('.')[-1])
 
 
@@ -41,6 +38,7 @@ class TelescopeOfp(QWidget):
         self.initUI()
 
     def initUI(self):
+
         self.prev_sun_alt = None # mgorski tutaj - musze wiedziec czy jest wschod czy zachod
         self.alarm_weather_kontrolka = 0
         self.layout = QVBoxLayout(self)
@@ -76,97 +74,6 @@ class TelescopeOfp(QWidget):
         QtCore.QTimer.singleShot(0, self.async_init)
         logger.info("UI setup done")
 
-    @property
-    def thumbnail_path(self) -> str:
-        return f"/data/fits/{self.tel}/processed-ofp/thumbnails/thumbnail_display.png"
-
-    @property
-    def light_curve_chart_path(self) -> str:
-        return f"/data/fits/{self.tel}/processed-ofp/thumbnails/last_light_curve_chart_display.png"
-
-
-    # @asyncSlot()
-    # async def async_init(self):
-    #     # nats_cfg = await single_read(f'tic.config.observatory')
-    #     # self.nats_cfg = nats_cfg[0]
-    #     self.initUI()
-    #     await create_task(self.reader_nats_downloader(),"message_reader")
-    #     await create_task(self.reader_nats_ofp(), "message_reader")
-
-
-    # async def reader_nats_downloader(self):
-    #     try:
-    #         r = get_reader(f'tic.status.{self.tel}.download', deliver_policy='last')
-    #         async for data, meta in r:
-    #             pass
-    #             #self.downloader_data = data
-    #             #self.new_fits()
-    #     except (asyncio.CancelledError, asyncio.TimeoutError):
-    #         raise
-    #     except Exception as e:
-    #         logger.warning(f'TOI: EXCEPTION 4c: {e}')
-
-
-    # async def reader_nats_ofp(self):
-    #     try:
-    #         r = get_reader(f'tic.status.{self.tel}.fits.pipeline.raw', deliver_policy='last')
-    #         async for data, meta in r:
-    #             self.ofp_data = data
-    #             self.update_pictures()
-    #     except (asyncio.CancelledError, asyncio.TimeoutError) as e:
-    #         logger.warning(f'TOI: EXCEPTION 4b: {e}')
-    #     except Exception as e:
-    #         logger.warning(f'TOI: EXCEPTION 4a: {e}')
-
-    # def set_pix_maps(self):
-    #
-    #     pix1 = QtGui.QPixmap(self.thumbnail_path)
-    #     pix2 = QtGui.QPixmap(self.light_curve_chart_path)
-    #     # pix1 = pix1.scaled(600,600)
-    #     width = self.fits_pic.width()
-    #     # width = 500
-    #     height = self.fits_pic.height()
-    #     # height = 600
-    #     pix1 = pix1.scaled(
-    #         width, height, QtCore.Qt.AspectRatioMode.KeepAspectRatio, QtCore.Qt.TransformationMode.SmoothTransformation
-    #     )
-    #
-    #     pix2 = pix2.scaled(width, self.LC_HEIGHT)
-    #     self.fits_pic.setPixmap(pix1)
-    #     self.fits_pic.setAlignment(QtCore.Qt.AlignmentFlag.AlignCenter)
-    #     self.curve_pix.setPixmap(pix2)
-
-    # def update_pictures(self):
-    #     self.info_e.clear()
-    #     try:
-    #         color = self.main_window.nats_cfg["config"]["telescopes"][self.tel]["observatory"]["style"]["color"]
-    #     except (LookupError, TypeError):
-    #         color = 'black'
-    #
-    #     self.info_e.setStyleSheet(f"background-color: {color}; color: black")
-    #
-    #     self.set_pix_maps()
-    #
-    #     object = self.ofp_data["raw"]["header"]["OBJECT"]
-    #     date = self.ofp_data["raw"]["header"]["DATE-OBS"]
-    #     fname = self.ofp_data["raw"]["file_name"]
-    #     type = self.ofp_data["raw"]["header"]["IMAGETYP"]
-    #     obs_type = self.ofp_data["raw"]["header"]["OBSTYPE"]
-    #     filter = self.ofp_data["raw"]["header"]["FILTER"]
-    #     n = self.ofp_data["raw"]["header"]["LOOP"]
-    #     ndit = self.ofp_data["raw"]["header"]["NLOOPS"]
-    #     exptime = self.ofp_data["raw"]["header"]["EXPTIME"]
-    #
-    #     txt = ""
-    #     txt = txt + f" <p style='font-size: 15pt;'> {date.split('T')[0]} {date.split('T')[1].split('.')[0]} "
-    #     txt = txt + f" <i>{type}</i> <b>{object}</b>"
-    #     txt = txt + f" {n}/{ndit} <b>{filter}</b>  <b>{exptime}</b> s. <br> </p>"
-    #     #txt = txt + f" <hr> <br>"
-    #
-    #     self.info_e.setHtml(txt)
-    #     self.repaint()
-
-
     async def info_display(self) -> None:
 
         try:
@@ -184,9 +91,7 @@ class TelescopeOfp(QWidget):
             try:
                 date = content["date_obs"]
                 obj = content["object"]
-                # fname = self.ofp_data["raw"]["file_name"]
                 type = content["imagetyp"]
-                # obs_type = self.ofp_data["raw"]["header"]["OBSTYPE"]
                 filter = content["filter"]
                 n = content["loop"]
                 ndit = content["nloops"]
@@ -202,7 +107,6 @@ class TelescopeOfp(QWidget):
             self.info_e.setStyleSheet(f"background-color: {color}; color: black")
             self.info_e.setHtml(txt)
             self.repaint()
-
 
     @staticmethod
     async def image_instance(image_path: str) -> Any:
