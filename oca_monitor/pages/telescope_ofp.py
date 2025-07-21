@@ -72,6 +72,7 @@ class TelescopeOfp(QWidget):
         self.layout.addWidget(self.info_e)
         self.layout.addWidget(self.curve_pix)
 
+
         QtCore.QTimer.singleShot(0, self.async_init)
         logger.info("UI setup done")
 
@@ -182,6 +183,7 @@ class TelescopeOfp(QWidget):
         if content:
             try:
                 date = content["date_obs"]
+                obj = content["object"]
                 # fname = self.ofp_data["raw"]["file_name"]
                 type = content["imagetyp"]
                 # obs_type = self.ofp_data["raw"]["header"]["OBSTYPE"]
@@ -194,7 +196,7 @@ class TelescopeOfp(QWidget):
                 return
             txt = ""
             txt = txt + f" <p style='font-size: 15pt;'> {date.split('T')[0]} {date.split('T')[1].split('.')[0]} "
-            txt = txt + f" <i>{type}</i> <b>{object}</b>"
+            txt = txt + f" <i>{type}</i> <b>{obj}</b>"
             txt = txt + f" {n}/{ndit} <b>{filter}</b>  <b>{exptime}</b> s. <br> </p>"
             self.info_e.clear()
             self.info_e.setStyleSheet(f"background-color: {color}; color: black")
