@@ -92,7 +92,7 @@ class TelescopeOfp(QWidget):
         except (LookupError, TypeError):
             color = 'black'
 
-        self.info_e.setStyleSheet(f"background-color: {color}; color: white")
+        self.info_e.setStyleSheet(f"background-color: {color}; color: black")
 
         self.set_pix_maps()
 
@@ -129,7 +129,7 @@ class TelescopeOfp(QWidget):
         font = QtGui.QFont()
         font.setBold(True)
         self.tel_e.setFont(font)
-        self.tel_e.setStyleSheet(f"background-color: black; color: black")
+        self.tel_e.setStyleSheet(f"background-color: black; color: white")
         try:
             color = self.main_window.nats_cfg["config"]["telescopes"][self.tel]["observatory"]["style"]["color"]
         except (LookupError, TypeError):
@@ -142,7 +142,7 @@ class TelescopeOfp(QWidget):
 
         self.info_e = QTextEdit("")
         self.info_e.setFixedHeight(50)
-        self.info_e.setStyleSheet(f"background-color: {color}; color: white")
+        self.info_e.setStyleSheet(f"background-color: {color}; color: black")
         self.set_pix_maps()
 
         #self.layout.addWidget(self.ephem)
@@ -154,17 +154,3 @@ class TelescopeOfp(QWidget):
         # Some async operation
         # self._update_ephem()
         logger.info("UI setup done")
-
-    # def _update_ephem(self):
-    #     text,sunalt = utils.ephemeris()
-    #     sunalt = str(sunalt)
-    #     self.ephem.setText(text)
-    #     if float(sunalt.split(':')[0]) <0. and float(sunalt.split(':')[0])  > -17.:
-    #         self.ephem.setStyleSheet("background-color : yellow; color: black")
-    #     elif float(sunalt.split(':')[0])  <= -17.:
-    #         self.ephem.setStyleSheet("background-color : lightgreen; color: black")
-    #     else:
-    #         self.ephem.setStyleSheet("background-color : coral; color: black")
-    #
-    #     QtCore.QTimer.singleShot(1000, self._update_ephem)
-
