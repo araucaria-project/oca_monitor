@@ -1,12 +1,13 @@
 import asyncio
 import logging
 import time
-from typing import List, Dict, Any, Tuple, Iterable, Set
+from typing import List, Dict, Any, Tuple, Iterable, Set, Literal
 
 import ephem
 import numpy as np
 import requests
 from astropy.time import Time as czas_astro
+import aiofiles
 
 
 logger = logging.getLogger(__name__.rsplit('.')[-1])
@@ -129,3 +130,15 @@ class AsyncDictItemsIter:
             return n, m
         except StopIteration:
             raise StopAsyncIteration
+
+
+async def a_read_file(path: str, raise_err: bool = True, mode: Literal['r'] = 'r') -> str or None:
+    try:
+        async with aiofiles.open(file=path, mode=mode) as f:
+            return await f.read()
+    except OSError:
+        logger.error(f'Can not read {path} file.')
+        if raise_err:
+            raise
+        else:
+            return False

@@ -27,6 +27,7 @@ numpy = "^1.24.1, <1.26.0"
 #numpy = "^1.26.4"  # this does not compile on RbPi
 qasync = "^0.27.1"
 dynaconf = "^3.2.4"
+aiofiles = "^24.1.0"
 
 
 [tool.poetry.extras]

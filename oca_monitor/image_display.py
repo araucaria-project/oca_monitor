@@ -14,7 +14,7 @@ logger = logging.getLogger(__name__.rsplit('.')[-1])
 
 class ImageDisplay:
 
-    MODES = {'new_files': {}, 'update_files': {}}
+    MODES = {'new_files': {}, 'update_files': {}, 'update_files_show_once': {}}
 
     def __init__(
             self, name: str, images_dir: str, image_display_clb: callable, image_instance_clb: callable,
@@ -86,7 +86,8 @@ class ImageDisplay:
                     image_object = await self.image_instance_clb(image_path=new_file)
                     if image_object is not None:
                         last_mod = os.path.getmtime(new_file)
-                        await self.image_queue.put((new_file, image_object, last_mod))
+                        # (new_file, image_object, last_mod, showed)
+                        await self.image_queue.put((new_file, image_object, last_mod, False))
                     else:
                         logger.warning(f'Image {new_file} in {self.name} is None.')
                 except OSError:
@@ -111,7 +112,7 @@ class ImageDisplay:
         if self.mode in self.MODES:
             if self.mode == 'new_files':
                 await self.new_files_refresh(files_list=current_files_list_path)
-            elif self.mode == 'update_files':
+            elif self.mode in ['update_files', 'update_files_show_once']:
                 await self.update_files_refresh(files_list=current_files_list_path)
         else:
             logger.error(f'No mode in modes, select: {self.MODES}.')
@@ -121,9 +122,16 @@ class ImageDisplay:
             async for n in AsyncRangeIter(start=1, end=self.image_queue.qsize()):
                 if self.image_queue.qsize() > 0:
                     image_to_display = await self.image_queue.get()
-                    if image_to_display[1] is not None:
-                        await self.image_display_clb(object_to_display=image_to_display[1])
-                        await self.image_queue.put(image_to_display)
+                    if self.mode != 'update_files_show_once':
+                        if image_to_display[1] is not None:
+                            await self.image_display_clb(object_to_display=image_to_display[1])
+                    else:
+                        if len(image_to_display) == 4 and image_to_display[3] is False:
+                            if image_to_display[1] is not None:
+                                await self.image_display_clb(object_to_display=image_to_display[1])
+                            image_to_display = (image_to_display[0], image_to_display[1], image_to_display[2], True)
+
+                    await self.image_queue.put(image_to_display)
                 await asyncio.sleep(self.image_cascade_sec)
             if not self.last_refresh or time.time() > self.last_refresh + self.refresh_list_sec:
                 await self.image_list_refresh()
