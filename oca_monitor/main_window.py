@@ -250,8 +250,8 @@ class MainWindow(QMainWindow):
     async def async_init(self):
         logger.info('Starting to get observatory config...')
         try:
-            nats_cfg = await single_read(f'tic.config.observatory')
-            self.nats_cfg = nats_cfg
+            data, meta = await single_read(f'tic.config.observatory')
+            self.nats_cfg = data
         except (AttributeError, LookupError, ValueError):
             logger.error(f'Can not get observatory config.')
             self.nats_cfg = {}
