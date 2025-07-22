@@ -1,12 +1,15 @@
 import logging
-import datetime
-import time
-from PyQt6.QtWidgets import QApplication, QWidget, QVBoxLayout,QLabel,QSizePolicy
+from typing import Any
+
+from PyQt6.QtWidgets import QWidget, QVBoxLayout,QLabel
 from PyQt6.QtCore import QTimer
 from PyQt6 import QtCore
 from PyQt6.QtGui import QPixmap
-import os
-import math
+
+from qasync import asyncSlot
+
+from oca_monitor.image_display import ImageDisplay
+
 #from PyQt6 import Qt
 #from matplotlib.backends.backend_qt5agg import FigureCanvasQTAgg as FigureCanvas
 #from matplotlib.figure import Figure
@@ -35,32 +38,34 @@ class AllskyAnimationWidget(QWidget):
         else:
             self.label.resize(self.height(),self.height())
         self.layout.addWidget(self.label,1)
-        self.update()
-    
-   
+        QTimer.singleShot(0, self.async_init)
+        # self.update()
 
-    def update(self):
-        lista = os.popen('ls -tr '+self.dir+'lastimage*.jpg').read().split('\n')[:-1]
-        if len(lista) > 0:
-            try:
-                figure = QPixmap(lista[self.counter])
-                if self.vertical:
-                    self.label.setPixmap(figure.scaled(self.width(),self.width(), QtCore.Qt.AspectRatioMode.KeepAspectRatio))
-                else:
-                    self.label.setPixmap(figure.scaled(self.height(),self.height(), QtCore.Qt.AspectRatioMode.KeepAspectRatio))
+    @staticmethod
+    async def image_instance(image_path: str) -> Any:
+        image_instance = QPixmap(image_path)
+        if image_instance.isNull():
+            return None
+        else:
+            return QPixmap(image_path)
 
-                self.counter = self.counter + 1
-                if self.counter == len(lista):
-                    self.counter = 0
-            except:
-                pass
+    async def image_display(self, object_to_display: QPixmap):
 
-        
+        if self.vertical:
+            self.label.setPixmap(object_to_display.scaled(self.width(),self.width(), QtCore.Qt.AspectRatioMode.KeepAspectRatio))
+        else:
+            self.label.setPixmap(object_to_display.scaled(self.height(),self.height(), QtCore.Qt.AspectRatioMode.KeepAspectRatio))
 
-        QTimer.singleShot(self.freq, self.update)
-        self._change_update_time()
+    @asyncSlot()
+    async def async_init(self):
+        logger.info('Starting allsky display.')
+        display = ImageDisplay(
+            name='allsky', images_dir=self.dir, image_display_clb=self.image_display,
+            image_instance_clb=self.image_instance, images_prefix = 'lastimage',
+            image_cascade_sec = 0.75, image_pause_sec=1.25, refresh_list_sec = 10, mode='update_files',
+            sort_reverse=True
+        )
+        await display.display_init()
 
-    def _change_update_time(self):
-        self.freq = 2000
 
 widget_class = AllskyAnimationWidget

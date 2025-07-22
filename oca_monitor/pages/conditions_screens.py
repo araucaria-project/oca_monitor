@@ -100,10 +100,10 @@ class ConditionsScreensWidget(QWidget):
                     self.ts = dt_ensure_datetime(data['ts'])
                     measurement = data['measurements']
                     self.sensors[sens].temp = measurement['temperature']
-                    logger.info(f"Measured temperature {self.sensors[sens].name+' '+str(self.sensors[sens].temp)}")
+                    logger.debug(f"Measured temperature {self.sensors[sens].name+' '+str(self.sensors[sens].temp)}")
                         
                     self.sensors[sens].hum = measurement['humidity']
-                    logger.info(f"Measured humidity {self.sensors[sens].name+' '+str(self.sensors[sens].hum)}")
+                    logger.debug(f"Measured humidity {self.sensors[sens].name+' '+str(self.sensors[sens].hum)}")
                         
                         
         except:
@@ -166,7 +166,7 @@ class ConditionsScreensWidget(QWidget):
                     self.ts = dt_ensure_datetime(data['ts'])
                     measurement = data['measurements']
                     self.water_level = measurement['water_level']
-                    logger.info(f"Measured water level {self.water_level}")
+                    logger.debug(f"Measured water level {self.water_level}")
                     try:
             
                         self.label_water.setText('Water '+str(self.water_level)+ ' litres')
