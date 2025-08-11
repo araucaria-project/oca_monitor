@@ -119,15 +119,15 @@ class TelescopeOfp(QWidget):
     async def image_display(self, object_to_display: QPixmap):
         await self.info_display()
         height = self.fits_pic.height()
-
-        self.fits_pic.setPixmap(
-            object_to_display.scaled(
-                self.info_e.width(),
-                height,
-                QtCore.Qt.AspectRatioMode.KeepAspectRatio,
-                QtCore.Qt.TransformationMode.SmoothTransformation
-        ))
-        self.fits_pic.setAlignment(QtCore.Qt.AlignmentFlag.AlignCenter)
+        if object_to_display:
+            self.fits_pic.setPixmap(
+                object_to_display.scaled(
+                    self.info_e.width(),
+                    height,
+                    QtCore.Qt.AspectRatioMode.KeepAspectRatio,
+                    QtCore.Qt.TransformationMode.SmoothTransformation
+            ))
+            self.fits_pic.setAlignment(QtCore.Qt.AlignmentFlag.AlignCenter)
 
     async def lc_display(self, object_to_display: QPixmap):
 
