@@ -116,20 +116,20 @@ class TelescopeOfp(QWidget):
         else:
             return QPixmap(image_path)
 
-    async def image_display(self, object_to_display: QPixmap):
+    async def image_display(self, object_to_display: QPixmap or None) -> None:
         await self.info_display()
         height = self.fits_pic.height()
+        if object_to_display:
+            self.fits_pic.setPixmap(
+                object_to_display.scaled(
+                    self.info_e.width(),
+                    height,
+                    QtCore.Qt.AspectRatioMode.KeepAspectRatio,
+                    QtCore.Qt.TransformationMode.SmoothTransformation
+            ))
+            self.fits_pic.setAlignment(QtCore.Qt.AlignmentFlag.AlignCenter)
 
-        self.fits_pic.setPixmap(
-            object_to_display.scaled(
-                self.info_e.width(),
-                height,
-                QtCore.Qt.AspectRatioMode.KeepAspectRatio,
-                QtCore.Qt.TransformationMode.SmoothTransformation
-        ))
-        self.fits_pic.setAlignment(QtCore.Qt.AlignmentFlag.AlignCenter)
-
-    async def lc_display(self, object_to_display: QPixmap):
+    async def lc_display(self, object_to_display: QPixmap) -> None:
 
         self.curve_pix.setPixmap(
             object_to_display.scaled(
@@ -142,7 +142,7 @@ class TelescopeOfp(QWidget):
 
 
     @asyncSlot()
-    async def async_init(self):
+    async def async_init(self) -> None:
 
         im_on_init = await self.image_instance(image_path=os.path.join(self.dir, self.PNG_FILE_NAME))
         await self.image_display(object_to_display=im_on_init)
