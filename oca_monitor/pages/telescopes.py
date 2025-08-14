@@ -55,6 +55,7 @@ class TelecopeWindow(QWidget):
         self.toi_op_status = {t:None for t in self.main_window.telescope_names}
 
         QtCore.QTimer.singleShot(0, self.async_init)
+        logger.info(f"TelecopeWindow init setup done")
 
     @asyncSlot()
     async def async_init(self):

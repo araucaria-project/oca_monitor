@@ -64,6 +64,7 @@ class WidgetEphem(QWidget):
         self.main_window = main_window
 
         self.initUI()
+        logger.info(f"WidgetEphem init setup done")
 
 
 

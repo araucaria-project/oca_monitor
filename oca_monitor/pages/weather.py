@@ -56,6 +56,7 @@ class WeatherDataWidget(QWidget):
         self.initUI()
         # async init
         QTimer.singleShot(0, self.async_init)
+        logger.info(f"WeatherDataWidget init setup done")
 
     @asyncSlot()
     async def async_init(self):
@@ -142,6 +143,7 @@ class WeatherDataWidget(QWidget):
 
         QtCore.QTimer.singleShot(0, self._update_warningWindow)
         QtCore.QTimer.singleShot(1000, self._update_ephem)
+        # logger.info(f"WeatherDataWidget UI setup done")
 
     async def reader_loop(self):
         msg = Messenger()

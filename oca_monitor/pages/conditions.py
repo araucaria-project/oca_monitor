@@ -26,6 +26,7 @@ class ConditionsWidget(QWidget):
         self.water_level = 0
         QTimer.singleShot(0, self.async_init)
         # async init
+        logger.info(f"ConditionsWidget init setup done")
         
 
     @asyncSlot()

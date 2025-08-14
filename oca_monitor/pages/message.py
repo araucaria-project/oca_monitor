@@ -27,6 +27,7 @@ class MessageWidget(QWidget):
         self.one_weather_stop = True
         QTimer.singleShot(0, self.async_init)
         #self.script_location = os.path.dirname(os.path.abspath(__file__))
+        logger.info(f"MessageWidget init setup done")
 
     @asyncSlot()
     async def async_init(self):
@@ -37,6 +38,7 @@ class MessageWidget(QWidget):
         self.info_e = QTextEdit()
 
         self.layout.addWidget(self.info_e)
+        # logger.info(f"MessageWidget UI setup done")
 
 
     async def reader_ocm_messages(self):

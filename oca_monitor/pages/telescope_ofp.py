@@ -36,6 +36,7 @@ class TelescopeOfp(QWidget):
         self.main_window = main_window
         super().__init__()
         self.initUI()
+        logger.info(f"TelescopeOfp {self.tel} init setup done")
 
     def initUI(self):
 
@@ -72,7 +73,7 @@ class TelescopeOfp(QWidget):
 
 
         QtCore.QTimer.singleShot(0, self.async_init)
-        logger.info("UI setup done")
+        # logger.info(f"TelescopeOfp {self.tel} UI setup done")
 
     async def info_display(self) -> None:
 

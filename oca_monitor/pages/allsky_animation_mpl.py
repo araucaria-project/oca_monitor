@@ -26,6 +26,7 @@ class AllskyAnimationMplWidget(QWidget):
         self.vertical = bool(vertical_screen)
         self.counter = 0
         self.initUI()
+        logger.info(f"AllskyAnimationMplWidget init setup done")
         
     def initUI(self):
         self.layout = QVBoxLayout(self)
@@ -33,7 +34,7 @@ class AllskyAnimationMplWidget(QWidget):
         self.canvas = FigureCanvas(self.figure)
         self.layout.addWidget(self.canvas,1)
         QTimer.singleShot(0, self.async_init)
-        # self.update()
+        # logger.info(f"AllskyAnimationMplWidget UI setup done")
 
     def calc_tel_xy(self,x_0,y_0,alt,az):
         pi = 3.14159

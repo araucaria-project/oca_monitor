@@ -39,6 +39,7 @@ class SatelliteAnimationWidget(QWidget):
         self.image_queue = asyncio.Queue()
         self.files_list = []
         self.initUI()
+        logger.info(f"SatelliteAnimationWidget init setup done")
         
     def initUI(self):
         self.layout = QVBoxLayout(self)
@@ -52,7 +53,7 @@ class SatelliteAnimationWidget(QWidget):
         self.h = self.height()
         self.label.setSizePolicy(QSizePolicy.Policy.Ignored,QSizePolicy.Policy.Ignored)
         QTimer.singleShot(0, self.async_init)
-        # self.update_v2()
+        # logger.info(f"SatelliteAnimationWidget UI setup done")
 
     @staticmethod
     async def image_instance(image_path: str) -> Any:
