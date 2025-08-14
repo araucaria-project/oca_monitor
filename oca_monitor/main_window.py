@@ -179,7 +179,7 @@ class MainWindow(QMainWindow):
         self.initUI()
 
     def initUI(self):
-        # QTimer.singleShot(0, self.async_init)
+        QTimer.singleShot(0, self.async_init)
         self.wind = 0
         self.hum = 0
         self.temp = 0
