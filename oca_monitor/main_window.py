@@ -179,7 +179,7 @@ class MainWindow(QMainWindow):
         self.initUI()
 
     def initUI(self):
-        QTimer.singleShot(0, self.async_init)
+        # QTimer.singleShot(0, self.async_init)
         self.wind = 0
         self.hum = 0
         self.temp = 0
@@ -250,7 +250,7 @@ class MainWindow(QMainWindow):
     async def async_init(self):
         logger.info('Starting to get observatory config...')
         try:
-            data, meta = await single_read(subject=f'tic.config.observatory', wait=5)
+            data, meta = await single_read(subject=f'tic.config.observatory')
             self.nats_cfg = data
             logger.info('Config loaded ok')
         except (AttributeError, LookupError, ValueError):
