@@ -210,7 +210,7 @@ vertical_screen=1
 
 [kitchen.panels.00.Temperatures]
 #auto_interval = 10  # seconds, how long to show this page before auto switching to next page
-source = "cread_temp_battery"  # page source - page is defined in oca_monitor/pages/example.py
+source = "read_temp_battery"  # page source - page is defined in oca_monitor/pages/example.py
 vertical_screen=1
 
 [kitchen.panels.10.Weather]
