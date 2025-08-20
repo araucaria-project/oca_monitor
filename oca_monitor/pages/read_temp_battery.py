@@ -145,7 +145,8 @@ class BuildingsTempWidget(QWidget):
             self.layout.addWidget(self.canvas,10)
 
         QtCore.QTimer.singleShot(0, self._update_warningWindow)
-        QtCore.QTimer.singleShot(1000, self._update_ephem)
+        
+        #QtCore.QTimer.singleShot(1000, self._update_ephem)
 
     async def reader_loop(self):
         msg = Messenger()
@@ -261,7 +262,7 @@ class BuildingsTempWidget(QWidget):
             except:
                 pass
 
-    def _update_ephem(self):
+    '''def _update_ephem(self):
         self.ephem_text,sunalt = ephemeris(self.vertical)
         self.sunalt = float(sunalt)
         if self.sunalt > -2.:
@@ -271,7 +272,7 @@ class BuildingsTempWidget(QWidget):
         elif self.sunalt <= -18.:
             self.label_ephem.setStyleSheet("background-color : lightgreen; color: black")
         self.label_ephem.setText(self.ephem_text)
-        QtCore.QTimer.singleShot(1000, self._update_ephem)
+        QtCore.QTimer.singleShot(1000, self._update_ephem)'''
 
 
     @asyncSlot()
