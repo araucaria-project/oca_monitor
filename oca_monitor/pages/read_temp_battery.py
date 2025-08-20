@@ -48,7 +48,7 @@ def ephemeris(vertical = 0):
 
 
 class BuildingsTempWidget(QWidget):
-    def __init__(self, main_window, subject='telemetry.conditions', vertical_screen = False, **kwargs):
+    def __init__(self, main_window, subject='telemetry.conditions.batteryroom-tsensor', vertical_screen = False, **kwargs):
         super().__init__()
         self.main_window = main_window
         self.weather_subject = subject
