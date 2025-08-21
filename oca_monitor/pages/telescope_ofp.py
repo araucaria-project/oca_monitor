@@ -84,7 +84,11 @@ class TelescopeOfp(QWidget):
 
         file_content = await a_read_file(path=os.path.join(self.dir, self.JSON_FILE_NAME), raise_err=False)
         if file_content:
-            content = json.loads(file_content)
+            try:
+                content = json.loads(file_content)
+            except json.decoder.JSONDecodeError as e:
+                logger.warning(f"Can not decode file {self.JSON_FILE_NAME}: {e}")
+                content = None
         else:
             content = None
         # logger.info(content)
