@@ -1,4 +1,5 @@
 import logging
+from typing import Any
 from PyQt6.QtWidgets import QDialog,QWidget, QVBoxLayout, QHBoxLayout, QLabel,QSlider,QDial,QScrollBar,QPushButton,QCheckBox
 from PyQt6 import QtCore, QtGui
 from PyQt6.QtGui import QPixmap
@@ -12,6 +13,8 @@ import ephem
 import time
 from astropy.time import Time as czas_astro
 import os
+from oca_monitor.image_display import ImageDisplay
+
 # please use logging like here, it will name the log record with the name of the module
 logger = logging.getLogger(__name__.rsplit('.')[-1])
 
@@ -65,92 +68,6 @@ class bboxItem():
 
     def req(self,val):
         requests.post('http://'+self.ip+'/state',json={"relays":[{"relay":0,"state":val}]})
-
-
-'''class lightSlide():
-    def __init__(self,name,ip,slide):
-        self.name = name
-        self.ip = ip
-        self.slide = slide
-
-    def is_avilable(self):
-        try:
-        #if True:
-            req = requests.get('http://'+self.ip+'/info',timeout=0.5)
-            if int(req.status_code) != 200:
-                self.is_active = False
-            else:
-                self.is_active = True 
-        except:
-            self.is_active = False
-
-    def changeLight(self):
-        if self.is_active:
-            try:
-                #if True:
-                if self.slide.isChecked():
-                    value = 70
-                else:
-                    value = 0
-            
-                val = str(hex(int(value*255/100))).replace('0x','',1)
-                if len(val) == 1:
-                    val = '0'+val
-                
-                self.req(val)
-            except:
-                pass
-
-    def req(self,val):
-        requests.post('http://'+self.ip+'/api/rgbw/set',json={"rgbw":{"desiredColor":val}})
-        
-class light_point():
-    def __init__(self,name,ip,slider):
-        self.name = name
-        self.ip = ip
-        
-        self.slider= slider
-        self.slider.setGeometry(50, 50, 50, 50)
-        self.slider.setNotchesVisible(True)
-        self.slider.valueChanged.connect(self.changeLight)
-
-    def changeLight(self):
-        try:
-        #if True:
-            #self.status()
-            #if True:
-            if self.is_active:
-                new_value = int(self.slider.value()*255/100)
-                #print(new_value)
-                if new_value > 255:
-                    new_value = 255
-
-                val = str(hex(int(new_value))).replace('0x','',1)
-                if len(val) == 1:
-                    val = '0'+val
-                
-                self.req(val)
-        except:
-            pass
-
-    
-
-    def req(self,val):
-        requests.post('http://'+self.ip+'/api/rgbw/set',json={"rgbw":{"desiredColor":val}})
-
-    def status(self):
-        try:
-        #if True:
-            req = requests.get('http://'+self.ip+'/api/rgbw/state',timeout=0.5)
-            
-            if int(req.status_code) != 200:
-                self.is_active = False
-            else:
-                self.is_active = True 
-                self.curr_value = int(req.json()["rgbw"]["desiredColor"],16)
-                self.slider.setValue(int(self.curr_value*100/255))
-        except:
-            self.is_active = False'''
 
 
 class TouchButtonsWBedroom(QWidget):
@@ -230,30 +147,52 @@ class TouchButtonsWBedroom(QWidget):
         self._update_weather()
         self._update_ephem()
         self._update_temp()
-        self._update_allsky()
-        
+        # self._update_allsky()
+        QTimer.singleShot(0, self.async_init)
         logger.info("UI setup done")
 
-   
+    # def _update_allsky(self):
+    #     lista = os.popen('ls -tr '+self.dir+'lastimage*.jpg').read().split('\n')[:-1]
+    #     if len(lista) > 0:
+    #         try:
+    #             figure = QPixmap(lista[self.counter])
+    #             self.label_allsky.setPixmap(figure.scaled(300,300, QtCore.Qt.AspectRatioMode.KeepAspectRatio))
+    #
+    #             self.counter = self.counter + 1
+    #             if self.counter == len(lista):
+    #                 self.counter = 0
+    #         except:
+    #             pass
+    #
+    #     QtCore.QTimer.singleShot(self.freq, self._update_allsky)
 
-    def _update_allsky(self):
-        lista = os.popen('ls -tr '+self.dir+'lastimage*.jpg').read().split('\n')[:-1]
-        if len(lista) > 0:
-            try:
-                figure = QPixmap(lista[self.counter])
-                self.label_allsky.setPixmap(figure.scaled(300,300, QtCore.Qt.AspectRatioMode.KeepAspectRatio))
+    @staticmethod
+    async def image_instance(image_path: str) -> Any:
+        image_instance = QPixmap(image_path)
+        if image_instance.isNull():
+            return None
+        else:
+            return QPixmap(image_path)
 
-                self.counter = self.counter + 1
-                if self.counter == len(lista):
-                    self.counter = 0
-            except:
-                pass
+    async def image_display(self, object_to_display: QPixmap):
 
-        QtCore.QTimer.singleShot(self.freq, self._update_allsky)
-        
+        if self.vertical:
+            self.label.setPixmap(
+                object_to_display.scaled(self.width(), self.width(), QtCore.Qt.AspectRatioMode.KeepAspectRatio))
+        else:
+            self.label.setPixmap(
+                object_to_display.scaled(self.height(), self.height(), QtCore.Qt.AspectRatioMode.KeepAspectRatio))
 
-    
-
+    @asyncSlot()
+    async def async_init(self):
+        logger.info('Starting allsky display.')
+        display = ImageDisplay(
+            name='allsky', images_dir=self.dir, image_display_clb=self.image_display,
+            image_instance_clb=self.image_instance, images_prefix='lastimage',
+            image_cascade_sec=0.75, image_pause_sec=1.25, refresh_list_sec=10, mode='update_files',
+            sort_reverse=True
+        )
+        await display.display_init()
 
     @asyncSlot()
     async def water_button_pressed(self,wylacz=False):
@@ -267,8 +206,6 @@ class TouchButtonsWBedroom(QWidget):
 
     async def changeWaterState(self):
         self.water_pump.changeState()
-
-
 
     def send_alarm(self):
         print(self.b_alarm.isChecked())
@@ -351,15 +288,11 @@ class TouchButtonsWBedroom(QWidget):
         #    QtCore.QTimer.singleShot(2000, self.raise_alarm(mes='',wyj=0))
 
         self.d_close_clicked()
-        
-           
 
     async def push(self, name,user,token,mess):
         pars = {'token':token,'user':user,'message':mess+name+'!'}
         try:
             requests.post('https://api.pushover.net/1/messages.json',data=pars)
-            
-
         except:
             pass
 
@@ -369,10 +302,6 @@ class TouchButtonsWBedroom(QWidget):
     async def siren(self,wyj):
         for siren,ip in config.bbox_sirens.items():
             requests.post('http://'+ip+'/state',json={"relays":[{"relay":0,"state":wyj}]})
-
-        
-
-            
 
     def _update_ephem(self):
         lt,sunalt = ephemeris()
@@ -391,7 +320,6 @@ class TouchButtonsWBedroom(QWidget):
         await create_task(self.reader_loop_2(), "weather reader")
         #warning = 'Wind: '+str(self.wind)+' m/s\n'+'Temperature: '+str(self.temp)+' C\n'+'Humidity: '+str(self.hum)+' %\n'+'Wind dir: '+str(self.main_window.winddir)+'\n'
         #self.label.setText(warning)
-    
 
     async def reader_loop_2(self):
         
