@@ -176,12 +176,7 @@ class TouchButtonsWBedroom(QWidget):
             return QPixmap(image_path)
 
     async def image_display(self, object_to_display: QPixmap):
-        if self.vertical:
-            self.label_allsky.setPixmap(
-                object_to_display.scaled(300, 300, QtCore.Qt.AspectRatioMode.KeepAspectRatio))
-        else:
-            self.label_allsky.setPixmap(
-                object_to_display.scaled(300, 300, QtCore.Qt.AspectRatioMode.KeepAspectRatio))
+        self.label_allsky.setPixmap(object_to_display.scaled(300, 300, QtCore.Qt.AspectRatioMode.KeepAspectRatio))
 
     @asyncSlot()
     async def async_init(self):
