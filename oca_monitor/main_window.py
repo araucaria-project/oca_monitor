@@ -243,7 +243,7 @@ class MainWindow(QMainWindow):
 
     _config_reading_in_progress = Lock()
 
-    async def run_task_monitor(self, period: float = 5) -> None:
+    async def run_task_monitor(self, period: float = 60) -> None:
 
         while True:
             checked_tasks = 0
