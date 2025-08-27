@@ -312,7 +312,7 @@ class TouchButtonsWBedroom(QWidget):
         self.temp = '0.0'
         self.hum = '0.0'
         self.pres = '0.0'
-        await create_task(self.reader_loop_2(), "weather reader")
+        await create_task(self.reader_loop_2(), "nats_weather reader")
         #warning = 'Wind: '+str(self.wind)+' m/s\n'+'Temperature: '+str(self.temp)+' C\n'+'Humidity: '+str(self.hum)+' %\n'+'Wind dir: '+str(self.main_window.winddir)+'\n'
         #self.label.setText(warning)
 
@@ -370,7 +370,7 @@ class TouchButtonsWBedroom(QWidget):
     async def _update_temp(self):
         
         self.roomtemp = '0.0'
-        await create_task(self.reader_loop_3(), "temp reader")
+        await create_task(self.reader_loop_3(), "nats_temp reader_3")
         #warning = 'Wind: '+str(self.wind)+' m/s\n'+'Temperature: '+str(self.temp)+' C\n'+'Humidity: '+str(self.hum)+' %\n'+'Wind dir: '+str(self.main_window.winddir)+'\n'
         #self.label.setText(warning)
     

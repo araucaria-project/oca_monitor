@@ -46,14 +46,14 @@ class ConditionsScreensWidget(QWidget):
     @asyncSlot()
     async def async_init(self):
         #obs_config = await self.main_window.observatory_config()
-        await create_task(self.reader_loop_water(), "reader_water")
-        await create_task(self.reader_loop_energy(), "reader_energy")
+        await create_task(self.reader_loop_water(), "nats_reader_water")
+        await create_task(self.reader_loop_energy(), "nats_reader_energy")
         for sens,params in self.htsensors.items():
             if sens not in self.sensors.keys():
                 self.sensors[sens]=sensor(sens,params[0],x=params[1],y=params[2])
                 print(sens,params[1],params[2])
             subject = self.subject_conditions+'.'+sens
-            await create_task(self.reader_loop_conditions(subject,sens), "reader_conditions")
+            await create_task(self.reader_loop_conditions(subject,sens), "nats_reader_conditions")
 
 
     def initUI(self):

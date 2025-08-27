@@ -18,7 +18,7 @@ from typing import Dict, List, TypedDict, Callable, Optional
 from PyQt6.QtCore import QTimer
 from PyQt6.QtWidgets import QMainWindow, QGridLayout, QWidget, QTabWidget, QLabel, QToolBar
 from PyQt6.QtWidgets import QPushButton, QVBoxLayout
-from serverish.base.task_manager import create_task_sync, create_task, Task
+from serverish.base.task_manager import create_task_sync, create_task, Task, TaskManager
 from serverish.messenger import Messenger, single_read
 
 from oca_monitor.config import settings
@@ -35,12 +35,6 @@ class PageInfo:
     name: str
     auto_interval: int = 10  # seconds
     auto_enabled: bool = False
-
-class Subscriptions(TypedDict):
-    task: Optional[Task]
-    subscriber: Optional[Callable]
-    clb: Optional[Callable]
-
 
 class AsyncTabWidget(QTabWidget):
     def __init__(self, parent=None):
@@ -178,7 +172,7 @@ class MainWindow(QMainWindow):
         self.nats_cfg: Dict = {}
         super().__init__()
         self._config = None
-        self.subscriptions: List[Subscriptions] = []
+        self.task_manager: TaskManager = TaskManager()
         self.initUI()
 
     def initUI(self):
@@ -249,12 +243,21 @@ class MainWindow(QMainWindow):
 
     _config_reading_in_progress = Lock()
 
-    async def run_subscriptions_rebuilder(self, period: float = 5) -> None:
-        # {'task': Task, 'subscriber': callable, 'clb': callable}
+    async def run_task_monitor(self, period: float = 5) -> None:
+
         while True:
-            for subscr in self.subscriptions:
-                if subscr['task'].done():
-                    logger.error(f"Subscription stoped")
+            checked_tasks = 0
+            error_task = 0
+            ok_task = 0
+            for task in self.task_manager.children:
+                if 'nats' in task.name:
+                    checked_tasks += 1
+                    if task.done():
+                        error_task += 1
+                        logger.error(f"Task {task.name} error")
+                    else:
+                        ok_task += 1
+            logger.info(f"Nats tasks ok: {ok_task}, error: {error_task}, all: {checked_tasks}")
             await asyncio.sleep(period)
 
     @asyncSlot()
@@ -267,7 +270,7 @@ class MainWindow(QMainWindow):
         except (AttributeError, LookupError, ValueError):
             logger.error(f'Can not get observatory config.')
             self.nats_cfg = {}
-        # await create_task(self.run_subscriptions_rebuilder(), "subscriptions_rebuilder")
+        await create_task(self.run_task_monitor(), "task_monitor")
 
     @asyncSlot()
     async def observatory_config(self) -> dict:

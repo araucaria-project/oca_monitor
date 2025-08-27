@@ -61,7 +61,7 @@ class WeatherDataWidget(QWidget):
     @asyncSlot()
     async def async_init(self):
         # obs_config = await self.main_window.observatory_config()
-        await create_task(self.reader_loop(), "wind reader")
+        await create_task(self.reader_loop(), "nats_wind reader")
 
     def initUI(self,):
         # Layout
@@ -292,7 +292,7 @@ class WeatherDataWidget(QWidget):
         self.temp = '0.0'
         self.hum = '0.0'
         self.pres = '0.0'
-        await create_task(self.reader_loop_2(), "weather reader")
+        await create_task(self.reader_loop_2(), "nats_weather reader_2")
         
         #warning = 'Wind: '+str(self.wind)+' m/s\n'+'Temperature: '+str(self.temp)+' C\n'+'Humidity: '+str(self.hum)+' %\n'+'Wind dir: '+str(self.main_window.winddir)+'\n'
         #self.label.setText(warning)

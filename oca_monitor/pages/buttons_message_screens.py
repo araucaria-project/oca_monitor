@@ -83,7 +83,7 @@ class ButtonsMessageWidget(QWidget):
     async def async_init(self):
 
         for tel in self.parent.telescope_names:
-            await create_task(self.toi_message_reader(tel), "message_reader")
+            await create_task(self.toi_message_reader(tel), "nats_toi_message_reader")
 
 
     def initUI(self,):

@@ -32,11 +32,8 @@ class ConditionsWidget(QWidget):
     @asyncSlot()
     async def async_init(self):
         #obs_config = await self.main_window.observatory_config()
-        await create_task(self.reader_loop_water(), "reader_water")
-        await create_task(self.reader_loop_energy(), "reader_water")
-
-
-
+        await create_task(self.reader_loop_water(), "nats_reader_water_conditions")
+        await create_task(self.reader_loop_energy(), "nats_reader_energy_conditions")
 
     def initUI(self):
         # Layout

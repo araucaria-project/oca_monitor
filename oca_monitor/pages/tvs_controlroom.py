@@ -75,8 +75,8 @@ class WidgetTvsControlroom(QWidget):
         # nats_cfg = await single_read(f'tic.config.observatory')
         # self.nats_cfg = nats_cfg[0]
         self.initUI()
-        await create_task(self.reader_nats_downloader(),"message_reader")
-        await create_task(self.reader_nats_ofp(), "message_reader")
+        await create_task(self.reader_nats_downloader(),"nats_nats_downloader")
+        await create_task(self.reader_nats_ofp(), "nats_reader_nats_ofp")
 
 
     async def reader_nats_downloader(self):

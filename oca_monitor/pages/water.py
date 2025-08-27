@@ -29,7 +29,7 @@ class WaterWindow(QWidget):
 
     @asyncSlot()
     async def async_init(self):
-        await create_task(self.water_loop(), "reader_water")
+        await create_task(self.water_loop(), "nats_reader_water")
 
     def initUI(self):
         # Layout

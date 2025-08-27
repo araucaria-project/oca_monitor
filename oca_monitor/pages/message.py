@@ -31,7 +31,7 @@ class MessageWidget(QWidget):
 
     @asyncSlot()
     async def async_init(self):
-        await create_task(self.reader_ocm_messages(), "message_reader")
+        await create_task(self.reader_ocm_messages(), "nats_ocm_message_reader")
 
     def initUI(self,):
         self.layout = QHBoxLayout(self)

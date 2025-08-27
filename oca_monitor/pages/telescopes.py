@@ -77,16 +77,13 @@ class TelecopeWindow(QWidget):
                 tmp_n = None
             self.filters[tel] = tmp_n
 
-
-
-
         for tel in self.main_window.telescope_names:
-            await create_task(self.oca_telemetry_program_reader(tel),"message_reader")
-            await create_task(self.oca_az_reader(tel), "message_reader")
-            await create_task(self.oca_alt_reader(tel), "message_reader")
-            await create_task(self.oca_toi_status_reader(tel), "message_reader")
+            await create_task(self.oca_telemetry_program_reader(tel),"nats_oca_telemetry_program_reader")
+            await create_task(self.oca_az_reader(tel), "nats_oca_az_reader")
+            await create_task(self.oca_alt_reader(tel), "nats_oca_alt_reader")
+            await create_task(self.oca_toi_status_reader(tel), "nats_oca_toi_status_reader")
             for k in self.oca_tel_state[tel].keys():
-                await create_task(self.oca_telemetry_reader(tel,k),"message_reader")
+                await create_task(self.oca_telemetry_reader(tel,k),"nats_oca_telemetry_reader")
 
     async def oca_toi_status_reader(self,tel):
         try:
