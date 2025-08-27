@@ -3,7 +3,7 @@ import copy
 import logging
 import os
 import time
-from typing import List
+from typing import List, Callable
 
 from serverish.base.task_manager import create_task
 
@@ -17,7 +17,7 @@ class ImageDisplay:
     MODES = {'new_files': {}, 'update_files': {}, 'update_files_show_once': {}}
 
     def __init__(
-            self, name: str, images_dir: str, image_display_clb: callable, image_instance_clb: callable,
+            self, name: str, images_dir: str, image_display_clb: Callable, image_instance_clb: Callable,
             images_prefix: str = '', image_cascade_sec: float = 0.75, image_pause_sec: float = 1.5,
             refresh_list_sec: float = 10, mode: str = 'new_files', sort_reverse: bool = False) -> None:
         self.name = name
@@ -53,7 +53,7 @@ class ImageDisplay:
                     real_new_files_no += 1
                 else:
                     logger.warning(f'Image {new_file} in {self.name} is None.')
-            logger.info(f'{self.name} files list updated by new files no: {real_new_files_no}.')
+            logger.debug(f'{self.name} files list updated by new files no: {real_new_files_no}.')
 
     async def update_files_refresh(self, files_list: List):
         # logger.info(f'Display {self.name} files list updating...')
@@ -92,7 +92,7 @@ class ImageDisplay:
                         logger.warning(f'Image {new_file} in {self.name} is None.')
                 except OSError:
                     logger.warning(f'Can not read image {new_file} in {self.name}.')
-            logger.info(f'{self.name} files list updated by new files no: {len(files_list)}.')
+            logger.debug(f'{self.name} files list updated by new files no: {len(files_list)}.')
             return
 
     async def image_list_refresh(self):

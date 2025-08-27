@@ -1,7 +1,7 @@
 import logging
 import asyncio
 import os.path
-from typing import Any
+from typing import Any, Optional
 import json
 
 from PyQt6.QtWidgets import QWidget, QVBoxLayout, QLabel, QTextEdit, QLineEdit
@@ -121,7 +121,7 @@ class TelescopeOfp(QWidget):
         else:
             return QPixmap(image_path)
 
-    async def image_display(self, object_to_display: QPixmap or None) -> None:
+    async def image_display(self, object_to_display: Optional[QPixmap]) -> None:
         await self.info_display()
         height = self.fits_pic.height()
         if object_to_display:

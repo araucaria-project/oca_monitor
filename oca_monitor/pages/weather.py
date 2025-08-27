@@ -145,6 +145,7 @@ class WeatherDataWidget(QWidget):
         QtCore.QTimer.singleShot(1000, self._update_ephem)
         # logger.info(f"WeatherDataWidget UI setup done")
 
+
     async def reader_loop(self):
         msg = Messenger()
 
@@ -172,6 +173,7 @@ class WeatherDataWidget(QWidget):
                 "indoor_temperature_C": 20,
                 "indoor_humidity": 50,
         }
+
         async for data, meta in rdr:
             try:
                 # if we crossed the midnight, we want to copy today's data to yesterday's and start today from scratch

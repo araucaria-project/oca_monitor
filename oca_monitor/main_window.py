@@ -13,12 +13,12 @@ import logging
 from asyncio import Lock
 from importlib import import_module
 import dataclasses
-from typing import Dict
+from typing import Dict, List, TypedDict, Callable, Optional
 
 from PyQt6.QtCore import QTimer
 from PyQt6.QtWidgets import QMainWindow, QGridLayout, QWidget, QTabWidget, QLabel, QToolBar
 from PyQt6.QtWidgets import QPushButton, QVBoxLayout
-from serverish.base.task_manager import create_task_sync
+from serverish.base.task_manager import create_task_sync, create_task, Task
 from serverish.messenger import Messenger, single_read
 
 from oca_monitor.config import settings
@@ -35,6 +35,11 @@ class PageInfo:
     name: str
     auto_interval: int = 10  # seconds
     auto_enabled: bool = False
+
+class Subscriptions(TypedDict):
+    task: Optional[Task]
+    subscriber: Optional[Callable]
+    clb: Optional[Callable]
 
 
 class AsyncTabWidget(QTabWidget):
@@ -106,9 +111,6 @@ class AsyncTabWidget(QTabWidget):
         self.auto_play = False
 
 
-
-
-
 class ConfigurableTabWidget(QWidget):
     def __init__(self, parent=None, **kwargs):
         super().__init__(parent)
@@ -176,6 +178,7 @@ class MainWindow(QMainWindow):
         self.nats_cfg: Dict = {}
         super().__init__()
         self._config = None
+        self.subscriptions: List[Subscriptions] = []
         self.initUI()
 
     def initUI(self):
@@ -246,6 +249,14 @@ class MainWindow(QMainWindow):
 
     _config_reading_in_progress = Lock()
 
+    async def run_subscriptions_rebuilder(self, period: float = 5) -> None:
+        # {'task': Task, 'subscriber': callable, 'clb': callable}
+        while True:
+            for subscr in self.subscriptions:
+                if subscr['task'].done():
+                    logger.error(f"Subscription stoped")
+            await asyncio.sleep(period)
+
     @asyncSlot()
     async def async_init(self):
         logger.info('Starting to get observatory config...')
@@ -256,6 +267,7 @@ class MainWindow(QMainWindow):
         except (AttributeError, LookupError, ValueError):
             logger.error(f'Can not get observatory config.')
             self.nats_cfg = {}
+        # await create_task(self.run_subscriptions_rebuilder(), "subscriptions_rebuilder")
 
     @asyncSlot()
     async def observatory_config(self) -> dict:
