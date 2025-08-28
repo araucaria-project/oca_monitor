@@ -244,11 +244,13 @@ class MainWindow(QMainWindow):
     _config_reading_in_progress = Lock()
 
     async def run_task_monitor(self, period: float = 60) -> None:
-        logger.info(f"Task monitor starting with period {period}")
+        logger.info(f"Task monitor starting with period {period}s")
+        task_names_list = []
         while True:
             checked_tasks = 0
             error_task = 0
             ok_task = 0
+            current_names_list = []
             for task in self.task_manager.children:
                 if 'nats' in task.name:
                     checked_tasks += 1
@@ -257,6 +259,12 @@ class MainWindow(QMainWindow):
                         logger.error(f"Task {task.name} error")
                     else:
                         ok_task += 1
+                    if task.name not in task_names_list:
+                        task_names_list.append(task.name)
+                    current_names_list.append(task.name)
+            for task_name in task_names_list:
+                if task_name not in current_names_list:
+                    logger.info(f"Missing task {task_name}")
             logger.info(f"Nats tasks ok: {ok_task}, error: {error_task}, all: {checked_tasks}")
             await asyncio.sleep(period)
 
