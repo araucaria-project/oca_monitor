@@ -25,6 +25,7 @@ from oca_monitor.config import settings
 from oca_monitor.tab_config_dialog import TabConfigDialog
 from qasync import asyncSlot
 
+
 logger = logging.getLogger('main')
 
 @dataclasses.dataclass

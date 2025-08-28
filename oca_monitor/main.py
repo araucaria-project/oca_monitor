@@ -18,6 +18,7 @@ from serverish.messenger import Messenger
 
 from oca_monitor.config import settings
 from oca_monitor.main_window import MainWindow
+from oca_monitor_bases import __version_num__
 
 logger = logging.getLogger('main')
 
@@ -93,7 +94,7 @@ def main():
 
     logger.info(f'OCA Monitor logging level: {loglevel}')
     logger.info(f'OCA Monitor configuration environment: {settings.env_for_dynaconf}')
-    logger.info(f'OCAM version {"0.4.0"}.')
+    logger.info(f'OCAM version {__version_num__}.')
 
     # Standard Qt Application
     app = QApplication(sys.argv)

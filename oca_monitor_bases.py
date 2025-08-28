@@ -1,0 +1,9 @@
+__author__ = [""]
+__copyright__ = ""
+__credits__ = [""]
+__license__ = "MIT"
+__version_num__ = [0, 4, 1]
+__version__ = "{}.{}.{}".format(*__version_num__)
+__maintainer__ = ""
+__email__ = ""
+__status__ = "Development"
