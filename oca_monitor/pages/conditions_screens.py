@@ -1,5 +1,7 @@
+import asyncio
 import logging
 import datetime
+from typing import Dict
 
 from PyQt6.QtWidgets import QApplication, QWidget, QVBoxLayout,QHBoxLayout, QLabel
 from PyQt6.QtCore import QTimer
@@ -38,6 +40,7 @@ class ConditionsScreensWidget(QWidget):
         self.vertical = bool(vertical_screen)
         self.sensors = {}
         self.htsensors = config.ht_subjects
+        # self.locks: Dict[asyncio.Lock] = {}
         self.initUI()
         QTimer.singleShot(0, self.async_init)
         # async init
@@ -48,12 +51,14 @@ class ConditionsScreensWidget(QWidget):
         #obs_config = await self.main_window.observatory_config()
         await create_task(self.reader_loop_water(), "nats_reader_water")
         await create_task(self.reader_loop_energy(), "nats_reader_energy")
-        for sens,params in self.htsensors.items():
+        for sens, params in self.htsensors.items():
             if sens not in self.sensors.keys():
+
                 self.sensors[sens]=sensor(sens,params[0],x=params[1],y=params[2])
-                print(sens,params[1],params[2])
+                logger.info(sens,params[1],params[2])
+            # self.locks[sens] = asyncio.Lock()
             subject = self.subject_conditions+'.'+sens
-            await create_task(self.reader_loop_conditions(subject,sens), "nats_reader_conditions")
+            await create_task(self.reader_loop_conditions(subject,sens), f"nats_reader_conditions_{sens}")
 
 
     def initUI(self):
@@ -71,7 +76,7 @@ class ConditionsScreensWidget(QWidget):
         self.figure = Figure(figsize=(24,16),facecolor='lightgrey')
         self.canvas = FigureCanvas(self.figure)
         self.layout.addWidget(self.canvas)
-        self.draw_figure()
+        # self.draw_figure()
         self.layout.addWidget(self.label_water)
         self.layout.addWidget(self.label_energy)
         self.temp_layout = QHBoxLayout(self)
@@ -82,43 +87,31 @@ class ConditionsScreensWidget(QWidget):
 
     async def reader_loop_conditions(self,subject,sens):
         msg = Messenger()
-        
-        try:
 
-            rdr = msg.get_reader(
-                subject,
-                deliver_policy='last',
-            )
-            logger.info(f"Subscribed to {subject}")
+        rdr = msg.get_reader(
+            subject,
+            deliver_policy='last',
+        )
+        logger.info(f"Subscribed to {subject}")
 
-                
-            async for data, meta in rdr:
-                
-                if True:
-                    # if we crossed the midnight, we want to copy today's data to yesterday's and start today from scratch
-                        
-                    self.ts = dt_ensure_datetime(data['ts'])
-                    measurement = data['measurements']
-                    self.sensors[sens].temp = measurement['temperature']
-                    logger.debug(f"Measured temperature {self.sensors[sens].name+' '+str(self.sensors[sens].temp)}")
-                        
-                    self.sensors[sens].hum = measurement['humidity']
-                    logger.debug(f"Measured humidity {self.sensors[sens].name+' '+str(self.sensors[sens].hum)}")
-                        
-                        
-        except:
-            pass
+        async for data, meta in rdr:
+            # async with self.locks[sens]:
+            try:
+                self.ts = dt_ensure_datetime(data['ts'])
+                self.sensors[sens].temp = data['measurements']['temperature']
+                self.sensors[sens].hum = data['measurements']['humidity']
+                await self.draw_figure()
+            except (ValueError, LookupError, TypeError):
+                pass
 
-        
-
-    def draw_figure(self):
+    async def draw_figure(self):
         self.figure.clf()
         self.figure.gca().tick_params(axis='both', left=False, top=False, right=False, bottom=False, labelleft=False, labeltop=False, labelright=False, labelbottom=False)
         img = mpimg.imread('./oca_monitor/resources/gfx/oca_main_building.png')
         self.figure.gca().imshow(img)
         text = ''
         for s,sens in self.sensors.items():
-            
+
             if int(sens.x)+int(sens.y)!=0:
                 #print(s)
                 if sens.temp != "Undef":
@@ -140,7 +133,7 @@ class ConditionsScreensWidget(QWidget):
 
 
         self.canvas.draw()
-        QTimer.singleShot(10000, self.draw_figure)
+        # QTimer.singleShot(10000, self.draw_figure)
 
         
         
