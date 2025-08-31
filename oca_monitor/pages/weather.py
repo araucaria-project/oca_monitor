@@ -212,7 +212,7 @@ class WeatherDataWidget(QWidget):
                 wind_speed10 = measurement['wind_10min_ms']
                 temp = measurement['temperature_C']
                 hum = measurement['humidity']
-                pres = measurement['pressure_Pa']/100.
+                pres = measurement['pressure_Pa']
                 # depending on the date of the measurement, we want to add point to the yesterday or today data
                 hour = ts.hour + ts.minute / 60 + ts.second / 3600
                 if ts < today_midnight.astimezone():
