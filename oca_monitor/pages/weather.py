@@ -82,7 +82,7 @@ class WeatherDataWidget(QWidget):
             self.ax_temp = self.figure.add_subplot(222)
             self.ax_hum = self.figure.add_subplot(223)
             self.ax_pres = self.figure.add_subplot(224)
-            self.figure.subplots_adjust(left=0, right=1, bottom=0, top=1, wspace=0.3,hspace=0.6)
+            self.figure.subplots_adjust(left=5, right=5, bottom=5, top=5, wspace=0.3,hspace=0.6)
         else:
             self.ax_wind = self.figure.add_subplot(411)
             self.ax_temp = self.figure.add_subplot(412)
