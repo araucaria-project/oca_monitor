@@ -79,7 +79,9 @@ class WeatherDataWidget(QWidget):
         if self.vertical:
             #self.label.setFont(QtGui.QFont('Arial', 20))
             self.ax_wind = self.figure.add_subplot(221)
+            self.ax_wind.set_xticklabels([])
             self.ax_temp = self.figure.add_subplot(222)
+            self.ax_temp.set_xticklabels([])
             self.ax_hum = self.figure.add_subplot(223)
             self.ax_pres = self.figure.add_subplot(224)
             self.figure.subplots_adjust(wspace=0.3, hspace=0.6)
