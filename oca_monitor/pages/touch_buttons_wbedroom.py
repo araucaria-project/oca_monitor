@@ -8,13 +8,10 @@ import json,requests
 import oca_monitor.config as config
 from qasync import asyncSlot
 from PyQt6.QtCore import QTimer
-from serverish.base import dt_ensure_datetime
 from serverish.base.task_manager import create_task_sync, create_task
 from serverish.messenger import Messenger
 import ephem
 import time
-from astropy.time import Time as czas_astro
-import os
 from oca_monitor.image_display import ImageDisplay
 
 # please use logging like here, it will name the log record with the name of the module
@@ -116,8 +113,6 @@ class TouchButtonsWBedroom(QWidget):
         self.label_allsky.resize(300,300)
         self.vbox_center.addWidget(self.label_allsky)
 
-        
-
         self.label_temp = QLabel("temp")
         self.label_temp.setStyleSheet("background-color : #2b2b2b; color: white; font-weight: bold")
         self.label_temp.setFont(QtGui.QFont('Arial', 52))
@@ -136,20 +131,16 @@ class TouchButtonsWBedroom(QWidget):
         self.label_weather.setFont(QtGui.QFont('Arial', 34))
 
         self.vbox_right.addWidget(self.label_weather)
-        
-                
+
         self.water_pump=bboxItem('hot_water',config.bbox_bedroom_west['hot_water'],QCheckBox())
         self.water_pump.button.setStyleSheet("QCheckBox::indicator{width: 170px; height:170px;} QCheckBox::indicator:checked {image: url(./Icons/hot_water_on.png)} QCheckBox::indicator:unchecked {image: url(./Icons/hot_water_off.png)}")
         self.water_pump.button.setChecked(False)
         self.water_pump.button.stateChanged.connect(self.water_button_pressed)
         self.vbox_center.addWidget(self.water_pump.button)
 
-    
         self.layout.addLayout(self.vbox_left)
         self.layout.addLayout(self.vbox_center)
         self.layout.addLayout(self.vbox_right)
-
-        # Some async operation
         
         self._update_weather()
         self._update_ephem()
@@ -157,21 +148,6 @@ class TouchButtonsWBedroom(QWidget):
         # self._update_allsky()
         QTimer.singleShot(0, self.async_init)
         logger.info("UI setup done")
-
-    # def _update_allsky(self):
-    #     lista = os.popen('ls -tr '+self.dir+'lastimage*.jpg').read().split('\n')[:-1]
-    #     if len(lista) > 0:
-    #         try:
-    #             figure = QPixmap(lista[self.counter])
-    #             self.label_allsky.setPixmap(figure.scaled(300,300, QtCore.Qt.AspectRatioMode.KeepAspectRatio))
-    #
-    #             self.counter = self.counter + 1
-    #             if self.counter == len(lista):
-    #                 self.counter = 0
-    #         except:
-    #             pass
-    #
-    #     QtCore.QTimer.singleShot(self.freq, self._update_allsky)
 
     @staticmethod
     async def image_instance(image_path: str) -> Any:
@@ -285,9 +261,6 @@ class TouchButtonsWBedroom(QWidget):
             self.c.exec()
 
         await self.siren(wyj)
-        #if self.b_alarm.isChecked():
-        #    QtCore.QTimer.singleShot(2000, self.raise_alarm(mes='',wyj=0))
-
         self.d_close_clicked()
 
     async def push(self, name,user,token,mess):
@@ -309,98 +282,64 @@ class TouchButtonsWBedroom(QWidget):
         sunalt = str(sunalt)
         text = str(lt)+'\n\nSUN: ' + sunalt
         self.label_ephem.setText(text)
-        
         QtCore.QTimer.singleShot(1000, self._update_ephem)
 
     @asyncSlot()
     async def _update_weather(self):
-
         await create_task(self.reader_loop_2(), "nats_weather_reader")
-        #warning = 'Wind: '+str(self.wind)+' m/s\n'+'Temperature: '+str(self.temp)+' C\n'+'Humidity: '+str(self.hum)+' %\n'+'Wind dir: '+str(self.main_window.winddir)+'\n'
-        #self.label.setText(warning)
 
     async def reader_loop_2(self):
         
         msg = Messenger()
-
         # We want the data from the midnight of yesterday
-        
-
         rdr = msg.get_reader(
             self.weather_subject,
             deliver_policy='last',
         )
         logger.info(f"Subscribed to {self.weather_subject}")
 
-        # sample_measurement = {
-        #         "temperature_C": 10,
-        #         "humidity": 50,
-        #         "wind_dir_deg": 180,
-        #         "wind_ms": 5,
-        #         "wind_10min_ms": 5,
-        #         "pressure_Pa": 101325,
-        #         "bar_trend": 0,
-        #         "rain_mm": 0,
-        #         "rain_day_mm": 0,
-        #         "indoor_temperature_C": 20,
-        #         "indoor_humidity": 50,
-        # }
         async for data, meta in rdr:
-            # ts = dt_ensure_datetime(data['ts']).astimezone()
-            # hour = ts.hour + ts.minute / 60 + ts.second / 3600
-            measurement = data['measurements']
+
             async with self.lock:
-                self.wind = "{:.1f}".format(measurement['wind_10min_ms'])
-                self.temp = "{:.1f}".format(measurement['temperature_C'])
-                self.hum = int(measurement['humidity'])
-                self.pres = int(measurement['pressure_Pa'])
-
-                warning = 'Wind:\t'+str(self.wind)+' m/s\n'+'Temp:\t'+str(self.temp)+' C\n'+'Hum:\t'+str(self.hum)+' %\n'+'Press:\t'+str(self.pres)+' hPa'
-
-
-                if (11. <= float(self.wind) < 14.) or float(self.hum) > 70:
-                    self.label_weather.setStyleSheet("background-color : yellow; color: black")
-
-                elif float(self.wind) >= 14. or float(self.hum) > 75. or float(self.temp) < 0.:
-                    self.label_weather.setStyleSheet("background-color : coral; color: black")
-
-                else:
-
-                    self.label_weather.setStyleSheet("background-color : lightgreen; color: black")
-
-                self.label_weather.setText(warning)
+                try:
+                    measurement = data['measurements']
+                    self.wind = "{:.1f}".format(measurement['wind_10min_ms'])
+                    self.temp = "{:.1f}".format(measurement['temperature_C'])
+                    self.hum = int(measurement['humidity'])
+                    self.pres = int(measurement['pressure_Pa'])
+                    warning = 'Wind:\t' + str(self.wind) + ' m/s\n' + 'Temp:\t' + str(
+                        self.temp) + ' C\n' + 'Hum:\t' + str(self.hum) + ' %\n' + 'Press:\t' + str(self.pres) + ' hPa'
+                    if (11. <= float(self.wind) < 14.) or float(self.hum) > 70:
+                        self.label_weather.setStyleSheet("background-color : yellow; color: black")
+                    elif float(self.wind) >= 14. or float(self.hum) > 75. or float(self.temp) < 0.:
+                        self.label_weather.setStyleSheet("background-color : coral; color: black")
+                    else:
+                        self.label_weather.setStyleSheet("background-color : lightgreen; color: black")
+                    self.label_weather.setText(warning)
+                except (ValueError, TypeError, LookupError):
+                    pass
 
     @asyncSlot()
     async def _update_temp(self):
-        
-        self.roomtemp = '0.0'
+
         await create_task(self.reader_loop_3(), "nats_temp_reader")
-        #warning = 'Wind: '+str(self.wind)+' m/s\n'+'Temperature: '+str(self.temp)+' C\n'+'Humidity: '+str(self.hum)+' %\n'+'Wind dir: '+str(self.main_window.winddir)+'\n'
-        #self.label.setText(warning)
 
     async def reader_loop_3(self):
-        
         msg = Messenger()
-
-        # We want the data from the midnight of yesterday
-        
-
         rdr = msg.get_reader(
             self.temp_subject,
             deliver_policy='last',
         )
         logger.info(f"Subscribed to {self.temp_subject}")
 
-        # sample_measurement = {
-        #         "temperature": 10
-        # }
-
         async for data, meta in rdr:
-            # ts = dt_ensure_datetime(data['ts']).astimezone()
-            mes = data["measurements"]
             async with self.lock:
-                self.temp = "{:.1f}".format(mes['temperature'])
-                self.label_temp.setText(str(self.temp)+ ' C')
+                try:
+                    mes = data["measurements"]
+                    self.temp = "{:.1f}".format(mes['temperature'])
+                    self.label_temp.setText(str(self.temp)+ ' C')
+                except (ValueError, TypeError, LookupError):
+                    pass
 
 
 widget_class = TouchButtonsWBedroom
