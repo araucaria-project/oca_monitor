@@ -1,6 +1,8 @@
 import asyncio
 import logging
 from typing import Any
+
+from nats.errors import TimeoutError as NatsTimeoutError
 from PyQt6.QtWidgets import QDialog,QWidget, QVBoxLayout, QHBoxLayout, QLabel,QSlider,QDial,QScrollBar,QPushButton,QCheckBox
 from PyQt6 import QtCore, QtGui
 from PyQt6.QtGui import QPixmap
@@ -316,8 +318,8 @@ class TouchButtonsWBedroom(QWidget):
                     else:
                         self.label_weather.setStyleSheet("background-color : lightgreen; color: black")
                     self.label_weather.setText(warning)
-                except (ValueError, TypeError, LookupError):
-                    pass
+                except (ValueError, TypeError, LookupError, TimeoutError, NatsTimeoutError) as e:
+                    logger.warning(f"reader_loop get error: {e}")
 
     @asyncSlot()
     async def _update_temp(self):
@@ -338,8 +340,8 @@ class TouchButtonsWBedroom(QWidget):
                     mes = data["measurements"]
                     self.temp = "{:.1f}".format(mes['temperature'])
                     self.label_temp.setText(str(self.temp)+ ' C')
-                except (ValueError, TypeError, LookupError):
-                    pass
+                except (ValueError, TypeError, LookupError, TimeoutError, NatsTimeoutError) as e:
+                    logger.warning(f"reader_loop get error: {e}")
 
 
 widget_class = TouchButtonsWBedroom

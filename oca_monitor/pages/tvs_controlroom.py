@@ -8,7 +8,7 @@ from qasync import asyncSlot
 from serverish.base import dt_ensure_datetime
 from serverish.base.task_manager import create_task_sync, create_task
 from serverish.messenger import Messenger, single_read, get_reader
-
+from nats.errors import TimeoutError as NatsTimeoutError
 import ephem
 import time
 from astropy.time import Time as czas_astro
@@ -80,24 +80,28 @@ class WidgetTvsControlroom(QWidget):
 
 
     async def reader_nats_downloader(self):
-        try:
-            r = get_reader(f'tic.status.{self.tel}.download', deliver_policy='last')
-            async for data, meta in r:
-                pass
-                #self.downloader_data = data
-                #self.new_fits()
-        except (asyncio.CancelledError, asyncio.TimeoutError):
-            raise
-        except Exception as e:
-            logger.warning(f'TOI: EXCEPTION 4c: {e}')
+        # try:
+        #     r = get_reader(f'tic.status.{self.tel}.download', deliver_policy='last')
+        #     async for data, meta in r:
+        #         pass
+        #         #self.downloader_data = data
+        #         #self.new_fits()
+        # except (asyncio.CancelledError, asyncio.TimeoutError):
+        #     raise
+        # except Exception as e:
+        #     logger.warning(f'TOI: EXCEPTION 4c: {e}')
+        pass
 
 
     async def reader_nats_ofp(self):
         try:
             r = get_reader(f'tic.status.{self.tel}.fits.pipeline.raw', deliver_policy='last')
             async for data, meta in r:
-                self.ofp_data = data
-                self.update_pictures()
+                try:
+                    self.ofp_data = data
+                    self.update_pictures()
+                except (ValueError, TypeError, LookupError, TimeoutError, NatsTimeoutError) as e:
+                    logger.warning(f"reader_nats_ofp get error: {e}")
         except (asyncio.CancelledError, asyncio.TimeoutError):
             raise
         except Exception as e:
