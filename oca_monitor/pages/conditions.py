@@ -10,7 +10,7 @@ from qasync import asyncSlot
 from serverish.base import dt_ensure_datetime
 from serverish.base.task_manager import create_task_sync, create_task
 from serverish.messenger import Messenger
-import numpy as np
+from nats.errors import TimeoutError as NatsTimeoutError
 
 logger = logging.getLogger(__name__.rsplit('.')[-1])
 
@@ -61,7 +61,8 @@ class ConditionsWidget(QWidget):
                 self.water_level = measurement['water_level']
                 logger.debug(f"Measured water level {self.water_level}")
                 self.label_water.setText('Water '+str(self.water_level)+ ' litres')
-            except (ValueError, TypeError, LookupError):
+            except (ValueError, TypeError, LookupError, TimeoutError, NatsTimeoutError) as e:
+                logger.warning(f"reader_loop_water get error: {e}")
                 self.label_water.setText('No data')
 
     async def reader_loop_energy(self):
@@ -88,7 +89,8 @@ class ConditionsWidget(QWidget):
                 bc = measurement['battery_charge']
                 bd = measurement['battery_discharge']
                 ec = bd + pv - bc
-            except (ValueError, TypeError, LookupError):
+            except (ValueError, TypeError, LookupError, TimeoutError, NatsTimeoutError) as e:
+                logger.warning(f"reader_loop_energy get error: {e}")
                 soc = 'NaN'
                 pv = 'NaN'
                 ec = 'NaN'

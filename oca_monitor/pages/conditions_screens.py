@@ -11,7 +11,7 @@ from serverish.base import dt_ensure_datetime
 from serverish.base.task_manager import create_task_sync, create_task
 from serverish.messenger import Messenger
 import oca_monitor.config as config
-
+from nats.errors import TimeoutError as NatsTimeoutError
 
 logger = logging.getLogger(__name__.rsplit('.')[-1])
 
@@ -90,8 +90,8 @@ class ConditionsScreensWidget(QWidget):
                 self.sensors[sens].temp = data['measurements']['temperature']
                 self.sensors[sens].hum = data['measurements']['humidity']
                 await self.draw_figure()
-            except (ValueError, LookupError, TypeError):
-                pass
+            except (ValueError, TypeError, LookupError, TimeoutError, NatsTimeoutError) as e:
+                logger.warning(f"reader_loop_conditions get error: {e}")
 
     async def draw_figure(self):
         self.figure.clear()

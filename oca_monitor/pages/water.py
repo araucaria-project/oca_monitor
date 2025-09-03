@@ -1,6 +1,6 @@
 import logging
 import datetime
-
+from nats.errors import TimeoutError as NatsTimeoutError
 from PyQt6.QtWidgets import QApplication, QWidget, QGridLayout,QLabel,QProgressBar
 from PyQt6.QtCore import QTimer, Qt
 from matplotlib.backends.backend_qt5agg import FigureCanvasQTAgg as FigureCanvas
@@ -72,18 +72,17 @@ class WaterWindow(QWidget):
         msg = Messenger()
         r = msg.get_reader("telemetry.water.level", deliver_policy='by_start_time', opt_start_time=self.telemetry_start_time)
         async for data, meta in r:
-            if True:
+            try:
                 ts = data['ts']
                 level = float(data["measurements"]["water_level"])
-                #print(ts)
                 self.ts.append(ts)
                 self.water_level.append(level)
                 if len(self.ts) > 100:
                     self.ts = self.ts[len(self.ts)-100:]
                     self.water_level = self.water_level[len(self.ts)-100:]
                 self.update_window()
+            except (ValueError, TypeError, LookupError, TimeoutError, NatsTimeoutError) as e:
+                logger.warning(f"water_loop get error: {e}")
 
-        
-                                
 
 widget_class = WaterWindow
