@@ -1,15 +1,14 @@
 import asyncio
 import logging
 import time
-from typing import List, Dict, Any, Tuple, Iterable, Set, Literal, Callable
+from typing import List, Dict, Any, Tuple, Iterable, Set, Literal
 
 import ephem
 import numpy as np
 import requests
 from astropy.time import Time as czas_astro
 import aiofiles
-from serverish.messenger import Messenger
-from nats.errors import TimeoutError as NatsTimeoutError
+
 
 logger = logging.getLogger(__name__.rsplit('.')[-1])
 
@@ -143,20 +142,3 @@ async def a_read_file(path: str, raise_err: bool = True, mode: Literal['r'] = 'r
             raise
         else:
             return False
-
-async def run_reader(clb: Callable, subject: str, deliver_policy: str, opt_start_time = None) -> None:
-    msg = Messenger()
-    rdr = msg.get_reader(
-        subject=subject,
-        deliver_policy=deliver_policy,
-        opt_start_time=opt_start_time
-    )
-    logger.info(f"Subscribed to {subject}")
-    try:
-        async for data, meta in rdr:
-            try:
-                await clb(data=data, meta=meta)
-            except (ValueError, TypeError, LookupError, TimeoutError, NatsTimeoutError) as e:
-                logger.warning(f"{subject} get error: {e}")
-    except (asyncio.CancelledError, asyncio.TimeoutError, NatsTimeoutError, TimeoutError) as e:
-        logger.warning(f"{subject} 2 get error: {e}")

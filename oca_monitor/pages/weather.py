@@ -1,7 +1,6 @@
 import logging
 import datetime
 
-from nats.errors import TimeoutError as NatsTimeoutError
 from PyQt6.QtWidgets import QApplication, QWidget, QVBoxLayout, QHBoxLayout,QLabel
 from PyQt6.QtCore import QTimer
 from PyQt6 import QtCore, QtGui
@@ -15,8 +14,6 @@ import numpy as np
 import ephem
 import time
 from astropy.time import Time as czas_astro
-
-from oca_monitor.utils import run_reader
 
 logger = logging.getLogger(__name__.rsplit('.')[-1])
 
@@ -153,110 +150,133 @@ class WeatherDataWidget(QWidget):
         QtCore.QTimer.singleShot(1000, self._update_ephem)
         # logger.info(f"WeatherDataWidget UI setup done")
 
-    async def reader_clb_1(self, data, meta):
-        now = datetime.datetime.now()
-        today_midnight = datetime.datetime.combine(datetime.date.today(), datetime.time(0))
-        if now.date() > today_midnight.date():
-            logger.info("Crossed the midnight, resetting the data")
-            yesterday_midnight = today_midnight
-            today_midnight = datetime.datetime.combine(now.date(), datetime.time(0))
-            self.ln_yesterday_wind.set_data(
-                self.ln_today_wind.get_xdata(),
-                self.ln_today_wind.get_ydata()
-            )
-            self.ln_today_wind.set_data([], [])
-
-            self.ln_yesterday_temp.set_data(
-                self.ln_today_temp.get_xdata(),
-                self.ln_today_temp.get_ydata()
-            )
-            self.ln_today_temp.set_data([], [])
-
-            self.ln_yesterday_hum.set_data(
-                self.ln_today_hum.get_xdata(),
-                self.ln_today_hum.get_ydata()
-            )
-            self.ln_today_hum.set_data([], [])
-
-            self.ln_yesterday_pres.set_data(
-                self.ln_today_pres.get_xdata(),
-                self.ln_today_pres.get_ydata()
-            )
-            self.ln_today_pres.set_data([], [])
-
-        # handle current datapoint. it has measurement timestamp in data.ts, and the measurement in data.measurement
-        ts = dt_ensure_datetime(data['ts']).astimezone()
-        measurement = data['measurements']
-        wind_speed10 = measurement['wind_10min_ms']
-        temp = measurement['temperature_C']
-        hum = measurement['humidity']
-        pres = measurement['pressure_Pa']
-        # depending on the date of the measurement, we want to add point to the yesterday or today data
-        hour = ts.hour + ts.minute / 60 + ts.second / 3600
-        if ts < today_midnight.astimezone():
-            # logger.info(f'Adding point to yesterday data {wind_speed10}')
-            self.ln_yesterday_wind.set_data(
-                list(self.ln_yesterday_wind.get_xdata()) + [hour],
-                list(self.ln_yesterday_wind.get_ydata()) + [wind_speed10]
-            )
-
-            self.ln_yesterday_temp.set_data(
-                list(self.ln_yesterday_temp.get_xdata()) + [hour],
-                list(self.ln_yesterday_temp.get_ydata()) + [temp]
-            )
-
-            self.ln_yesterday_hum.set_data(
-                list(self.ln_yesterday_hum.get_xdata()) + [hour],
-                list(self.ln_yesterday_hum.get_ydata()) + [hum]
-            )
-
-            self.ln_yesterday_pres.set_data(
-                list(self.ln_yesterday_pres.get_xdata()) + [hour],
-                list(self.ln_yesterday_pres.get_ydata()) + [pres]
-            )
-        else:
-            # logger.info(f'Adding point to today data {wind_speed10}')
-            self.ln_today_wind.set_data(
-                list(self.ln_today_wind.get_xdata()) + [hour],
-                list(self.ln_today_wind.get_ydata()) + [wind_speed10]
-            )
-            self.ln_today_temp.set_data(
-                list(self.ln_today_temp.get_xdata()) + [hour],
-                list(self.ln_today_temp.get_ydata()) + [temp]
-            )
-
-            self.ln_today_hum.set_data(
-                list(self.ln_today_hum.get_xdata()) + [hour],
-                list(self.ln_today_hum.get_ydata()) + [hum]
-            )
-
-            self.ln_today_pres.set_data(
-                list(self.ln_today_pres.get_xdata()) + [hour],
-                list(self.ln_today_pres.get_ydata()) + [pres]
-            )
-        # lazy redraw
-
-        self.ax_wind.relim()
-        self.ax_wind.autoscale_view()
-
-        self.ax_temp.relim()
-        self.ax_temp.autoscale_view()
-
-        self.ax_hum.relim()
-        self.ax_hum.autoscale_view()
-
-        self.ax_pres.relim()
-        self.ax_pres.autoscale_view()
-        self.canvas.draw_idle()
 
     async def reader_loop(self):
+        msg = Messenger()
+
+        # We want the data from the midnight of yesterday
         today_midnight = datetime.datetime.combine(datetime.date.today(), datetime.time(0))
         yesterday_midnight = today_midnight - datetime.timedelta(days=1)
 
-        await run_reader(
-            clb=self.reader_clb_1, subject=self.weather_subject,
-            deliver_policy='by_start_time', opt_start_time=yesterday_midnight
+        rdr = msg.get_reader(
+            self.weather_subject,
+            deliver_policy='by_start_time',
+            opt_start_time=yesterday_midnight,
         )
+        logger.info(f"Subscribed to {self.weather_subject}")
+
+        sample_measurement = {
+                "temperature_C": 10,
+                "humidity": 50,
+                "wind_dir_deg": 180,
+                "wind_ms": 5,
+                "wind_10min_ms": 5,
+                "pressure_Pa": 101325,
+                "bar_trend": 0,
+                "rain_mm": 0,
+                "rain_day_mm": 0,
+                "indoor_temperature_C": 20,
+                "indoor_humidity": 50,
+        }
+
+        async for data, meta in rdr:
+            try:
+                # if we crossed the midnight, we want to copy today's data to yesterday's and start today from scratch
+                now = datetime.datetime.now()
+                if now.date() > today_midnight.date():
+                    logger.info("Crossed the midnight, resetting the data")
+                    yesterday_midnight = today_midnight
+                    today_midnight = datetime.datetime.combine(now.date(), datetime.time(0))
+                    self.ln_yesterday_wind.set_data(
+                        self.ln_today_wind.get_xdata(),
+                        self.ln_today_wind.get_ydata()
+                    )
+                    self.ln_today_wind.set_data([], [])
+
+                    self.ln_yesterday_temp.set_data(
+                        self.ln_today_temp.get_xdata(),
+                        self.ln_today_temp.get_ydata()
+                    )
+                    self.ln_today_temp.set_data([], [])
+
+                    self.ln_yesterday_hum.set_data(
+                        self.ln_today_hum.get_xdata(),
+                        self.ln_today_hum.get_ydata()
+                    )
+                    self.ln_today_hum.set_data([], [])
+
+                    self.ln_yesterday_pres.set_data(
+                        self.ln_today_pres.get_xdata(),
+                        self.ln_today_pres.get_ydata()
+                    )
+                    self.ln_today_pres.set_data([], [])
+
+                # handle current datapoint. it has measurement timestamp in data.ts, and the measurement in data.measurement
+                ts = dt_ensure_datetime(data['ts']).astimezone()
+                measurement = data['measurements']
+                wind_speed10 = measurement['wind_10min_ms']
+                temp = measurement['temperature_C']
+                hum = measurement['humidity']
+                pres = measurement['pressure_Pa']
+                # depending on the date of the measurement, we want to add point to the yesterday or today data
+                hour = ts.hour + ts.minute / 60 + ts.second / 3600
+                if ts < today_midnight.astimezone():
+                    #logger.info(f'Adding point to yesterday data {wind_speed10}')
+                    self.ln_yesterday_wind.set_data(
+                        list(self.ln_yesterday_wind.get_xdata()) + [hour],
+                        list(self.ln_yesterday_wind.get_ydata()) + [wind_speed10]
+                    )
+
+                    self.ln_yesterday_temp.set_data(
+                        list(self.ln_yesterday_temp.get_xdata()) + [hour],
+                        list(self.ln_yesterday_temp.get_ydata()) + [temp]
+                    )
+
+                    self.ln_yesterday_hum.set_data(
+                        list(self.ln_yesterday_hum.get_xdata()) + [hour],
+                        list(self.ln_yesterday_hum.get_ydata()) + [hum]
+                    )
+
+                    self.ln_yesterday_pres.set_data(
+                        list(self.ln_yesterday_pres.get_xdata()) + [hour],
+                        list(self.ln_yesterday_pres.get_ydata()) + [pres]
+                    )
+                else:
+                    #logger.info(f'Adding point to today data {wind_speed10}')
+                    self.ln_today_wind.set_data(
+                        list(self.ln_today_wind.get_xdata()) + [hour],
+                        list(self.ln_today_wind.get_ydata()) + [wind_speed10]
+                    )
+                    self.ln_today_temp.set_data(
+                        list(self.ln_today_temp.get_xdata()) + [hour],
+                        list(self.ln_today_temp.get_ydata()) + [temp]
+                    )
+
+                    self.ln_today_hum.set_data(
+                        list(self.ln_today_hum.get_xdata()) + [hour],
+                        list(self.ln_today_hum.get_ydata()) + [hum]
+                    )
+
+                    self.ln_today_pres.set_data(
+                        list(self.ln_today_pres.get_xdata()) + [hour],
+                        list(self.ln_today_pres.get_ydata()) + [pres]
+                    )
+                # lazy redraw
+
+                self.ax_wind.relim()
+                self.ax_wind.autoscale_view()
+
+                self.ax_temp.relim()
+                self.ax_temp.autoscale_view()
+
+                self.ax_hum.relim()
+                self.ax_hum.autoscale_view()
+
+                self.ax_pres.relim()
+                self.ax_pres.autoscale_view()
+                self.canvas.draw_idle()
+            except (LookupError, TypeError, ValueError):
+                pass
 
     def _update_ephem(self):
         self.ephem_text,sunalt = ephemeris(self.vertical)
@@ -282,53 +302,71 @@ class WeatherDataWidget(QWidget):
         #warning = 'Wind: '+str(self.wind)+' m/s\n'+'Temperature: '+str(self.temp)+' C\n'+'Humidity: '+str(self.hum)+' %\n'+'Wind dir: '+str(self.main_window.winddir)+'\n'
         #self.label.setText(warning)
 
-    async def reader_clb_2(self, data, meta):
-
-        measurement = data['measurements']
-        self.wind = "{:.1f}".format(measurement['wind_10min_ms'])
-        self.temp = "{:.1f}".format(measurement['temperature_C'])
-        self.hum = int(measurement['humidity'])
-        self.pres = int(measurement['pressure_Pa'])
-        self.winddir = int(measurement['wind_dir_deg'])
-
-        self.main_window.wind = self.wind
-        self.main_window.temp = self.temp
-        self.main_window.hum = self.hum
-        self.main_window.winddir = self.winddir
-        self.main_window.skytemp = '0'
-        if self.vertical:
-            warning = 'Wind:\t' + str(self.wind) + ' m/s\n' + 'Temp:\t' + str(self.temp) + ' C\n' + 'Hum:\t' + str(
-                self.hum) + ' %\n' + 'Wdir:\t' + str(self.main_window.winddir) + ' deg'
-        else:
-            warning = '   Wind:\t\t' + str(self.wind) + ' m/s\n' + '   Temperature:\t' + str(
-                self.temp) + ' C\n' + '   Humidity:\t' + str(self.hum) + ' %\n' + '   Wind dir:\t' + str(
-                self.main_window.winddir) + ' deg'
-        if (float(self.wind) >= 11. and float(self.wind) < 14.) or float(self.hum) > 70.:
-            self.label.setStyleSheet("background-color : yellow; color: black")
-            if self.main_window.sound_page:
-                pass
-                # self.main_window.sound_page.play_weather_warning(True)
-        elif float(self.wind) >= 14. or float(self.hum) > 75. or float(self.temp) < 0.:
-            self.label.setStyleSheet("background-color : red; color: black")
-            if self.main_window.sound_page:
-                pass
-                # self.main_window.sound_page.play_weather_warning(False)
-                # self.main_window.sound_page.play_weather_stop(True)
-        else:
-            if self.main_window.sound_page:
-                pass
-                # self.main_window.sound_page.play_weather_warning(False)
-                # self.main_window.sound_page.play_weather_stop(False)
-            self.label.setStyleSheet("background-color : lightgreen; color: black")
-
-        self.label.setText(warning)
 
     async def reader_loop_2(self):
-        await run_reader(
-            clb=self.reader_clb_1, subject=self.weather_subject,
-            deliver_policy='last'
-        )
 
+        msg = Messenger()
+
+        # We want the data from the midnight of yesterday
+
+
+        rdr = msg.get_reader(
+            self.weather_subject,
+            deliver_policy='last',
+        )
+        logger.info(f"Subscribed to {self.weather_subject}")
+
+        sample_measurement = {
+                "temperature_C": 10,
+                "humidity": 50,
+                "wind_dir_deg": 180,
+                "wind_ms": 5,
+                "wind_10min_ms": 5,
+                "pressure_Pa": 101325,
+                "bar_trend": 0,
+                "rain_mm": 0,
+                "rain_day_mm": 0,
+                "indoor_temperature_C": 20,
+                "indoor_humidity": 50,
+        }
+        async for data, meta in rdr:
+            ts = dt_ensure_datetime(data['ts']).astimezone()
+            # hour = ts.hour + ts.minute / 60 + ts.second / 3600
+            measurement = data['measurements']
+            self.wind = "{:.1f}".format(measurement['wind_10min_ms'])
+            self.temp = "{:.1f}".format(measurement['temperature_C'])
+            self.hum = int(measurement['humidity'])
+            self.pres = int(measurement['pressure_Pa'])
+            self.winddir = int(measurement['wind_dir_deg'])
+
+            self.main_window.wind = self.wind
+            self.main_window.temp = self.temp
+            self.main_window.hum = self.hum
+            self.main_window.winddir = self.winddir
+            self.main_window.skytemp = '0'
+            if self.vertical:
+                warning = 'Wind:\t'+str(self.wind)+' m/s\n'+'Temp:\t'+str(self.temp)+' C\n'+'Hum:\t'+str(self.hum)+' %\n'+'Wdir:\t'+str(self.main_window.winddir)+' deg'
+            else:
+                warning = '   Wind:\t\t'+str(self.wind)+' m/s\n'+'   Temperature:\t'+str(self.temp)+' C\n'+'   Humidity:\t'+str(self.hum)+' %\n'+'   Wind dir:\t'+str(self.main_window.winddir)+' deg'
+            if (float(self.wind) >= 11. and float(self.wind) < 14.) or float(self.hum) > 70.:
+                self.label.setStyleSheet("background-color : yellow; color: black")
+                if self.main_window.sound_page:
+                    pass
+                    # self.main_window.sound_page.play_weather_warning(True)
+            elif float(self.wind) >= 14. or float(self.hum) > 75. or float(self.temp) < 0.:
+                self.label.setStyleSheet("background-color : red; color: black")
+                if self.main_window.sound_page:
+                    pass
+                    # self.main_window.sound_page.play_weather_warning(False)
+                    # self.main_window.sound_page.play_weather_stop(True)
+            else:
+                if self.main_window.sound_page:
+                    pass
+                    # self.main_window.sound_page.play_weather_warning(False)
+                    # self.main_window.sound_page.play_weather_stop(False)
+                self.label.setStyleSheet("background-color : lightgreen; color: black")
+
+            self.label.setText(warning)
 
 
 widget_class = WeatherDataWidget

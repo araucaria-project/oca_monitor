@@ -279,7 +279,7 @@ class MainWindow(QMainWindow):
         except (AttributeError, LookupError, ValueError):
             logger.error(f'Can not get observatory config.')
             self.nats_cfg = {}
-        # await create_task(self.run_task_monitor(), "task_monitor")
+        await create_task(self.run_task_monitor(), "task_monitor")
 
     @asyncSlot()
     async def observatory_config(self) -> dict:
