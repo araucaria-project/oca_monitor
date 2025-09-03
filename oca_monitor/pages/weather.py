@@ -164,7 +164,7 @@ class WeatherDataWidget(QWidget):
             opt_start_time = yesterday_midnight
         )
 
-    def reader_loop_1_clb(self, data, meta):
+    async def reader_loop_1_clb(self, data, meta):
             # if we crossed the midnight, we want to copy today's data to yesterday's and start today from scratch
             now = datetime.datetime.now()
             today_midnight = datetime.datetime.combine(datetime.date.today(), datetime.time(0))
@@ -285,7 +285,7 @@ class WeatherDataWidget(QWidget):
         #warning = 'Wind: '+str(self.wind)+' m/s\n'+'Temperature: '+str(self.temp)+' C\n'+'Humidity: '+str(self.hum)+' %\n'+'Wind dir: '+str(self.main_window.winddir)+'\n'
         #self.label.setText(warning)
 
-    def reader_loop_2_clb(self, data, meta):
+    async def reader_loop_2_clb(self, data, meta):
         # ts = dt_ensure_datetime(data['ts']).astimezone()
         # hour = ts.hour + ts.minute / 60 + ts.second / 3600
         measurement = data['measurements']
