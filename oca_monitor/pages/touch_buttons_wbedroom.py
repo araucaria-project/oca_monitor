@@ -301,19 +301,18 @@ class TouchButtonsWBedroom(QWidget):
         logger.info(f"Subscribed to {self.weather_subject}")
 
         async for data, meta in rdr:
-
             async with self.lock:
                 try:
                     measurement = data['measurements']
-                    self.wind = "{:.1f}".format(measurement['wind_10min_ms'])
-                    self.temp = "{:.1f}".format(measurement['temperature_C'])
-                    self.hum = int(measurement['humidity'])
-                    self.pres = int(measurement['pressure_Pa'])
-                    warning = 'Wind:\t' + str(self.wind) + ' m/s\n' + 'Temp:\t' + str(
-                        self.temp) + ' C\n' + 'Hum:\t' + str(self.hum) + ' %\n' + 'Press:\t' + str(self.pres) + ' hPa'
-                    if (11. <= float(self.wind) < 14.) or float(self.hum) > 70:
+                    wind = "{:.1f}".format(measurement['wind_10min_ms'])
+                    temp = "{:.1f}".format(measurement['temperature_C'])
+                    hum = int(measurement['humidity'])
+                    pres = int(measurement['pressure_Pa'])
+                    warning = 'Wind:\t' + str(wind) + ' m/s\n' + 'Temp:\t' + str(
+                        temp) + ' C\n' + 'Hum:\t' + str(hum) + ' %\n' + 'Press:\t' + str(pres) + ' hPa'
+                    if (11. <= float(wind) < 14.) or float(hum) > 70:
                         self.label_weather.setStyleSheet("background-color : yellow; color: black")
-                    elif float(self.wind) >= 14. or float(self.hum) > 75. or float(self.temp) < 0.:
+                    elif float(wind) >= 14. or float(hum) > 75. or float(temp) < 0.:
                         self.label_weather.setStyleSheet("background-color : coral; color: black")
                     else:
                         self.label_weather.setStyleSheet("background-color : lightgreen; color: black")
@@ -335,13 +334,12 @@ class TouchButtonsWBedroom(QWidget):
         logger.info(f"Subscribed to {self.temp_subject}")
 
         async for data, meta in rdr:
-            async with self.lock:
-                try:
-                    mes = data["measurements"]
-                    self.temp = "{:.1f}".format(mes['temperature'])
-                    self.label_temp.setText(str(self.temp)+ ' C')
-                except (ValueError, TypeError, LookupError, TimeoutError, NatsTimeoutError) as e:
-                    logger.warning(f"reader_loop get error: {e}")
+            try:
+                mes = data["measurements"]
+                temp = "{:.1f}".format(mes['temperature'])
+                self.label_temp.setText(str(temp)+ ' C')
+            except (ValueError, TypeError, LookupError, TimeoutError, NatsTimeoutError) as e:
+                logger.warning(f"reader_loop get error: {e}")
 
 
 widget_class = TouchButtonsWBedroom
