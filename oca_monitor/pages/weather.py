@@ -301,16 +301,18 @@ class WeatherDataWidget(QWidget):
         #warning = 'Wind: '+str(self.wind)+' m/s\n'+'Temperature: '+str(self.temp)+' C\n'+'Humidity: '+str(self.hum)+' %\n'+'Wind dir: '+str(self.main_window.winddir)+'\n'
         #self.label.setText(warning)
 
-    async def reader_loop_2_clb(self, data, meta):
+    async def reader_loop_2_clb(self, data, meta) -> None:
         # ts = dt_ensure_datetime(data['ts']).astimezone()
         # hour = ts.hour + ts.minute / 60 + ts.second / 3600
-        measurement = data['measurements']
-        wind = "{:.1f}".format(measurement['wind_10min_ms'])
-        temp = "{:.1f}".format(measurement['temperature_C'])
-        hum = int(measurement['humidity'])
-        pres = int(measurement['pressure_Pa'])
-        winddir = int(measurement['wind_dir_deg'])
-
+        try:
+            measurement = data['measurements']
+            wind = "{:.1f}".format(measurement['wind_10min_ms'])
+            temp = "{:.1f}".format(measurement['temperature_C'])
+            hum = int(measurement['humidity'])
+            pres = int(measurement['pressure_Pa'])
+            winddir = int(measurement['wind_dir_deg'])
+        except (ValueError, TypeError, LookupError):
+            return
         # self.main_window.wind = self.wind
         # self.main_window.temp = self.temp
         # self.main_window.hum = self.hum
