@@ -55,13 +55,18 @@ class WeatherDataWidget(QWidget):
         self.vertical = bool(vertical_screen)
         self.initUI()
         # async init
-        QTimer.singleShot(0, self.async_init)
         logger.info(f"WeatherDataWidget init setup done")
 
     @asyncSlot()
     async def async_init(self):
         # obs_config = await self.main_window.observatory_config()
         await create_task(self.reader_loop(), "nats_wind reader")
+
+        await self.main_window.run_reader(
+            clb=self.reader_loop_2_clb,
+            subject=self.weather_subject,
+            deliver_policy='last'
+        )
 
     def initUI(self,):
         # Layout
@@ -146,8 +151,9 @@ class WeatherDataWidget(QWidget):
             self.layout.addWidget(self.label,2)
             self.layout.addWidget(self.canvas,10)
 
-        QtCore.QTimer.singleShot(0, self._update_warningWindow)
-        QtCore.QTimer.singleShot(1000, self._update_ephem)
+        QTimer.singleShot(0, self.async_init)
+        QTimer.singleShot(500, self.update_warning_window)
+        QTimer.singleShot(1000, self._update_ephem)
         # logger.info(f"WeatherDataWidget UI setup done")
 
     async def reader_loop(self):
@@ -289,18 +295,6 @@ class WeatherDataWidget(QWidget):
         self.label_ephem.setText(self.ephem_text)
         QtCore.QTimer.singleShot(1000, self._update_ephem)
 
-
-    @asyncSlot()
-    async def _update_warningWindow(self):
-        self.wind = '0.0'
-        self.temp = '0.0'
-        self.hum = '0.0'
-        self.pres = '0.0'
-        await create_task(self.reader_loop_2(), "nats_weather reader_2")
-        
-        #warning = 'Wind: '+str(self.wind)+' m/s\n'+'Temperature: '+str(self.temp)+' C\n'+'Humidity: '+str(self.hum)+' %\n'+'Wind dir: '+str(self.main_window.winddir)+'\n'
-        #self.label.setText(warning)
-
     async def reader_loop_2_clb(self, data, meta) -> None:
         # ts = dt_ensure_datetime(data['ts']).astimezone()
         # hour = ts.hour + ts.minute / 60 + ts.second / 3600
@@ -343,14 +337,6 @@ class WeatherDataWidget(QWidget):
             self.label.setStyleSheet("background-color : lightgreen; color: black")
 
         self.label.setText(warning)
-
-    async def reader_loop_2(self):
-
-        await self.main_window.run_reader(
-            clb=self.reader_loop_2_clb,
-            subject=self.weather_subject,
-            deliver_policy='last'
-        )
 
 
 widget_class = WeatherDataWidget
