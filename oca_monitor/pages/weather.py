@@ -307,38 +307,38 @@ class WeatherDataWidget(QWidget):
         # ts = dt_ensure_datetime(data['ts']).astimezone()
         # hour = ts.hour + ts.minute / 60 + ts.second / 3600
         measurement = data['measurements']
-        self.wind = "{:.1f}".format(measurement['wind_10min_ms'])
-        self.temp = "{:.1f}".format(measurement['temperature_C'])
-        self.hum = int(measurement['humidity'])
-        self.pres = int(measurement['pressure_Pa'])
-        self.winddir = int(measurement['wind_dir_deg'])
+        wind = "{:.1f}".format(measurement['wind_10min_ms'])
+        temp = "{:.1f}".format(measurement['temperature_C'])
+        hum = int(measurement['humidity'])
+        pres = int(measurement['pressure_Pa'])
+        winddir = int(measurement['wind_dir_deg'])
 
-        self.main_window.wind = self.wind
-        self.main_window.temp = self.temp
-        self.main_window.hum = self.hum
-        self.main_window.winddir = self.winddir
-        self.main_window.skytemp = '0'
+        # self.main_window.wind = self.wind
+        # self.main_window.temp = self.temp
+        # self.main_window.hum = self.hum
+        # self.main_window.winddir = self.winddir
+        # self.main_window.skytemp = '0'
         if self.vertical:
-            warning = 'Wind:\t' + str(self.wind) + ' m/s\n' + 'Temp:\t' + str(self.temp) + ' C\n' + 'Hum:\t' + str(
-                self.hum) + ' %\n' + 'Wdir:\t' + str(self.main_window.winddir) + ' deg'
+            warning = 'Wind:\t' + str(wind) + ' m/s\n' + 'Temp:\t' + str(temp) + ' C\n' + 'Hum:\t' + str(
+                hum) + ' %\n' + 'Wdir:\t' + str(winddir) + ' deg'
         else:
-            warning = '   Wind:\t\t' + str(self.wind) + ' m/s\n' + '   Temperature:\t' + str(
-                self.temp) + ' C\n' + '   Humidity:\t' + str(self.hum) + ' %\n' + '   Wind dir:\t' + str(
-                self.main_window.winddir) + ' deg'
-        if (float(self.wind) >= 11. and float(self.wind) < 14.) or float(self.hum) > 70.:
-            self.label.setStyleSheet("background-color : yellow; color: black")
-            if self.main_window.sound_page:
-                pass
-                # self.main_window.sound_page.play_weather_warning(True)
-        elif float(self.wind) >= 14. or float(self.hum) > 75. or float(self.temp) < 0.:
-            self.label.setStyleSheet("background-color : red; color: black")
-            if self.main_window.sound_page:
-                pass
-                # self.main_window.sound_page.play_weather_warning(False)
-                # self.main_window.sound_page.play_weather_stop(True)
-        else:
-            if self.main_window.sound_page:
-                pass
+            warning = '   Wind:\t\t' + str(wind) + ' m/s\n' + '   Temperature:\t' + str(
+                temp) + ' C\n' + '   Humidity:\t' + str(hum) + ' %\n' + '   Wind dir:\t' + str(
+                winddir) + ' deg'
+        # if (float(self.wind) >= 11. and float(self.wind) < 14.) or float(self.hum) > 70.:
+        #     self.label.setStyleSheet("background-color : yellow; color: black")
+        #     if self.main_window.sound_page:
+        #         pass
+        #         # self.main_window.sound_page.play_weather_warning(True)
+        # elif float(self.wind) >= 14. or float(self.hum) > 75. or float(self.temp) < 0.:
+        #     self.label.setStyleSheet("background-color : red; color: black")
+        #     if self.main_window.sound_page:
+        #         pass
+        #         # self.main_window.sound_page.play_weather_warning(False)
+        #         # self.main_window.sound_page.play_weather_stop(True)
+        # else:
+        #     if self.main_window.sound_page:
+        #         pass
                 # self.main_window.sound_page.play_weather_warning(False)
                 # self.main_window.sound_page.play_weather_stop(False)
             self.label.setStyleSheet("background-color : lightgreen; color: black")
