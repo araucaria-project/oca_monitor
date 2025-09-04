@@ -153,113 +153,131 @@ class WeatherDataWidget(QWidget):
         # logger.info(f"WeatherDataWidget UI setup done")
 
     async def reader_loop(self):
+        msg = Messenger()
 
+        # We want the data from the midnight of yesterday
         today_midnight = datetime.datetime.combine(datetime.date.today(), datetime.time(0))
         yesterday_midnight = today_midnight - datetime.timedelta(days=1)
 
-        await run_reader(
-            clb=self.reader_loop_1_clb,
-            subject=self.weather_subject,
+        rdr = msg.get_reader(
+            self.weather_subject,
             deliver_policy='by_start_time',
-            opt_start_time = yesterday_midnight
+            opt_start_time=yesterday_midnight,
         )
+        logger.info(f"Subscribed to {self.weather_subject}")
 
-    async def reader_loop_1_clb(self, data, meta):
-            # if we crossed the midnight, we want to copy today's data to yesterday's and start today from scratch
-            now = datetime.datetime.now()
-            today_midnight = datetime.datetime.combine(datetime.date.today(), datetime.time(0))
-            if now.date() > today_midnight.date():
-                logger.info("Crossed the midnight, resetting the data")
-                yesterday_midnight = today_midnight
-                today_midnight = datetime.datetime.combine(now.date(), datetime.time(0))
-                self.ln_yesterday_wind.set_data(
-                    self.ln_today_wind.get_xdata(),
-                    self.ln_today_wind.get_ydata()
-                )
-                self.ln_today_wind.set_data([], [])
+        sample_measurement = {
+            "temperature_C": 10,
+            "humidity": 50,
+            "wind_dir_deg": 180,
+            "wind_ms": 5,
+            "wind_10min_ms": 5,
+            "pressure_Pa": 101325,
+            "bar_trend": 0,
+            "rain_mm": 0,
+            "rain_day_mm": 0,
+            "indoor_temperature_C": 20,
+            "indoor_humidity": 50,
+        }
 
-                self.ln_yesterday_temp.set_data(
-                    self.ln_today_temp.get_xdata(),
-                    self.ln_today_temp.get_ydata()
-                )
-                self.ln_today_temp.set_data([], [])
+        async for data, meta in rdr:
+            try:
+                # if we crossed the midnight, we want to copy today's data to yesterday's and start today from scratch
+                now = datetime.datetime.now()
+                if now.date() > today_midnight.date():
+                    logger.info("Crossed the midnight, resetting the data")
+                    yesterday_midnight = today_midnight
+                    today_midnight = datetime.datetime.combine(now.date(), datetime.time(0))
+                    self.ln_yesterday_wind.set_data(
+                        self.ln_today_wind.get_xdata(),
+                        self.ln_today_wind.get_ydata()
+                    )
+                    self.ln_today_wind.set_data([], [])
 
-                self.ln_yesterday_hum.set_data(
-                    self.ln_today_hum.get_xdata(),
-                    self.ln_today_hum.get_ydata()
-                )
-                self.ln_today_hum.set_data([], [])
+                    self.ln_yesterday_temp.set_data(
+                        self.ln_today_temp.get_xdata(),
+                        self.ln_today_temp.get_ydata()
+                    )
+                    self.ln_today_temp.set_data([], [])
 
-                self.ln_yesterday_pres.set_data(
-                    self.ln_today_pres.get_xdata(),
-                    self.ln_today_pres.get_ydata()
-                )
-                self.ln_today_pres.set_data([], [])
+                    self.ln_yesterday_hum.set_data(
+                        self.ln_today_hum.get_xdata(),
+                        self.ln_today_hum.get_ydata()
+                    )
+                    self.ln_today_hum.set_data([], [])
 
-            # handle current datapoint. it has measurement timestamp in data.ts, and the measurement in data.measurement
-            ts = dt_ensure_datetime(data['ts']).astimezone()
-            measurement = data['measurements']
-            wind_speed10 = measurement['wind_10min_ms']
-            temp = measurement['temperature_C']
-            hum = measurement['humidity']
-            pres = measurement['pressure_Pa']
-            # depending on the date of the measurement, we want to add point to the yesterday or today data
-            hour = ts.hour + ts.minute / 60 + ts.second / 3600
-            if ts < today_midnight.astimezone():
-                #logger.info(f'Adding point to yesterday data {wind_speed10}')
-                self.ln_yesterday_wind.set_data(
-                    list(self.ln_yesterday_wind.get_xdata()) + [hour],
-                    list(self.ln_yesterday_wind.get_ydata()) + [wind_speed10]
-                )
+                    self.ln_yesterday_pres.set_data(
+                        self.ln_today_pres.get_xdata(),
+                        self.ln_today_pres.get_ydata()
+                    )
+                    self.ln_today_pres.set_data([], [])
 
-                self.ln_yesterday_temp.set_data(
-                    list(self.ln_yesterday_temp.get_xdata()) + [hour],
-                    list(self.ln_yesterday_temp.get_ydata()) + [temp]
-                )
+                # handle current datapoint. it has measurement timestamp in data.ts, and the measurement in data.measurement
+                ts = dt_ensure_datetime(data['ts']).astimezone()
+                measurement = data['measurements']
+                wind_speed10 = measurement['wind_10min_ms']
+                temp = measurement['temperature_C']
+                hum = measurement['humidity']
+                pres = measurement['pressure_Pa']
+                # depending on the date of the measurement, we want to add point to the yesterday or today data
+                hour = ts.hour + ts.minute / 60 + ts.second / 3600
+                if ts < today_midnight.astimezone():
+                    # logger.info(f'Adding point to yesterday data {wind_speed10}')
+                    self.ln_yesterday_wind.set_data(
+                        list(self.ln_yesterday_wind.get_xdata()) + [hour],
+                        list(self.ln_yesterday_wind.get_ydata()) + [wind_speed10]
+                    )
 
-                self.ln_yesterday_hum.set_data(
-                    list(self.ln_yesterday_hum.get_xdata()) + [hour],
-                    list(self.ln_yesterday_hum.get_ydata()) + [hum]
-                )
+                    self.ln_yesterday_temp.set_data(
+                        list(self.ln_yesterday_temp.get_xdata()) + [hour],
+                        list(self.ln_yesterday_temp.get_ydata()) + [temp]
+                    )
 
-                self.ln_yesterday_pres.set_data(
-                    list(self.ln_yesterday_pres.get_xdata()) + [hour],
-                    list(self.ln_yesterday_pres.get_ydata()) + [pres]
-                )
-            else:
-                #logger.info(f'Adding point to today data {wind_speed10}')
-                self.ln_today_wind.set_data(
-                    list(self.ln_today_wind.get_xdata()) + [hour],
-                    list(self.ln_today_wind.get_ydata()) + [wind_speed10]
-                )
-                self.ln_today_temp.set_data(
-                    list(self.ln_today_temp.get_xdata()) + [hour],
-                    list(self.ln_today_temp.get_ydata()) + [temp]
-                )
+                    self.ln_yesterday_hum.set_data(
+                        list(self.ln_yesterday_hum.get_xdata()) + [hour],
+                        list(self.ln_yesterday_hum.get_ydata()) + [hum]
+                    )
 
-                self.ln_today_hum.set_data(
-                    list(self.ln_today_hum.get_xdata()) + [hour],
-                    list(self.ln_today_hum.get_ydata()) + [hum]
-                )
+                    self.ln_yesterday_pres.set_data(
+                        list(self.ln_yesterday_pres.get_xdata()) + [hour],
+                        list(self.ln_yesterday_pres.get_ydata()) + [pres]
+                    )
+                else:
+                    # logger.info(f'Adding point to today data {wind_speed10}')
+                    self.ln_today_wind.set_data(
+                        list(self.ln_today_wind.get_xdata()) + [hour],
+                        list(self.ln_today_wind.get_ydata()) + [wind_speed10]
+                    )
+                    self.ln_today_temp.set_data(
+                        list(self.ln_today_temp.get_xdata()) + [hour],
+                        list(self.ln_today_temp.get_ydata()) + [temp]
+                    )
 
-                self.ln_today_pres.set_data(
-                    list(self.ln_today_pres.get_xdata()) + [hour],
-                    list(self.ln_today_pres.get_ydata()) + [pres]
-                )
-            # lazy redraw
+                    self.ln_today_hum.set_data(
+                        list(self.ln_today_hum.get_xdata()) + [hour],
+                        list(self.ln_today_hum.get_ydata()) + [hum]
+                    )
 
-            self.ax_wind.relim()
-            self.ax_wind.autoscale_view()
+                    self.ln_today_pres.set_data(
+                        list(self.ln_today_pres.get_xdata()) + [hour],
+                        list(self.ln_today_pres.get_ydata()) + [pres]
+                    )
+                # lazy redraw
 
-            self.ax_temp.relim()
-            self.ax_temp.autoscale_view()
+                self.ax_wind.relim()
+                self.ax_wind.autoscale_view()
 
-            self.ax_hum.relim()
-            self.ax_hum.autoscale_view()
+                self.ax_temp.relim()
+                self.ax_temp.autoscale_view()
 
-            self.ax_pres.relim()
-            self.ax_pres.autoscale_view()
-            self.canvas.draw_idle()
+                self.ax_hum.relim()
+                self.ax_hum.autoscale_view()
+
+                self.ax_pres.relim()
+                self.ax_pres.autoscale_view()
+                self.canvas.draw_idle()
+            except (LookupError, TypeError, ValueError):
+                pass
 
     def _update_ephem(self):
         self.ephem_text,sunalt = ephemeris(self.vertical)
