@@ -8,6 +8,7 @@ import numpy as np
 import requests
 from astropy.time import Time as czas_astro
 import aiofiles
+from qasync import asyncSlot
 from serverish.messenger import Messenger
 
 logger = logging.getLogger(__name__.rsplit('.')[-1])
@@ -143,6 +144,7 @@ async def a_read_file(path: str, raise_err: bool = True, mode: Literal['r'] = 'r
         else:
             return False
 
+@asyncSlot()
 async def run_reader(clb: Callable, subject: str, deliver_policy: str, opt_start_time = None) -> None:
     msg = Messenger()
     rdr = msg.get_reader(

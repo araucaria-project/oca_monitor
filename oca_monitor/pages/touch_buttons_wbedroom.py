@@ -266,6 +266,7 @@ class TouchButtonsWBedroom(QWidget):
         await self.siren(wyj)
         self.d_close_clicked()
 
+    @asyncSlot()
     async def push(self, name,user,token,mess):
         pars = {'token':token,'user':user,'message':mess+name+'!'}
         try:
@@ -276,6 +277,7 @@ class TouchButtonsWBedroom(QWidget):
     def c_close_clicked(self):
         self.c.close()
 
+    @asyncSlot()
     async def siren(self,wyj):
         for siren,ip in config.bbox_sirens.items():
             requests.post('http://'+ip+'/state',json={"relays":[{"relay":0,"state":wyj}]})
@@ -291,6 +293,7 @@ class TouchButtonsWBedroom(QWidget):
     async def _update_weather(self):
         await create_task(self.reader_loop_2(), "nats_weather_reader")
 
+    @asyncSlot()
     async def reader_loop_2_clb(self, data, meta):
         measurement = data['measurements']
         wind = "{:.1f}".format(measurement['wind_10min_ms'])
@@ -307,6 +310,7 @@ class TouchButtonsWBedroom(QWidget):
             self.label_weather.setStyleSheet("background-color : lightgreen; color: black")
         self.label_weather.setText(warning)
 
+    @asyncSlot()
     async def reader_loop_2(self):
 
         await run_reader(
@@ -320,11 +324,13 @@ class TouchButtonsWBedroom(QWidget):
 
         await create_task(self.reader_loop_3(), "nats_temp_reader")
 
+    @asyncSlot()
     async def reader_loop_3_clb(self, data, meta):
         mes = data["measurements"]
         temp = "{:.1f}".format(mes['temperature'])
         self.label_temp.setText(str(temp) + ' C')
 
+    @asyncSlot()
     async def reader_loop_3(self):
 
         await run_reader(

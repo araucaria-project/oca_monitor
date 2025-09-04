@@ -152,6 +152,7 @@ class WeatherDataWidget(QWidget):
         QtCore.QTimer.singleShot(1000, self._update_ephem)
         # logger.info(f"WeatherDataWidget UI setup done")
 
+    @asyncSlot()
     async def reader_loop(self):
         msg = Messenger()
 
@@ -303,6 +304,7 @@ class WeatherDataWidget(QWidget):
         #warning = 'Wind: '+str(self.wind)+' m/s\n'+'Temperature: '+str(self.temp)+' C\n'+'Humidity: '+str(self.hum)+' %\n'+'Wind dir: '+str(self.main_window.winddir)+'\n'
         #self.label.setText(warning)
 
+    @asyncSlot()
     async def reader_loop_2_clb(self, data, meta):
         # ts = dt_ensure_datetime(data['ts']).astimezone()
         # hour = ts.hour + ts.minute / 60 + ts.second / 3600
@@ -344,6 +346,7 @@ class WeatherDataWidget(QWidget):
 
         self.label.setText(warning)
 
+    @asyncSlot()
     async def reader_loop_2(self):
 
         await run_reader(
