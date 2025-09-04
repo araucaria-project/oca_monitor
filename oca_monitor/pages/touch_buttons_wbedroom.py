@@ -291,20 +291,24 @@ class TouchButtonsWBedroom(QWidget):
         await create_task(self.reader_loop_2(), "nats_weather_reader")
 
     async def reader_loop_2_clb(self, data, meta):
-        measurement = data['measurements']
-        wind = "{:.1f}".format(measurement['wind_10min_ms'])
-        temp = "{:.1f}".format(measurement['temperature_C'])
-        hum = int(measurement['humidity'])
-        pres = int(measurement['pressure_Pa'])
-        warning = 'Wind:\t' + str(wind) + ' m/s\n' + 'Temp:\t' + str(
-            temp) + ' C\n' + 'Hum:\t' + str(hum) + ' %\n' + 'Press:\t' + str(pres) + ' hPa'
-        if (11. <= float(wind) < 14.) or float(hum) > 70:
-            self.label_weather.setStyleSheet("background-color : yellow; color: black")
-        elif float(wind) >= 14. or float(hum) > 75. or float(temp) < 0.:
-            self.label_weather.setStyleSheet("background-color : coral; color: black")
-        else:
-            self.label_weather.setStyleSheet("background-color : lightgreen; color: black")
-        self.label_weather.setText(warning)
+        try:
+            measurement = data['measurements']
+            wind = "{:.1f}".format(measurement['wind_10min_ms'])
+            temp = "{:.1f}".format(measurement['temperature_C'])
+            hum = int(measurement['humidity'])
+            pres = int(measurement['pressure_Pa'])
+            warning = 'Wind:\t' + str(wind) + ' m/s\n' + 'Temp:\t' + str(
+                temp) + ' C\n' + 'Hum:\t' + str(hum) + ' %\n' + 'Press:\t' + str(pres) + ' hPa'
+            if (11. <= float(wind) < 14.) or float(hum) > 70:
+                self.label_weather.setStyleSheet("background-color : yellow; color: black")
+            elif float(wind) >= 14. or float(hum) > 75. or float(temp) < 0.:
+                self.label_weather.setStyleSheet("background-color : coral; color: black")
+            else:
+                self.label_weather.setStyleSheet("background-color : lightgreen; color: black")
+            self.label_weather.setText(warning)
+        except (ValueError, TypeError, LookupError):
+            pass
+        return True
 
     async def reader_loop_2(self):
 
@@ -320,9 +324,13 @@ class TouchButtonsWBedroom(QWidget):
         await create_task(self.reader_loop_3(), "nats_temp_reader")
 
     async def reader_loop_3_clb(self, data, meta):
-        mes = data["measurements"]
-        temp = "{:.1f}".format(mes['temperature'])
-        self.label_temp.setText(str(temp) + ' C')
+        try:
+            mes = data["measurements"]
+            temp = "{:.1f}".format(mes['temperature'])
+            self.label_temp.setText(str(temp) + ' C')
+        except (ValueError, TypeError, LookupError):
+            pass
+        return True
 
     async def reader_loop_3(self):
 
