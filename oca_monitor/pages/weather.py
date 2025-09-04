@@ -294,7 +294,7 @@ class WeatherDataWidget(QWidget):
         self.label_ephem.setText(self.ephem_text)
         QtCore.QTimer.singleShot(1000, self._update_ephem)
 
-    async def reader_loop_2_clb(self, data, meta) -> None:
+    async def reader_loop_2_clb(self, data, meta) -> bool:
         # ts = dt_ensure_datetime(data['ts']).astimezone()
         # hour = ts.hour + ts.minute / 60 + ts.second / 3600
         try:
@@ -304,38 +304,40 @@ class WeatherDataWidget(QWidget):
             hum = int(measurement['humidity'])
             pres = int(measurement['pressure_Pa'])
             winddir = int(measurement['wind_dir_deg'])
-        except (ValueError, TypeError, LookupError):
-            return
-        # self.main_window.wind = self.wind
-        # self.main_window.temp = self.temp
-        # self.main_window.hum = self.hum
-        # self.main_window.winddir = self.winddir
-        # self.main_window.skytemp = '0'
-        if self.vertical:
-            warning = 'Wind:\t' + str(wind) + ' m/s\n' + 'Temp:\t' + str(temp) + ' C\n' + 'Hum:\t' + str(
-                hum) + ' %\n' + 'Wdir:\t' + str(winddir) + ' deg'
-        else:
-            warning = '   Wind:\t\t' + str(wind) + ' m/s\n' + '   Temperature:\t' + str(
-                temp) + ' C\n' + '   Humidity:\t' + str(hum) + ' %\n' + '   Wind dir:\t' + str(
-                winddir) + ' deg'
-        if (11. <= float(wind) < 14.) or float(hum) > 70.:
-            self.label.setStyleSheet("background-color : yellow; color: black")
-            # if self.main_window.sound_page:
-            #     pass
-                # self.main_window.sound_page.play_weather_warning(True)
-        elif float(wind) >= 14. or float(hum) > 75. or float(temp) < 0.:
-            self.label.setStyleSheet("background-color : red; color: black")
-            # if self.main_window.sound_page:
-            #     pass
-                # self.main_window.sound_page.play_weather_warning(False)
-                # self.main_window.sound_page.play_weather_stop(True)
-        else:
-            # if self.main_window.sound_page:
-            #     self.main_window.sound_page.play_weather_warning(False)
-            #     self.main_window.sound_page.play_weather_stop(False)
-            self.label.setStyleSheet("background-color : lightgreen; color: black")
 
-        self.label.setText(warning)
+            # self.main_window.wind = self.wind
+            # self.main_window.temp = self.temp
+            # self.main_window.hum = self.hum
+            # self.main_window.winddir = self.winddir
+            # self.main_window.skytemp = '0'
+            if self.vertical:
+                warning = 'Wind:\t' + str(wind) + ' m/s\n' + 'Temp:\t' + str(temp) + ' C\n' + 'Hum:\t' + str(
+                    hum) + ' %\n' + 'Wdir:\t' + str(winddir) + ' deg'
+            else:
+                warning = '   Wind:\t\t' + str(wind) + ' m/s\n' + '   Temperature:\t' + str(
+                    temp) + ' C\n' + '   Humidity:\t' + str(hum) + ' %\n' + '   Wind dir:\t' + str(
+                    winddir) + ' deg'
+            if (11. <= float(wind) < 14.) or float(hum) > 70.:
+                self.label.setStyleSheet("background-color : yellow; color: black")
+                # if self.main_window.sound_page:
+                #     pass
+                    # self.main_window.sound_page.play_weather_warning(True)
+            elif float(wind) >= 14. or float(hum) > 75. or float(temp) < 0.:
+                self.label.setStyleSheet("background-color : red; color: black")
+                # if self.main_window.sound_page:
+                #     pass
+                    # self.main_window.sound_page.play_weather_warning(False)
+                    # self.main_window.sound_page.play_weather_stop(True)
+            else:
+                # if self.main_window.sound_page:
+                #     self.main_window.sound_page.play_weather_warning(False)
+                #     self.main_window.sound_page.play_weather_stop(False)
+                self.label.setStyleSheet("background-color : lightgreen; color: black")
+
+            self.label.setText(warning)
+        except (ValueError, TypeError, LookupError):
+            pass
+        return True
 
 
 widget_class = WeatherDataWidget
