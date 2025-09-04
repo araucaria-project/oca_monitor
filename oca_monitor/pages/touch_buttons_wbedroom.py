@@ -15,6 +15,7 @@ from serverish.messenger import Messenger
 import ephem
 import time
 from oca_monitor.image_display import ImageDisplay
+from oca_monitor.utils import run_reader
 
 # please use logging like here, it will name the log record with the name of the module
 logger = logging.getLogger(__name__.rsplit('.')[-1])
@@ -290,56 +291,47 @@ class TouchButtonsWBedroom(QWidget):
     async def _update_weather(self):
         await create_task(self.reader_loop_2(), "nats_weather_reader")
 
-    async def reader_loop_2(self):
-        
-        msg = Messenger()
-        # We want the data from the midnight of yesterday
-        rdr = msg.get_reader(
-            self.weather_subject,
-            deliver_policy='last',
-        )
-        logger.info(f"Subscribed to {self.weather_subject}")
+    async def reader_loop_2_clb(self, data, meta):
+        measurement = data['measurements']
+        wind = "{:.1f}".format(measurement['wind_10min_ms'])
+        temp = "{:.1f}".format(measurement['temperature_C'])
+        hum = int(measurement['humidity'])
+        pres = int(measurement['pressure_Pa'])
+        warning = 'Wind:\t' + str(wind) + ' m/s\n' + 'Temp:\t' + str(
+            temp) + ' C\n' + 'Hum:\t' + str(hum) + ' %\n' + 'Press:\t' + str(pres) + ' hPa'
+        if (11. <= float(wind) < 14.) or float(hum) > 70:
+            self.label_weather.setStyleSheet("background-color : yellow; color: black")
+        elif float(wind) >= 14. or float(hum) > 75. or float(temp) < 0.:
+            self.label_weather.setStyleSheet("background-color : coral; color: black")
+        else:
+            self.label_weather.setStyleSheet("background-color : lightgreen; color: black")
+        self.label_weather.setText(warning)
 
-        async for data, meta in rdr:
-            async with self.lock:
-                try:
-                    measurement = data['measurements']
-                    wind = "{:.1f}".format(measurement['wind_10min_ms'])
-                    temp = "{:.1f}".format(measurement['temperature_C'])
-                    hum = int(measurement['humidity'])
-                    pres = int(measurement['pressure_Pa'])
-                    warning = 'Wind:\t' + str(wind) + ' m/s\n' + 'Temp:\t' + str(
-                        temp) + ' C\n' + 'Hum:\t' + str(hum) + ' %\n' + 'Press:\t' + str(pres) + ' hPa'
-                    if (11. <= float(wind) < 14.) or float(hum) > 70:
-                        self.label_weather.setStyleSheet("background-color : yellow; color: black")
-                    elif float(wind) >= 14. or float(hum) > 75. or float(temp) < 0.:
-                        self.label_weather.setStyleSheet("background-color : coral; color: black")
-                    else:
-                        self.label_weather.setStyleSheet("background-color : lightgreen; color: black")
-                    self.label_weather.setText(warning)
-                except (ValueError, TypeError, LookupError, TimeoutError, NatsTimeoutError) as e:
-                    logger.warning(f"reader_loop get error: {e}")
+    async def reader_loop_2(self):
+
+        await run_reader(
+            clb=self.reader_loop_2_clb,
+            subject=self.weather_subject,
+            deliver_policy='last'
+        )
 
     @asyncSlot()
     async def _update_temp(self):
 
         await create_task(self.reader_loop_3(), "nats_temp_reader")
 
-    async def reader_loop_3(self):
-        msg = Messenger()
-        rdr = msg.get_reader(
-            self.temp_subject,
-            deliver_policy='last',
-        )
-        logger.info(f"Subscribed to {self.temp_subject}")
+    async def reader_loop_3_clb(self, data, meta):
+        mes = data["measurements"]
+        temp = "{:.1f}".format(mes['temperature'])
+        self.label_temp.setText(str(temp) + ' C')
 
-        async for data, meta in rdr:
-            try:
-                mes = data["measurements"]
-                temp = "{:.1f}".format(mes['temperature'])
-                self.label_temp.setText(str(temp)+ ' C')
-            except (ValueError, TypeError, LookupError, TimeoutError, NatsTimeoutError) as e:
-                logger.warning(f"reader_loop get error: {e}")
+    async def reader_loop_3(self):
+
+        await run_reader(
+            clb=self.reader_loop_3_clb,
+            subject=self.temp_subject,
+            deliver_policy='last'
+        )
 
 
 widget_class = TouchButtonsWBedroom
