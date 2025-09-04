@@ -152,7 +152,6 @@ class WeatherDataWidget(QWidget):
             self.layout.addWidget(self.canvas,10)
 
         QTimer.singleShot(0, self.async_init)
-        QTimer.singleShot(500, self.update_warning_window)
         QTimer.singleShot(1000, self._update_ephem)
         # logger.info(f"WeatherDataWidget UI setup done")
 
