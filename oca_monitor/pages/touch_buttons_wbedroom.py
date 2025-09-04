@@ -11,11 +11,10 @@ import oca_monitor.config as config
 from qasync import asyncSlot
 from PyQt6.QtCore import QTimer
 from serverish.base.task_manager import create_task_sync, create_task
-from serverish.messenger import Messenger
 import ephem
 import time
 from oca_monitor.image_display import ImageDisplay
-from oca_monitor.utils import run_reader
+
 
 # please use logging like here, it will name the log record with the name of the module
 logger = logging.getLogger(__name__.rsplit('.')[-1])
@@ -266,7 +265,6 @@ class TouchButtonsWBedroom(QWidget):
         await self.siren(wyj)
         self.d_close_clicked()
 
-    @asyncSlot()
     async def push(self, name,user,token,mess):
         pars = {'token':token,'user':user,'message':mess+name+'!'}
         try:
@@ -277,7 +275,6 @@ class TouchButtonsWBedroom(QWidget):
     def c_close_clicked(self):
         self.c.close()
 
-    @asyncSlot()
     async def siren(self,wyj):
         for siren,ip in config.bbox_sirens.items():
             requests.post('http://'+ip+'/state',json={"relays":[{"relay":0,"state":wyj}]})
@@ -293,7 +290,6 @@ class TouchButtonsWBedroom(QWidget):
     async def _update_weather(self):
         await create_task(self.reader_loop_2(), "nats_weather_reader")
 
-    @asyncSlot()
     async def reader_loop_2_clb(self, data, meta):
         measurement = data['measurements']
         wind = "{:.1f}".format(measurement['wind_10min_ms'])
@@ -310,10 +306,9 @@ class TouchButtonsWBedroom(QWidget):
             self.label_weather.setStyleSheet("background-color : lightgreen; color: black")
         self.label_weather.setText(warning)
 
-    @asyncSlot()
     async def reader_loop_2(self):
 
-        await run_reader(
+        await self.main_window.run_reader(
             clb=self.reader_loop_2_clb,
             subject=self.weather_subject,
             deliver_policy='last'
@@ -324,16 +319,14 @@ class TouchButtonsWBedroom(QWidget):
 
         await create_task(self.reader_loop_3(), "nats_temp_reader")
 
-    @asyncSlot()
     async def reader_loop_3_clb(self, data, meta):
         mes = data["measurements"]
         temp = "{:.1f}".format(mes['temperature'])
         self.label_temp.setText(str(temp) + ' C')
 
-    @asyncSlot()
     async def reader_loop_3(self):
 
-        await run_reader(
+        await self.main_window.run_reader(
             clb=self.reader_loop_3_clb,
             subject=self.temp_subject,
             deliver_policy='last'

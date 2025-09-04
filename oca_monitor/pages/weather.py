@@ -15,8 +15,6 @@ import ephem
 import time
 from astropy.time import Time as czas_astro
 
-from oca_monitor.utils import run_reader
-
 logger = logging.getLogger(__name__.rsplit('.')[-1])
 
 def ephemeris(vertical = 0):
@@ -152,7 +150,6 @@ class WeatherDataWidget(QWidget):
         QtCore.QTimer.singleShot(1000, self._update_ephem)
         # logger.info(f"WeatherDataWidget UI setup done")
 
-    @asyncSlot()
     async def reader_loop(self):
         msg = Messenger()
 
@@ -304,7 +301,6 @@ class WeatherDataWidget(QWidget):
         #warning = 'Wind: '+str(self.wind)+' m/s\n'+'Temperature: '+str(self.temp)+' C\n'+'Humidity: '+str(self.hum)+' %\n'+'Wind dir: '+str(self.main_window.winddir)+'\n'
         #self.label.setText(warning)
 
-    @asyncSlot()
     async def reader_loop_2_clb(self, data, meta):
         # ts = dt_ensure_datetime(data['ts']).astimezone()
         # hour = ts.hour + ts.minute / 60 + ts.second / 3600
@@ -346,10 +342,9 @@ class WeatherDataWidget(QWidget):
 
         self.label.setText(warning)
 
-    @asyncSlot()
     async def reader_loop_2(self):
 
-        await run_reader(
+        await self.main_window.run_reader(
             clb=self.reader_loop_2_clb,
             subject=self.weather_subject,
             deliver_policy='last'
