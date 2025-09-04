@@ -325,22 +325,21 @@ class WeatherDataWidget(QWidget):
             warning = '   Wind:\t\t' + str(wind) + ' m/s\n' + '   Temperature:\t' + str(
                 temp) + ' C\n' + '   Humidity:\t' + str(hum) + ' %\n' + '   Wind dir:\t' + str(
                 winddir) + ' deg'
-        # if (float(self.wind) >= 11. and float(self.wind) < 14.) or float(self.hum) > 70.:
-        #     self.label.setStyleSheet("background-color : yellow; color: black")
-        #     if self.main_window.sound_page:
-        #         pass
-        #         # self.main_window.sound_page.play_weather_warning(True)
-        # elif float(self.wind) >= 14. or float(self.hum) > 75. or float(self.temp) < 0.:
-        #     self.label.setStyleSheet("background-color : red; color: black")
-        #     if self.main_window.sound_page:
-        #         pass
-        #         # self.main_window.sound_page.play_weather_warning(False)
-        #         # self.main_window.sound_page.play_weather_stop(True)
-        # else:
-        #     if self.main_window.sound_page:
-        #         pass
+        if (float(wind) >= 11. and float(wind) < 14.) or float(hum) > 70.:
+            self.label.setStyleSheet("background-color : yellow; color: black")
+            # if self.main_window.sound_page:
+            #     pass
+                # self.main_window.sound_page.play_weather_warning(True)
+        elif float(wind) >= 14. or float(hum) > 75. or float(temp) < 0.:
+            self.label.setStyleSheet("background-color : red; color: black")
+            # if self.main_window.sound_page:
+            #     pass
                 # self.main_window.sound_page.play_weather_warning(False)
-                # self.main_window.sound_page.play_weather_stop(False)
+                # self.main_window.sound_page.play_weather_stop(True)
+        else:
+            if self.main_window.sound_page:
+                self.main_window.sound_page.play_weather_warning(False)
+                self.main_window.sound_page.play_weather_stop(False)
             self.label.setStyleSheet("background-color : lightgreen; color: black")
 
         self.label.setText(warning)
