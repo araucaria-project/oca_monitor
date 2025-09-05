@@ -1,3 +1,4 @@
+import asyncio
 import logging
 import datetime
 
@@ -295,11 +296,7 @@ class WeatherDataWidget(QWidget):
         QtCore.QTimer.singleShot(1000, self._update_ephem)
 
     async def reader_loop_2_clb(self, data, meta) -> bool:
-        # ts = dt_ensure_datetime(data['ts']).astimezone()
-        # hour = ts.hour + ts.minute / 60 + ts.second / 3600
-        self.label.setStyleSheet("background-color : cyan; color: black")
         try:
-
             measurement = data['measurements']
             wind = "{:.1f}".format(measurement['wind_10min_ms'])
             temp = "{:.1f}".format(measurement['temperature_C'])
