@@ -13,7 +13,7 @@ import logging
 from asyncio import Lock
 from importlib import import_module
 import dataclasses
-from typing import Dict, List, TypedDict, Callable, Optional
+from typing import Dict, List, TypedDict, Callable, Optional, Any
 from nats.errors import TimeoutError as NatsTimeoutError
 from PyQt6.QtCore import QTimer
 from PyQt6.QtWidgets import QMainWindow, QGridLayout, QWidget, QTabWidget, QLabel, QToolBar
@@ -175,7 +175,7 @@ class MainWindow(QMainWindow):
         super().__init__()
         self._config = None
         self.task_manager: TaskManager = TaskManager()
-        self.subscriptions: List[Subscriber] = []
+        self.subscriptions: List[Any] = []
         self.initUI()
 
     def initUI(self):
@@ -293,22 +293,6 @@ class MainWindow(QMainWindow):
             subject=subject,
             deliver_policy=deliver_policy
         )
-
-        # rdr = msg.get_reader(
-        #     subject=subject,
-        #     deliver_policy=deliver_policy,
-        #     opt_start_time=opt_start_time
-        # )
         subscribed = await sub.subscribe(callback=clb)
         self.subscriptions.append(subscribed)
-
         logger.info(f"Subscription to {subject} started")
-        # try:
-        #     async for data, meta in rdr:
-        #         try:
-        #             await clb(data=data, meta=meta)
-        #         except (ValueError, TypeError, LookupError, TimeoutError, NatsTimeoutError) as e:
-        #             logger.warning(f"{subject} get error: {e}")
-        # except (asyncio.CancelledError, asyncio.TimeoutError, NatsTimeoutError, TimeoutError) as e:
-        #     logger.warning(f"{subject} 2 get error: {e}")
-
