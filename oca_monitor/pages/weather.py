@@ -187,7 +187,7 @@ class WeatherDataWidget(QWidget):
         async for data, meta in rdr:
             try:
                 # if we crossed the midnight, we want to copy today's data to yesterday's and start today from scratch
-                now = datetime.datetime.now()
+                now = datetime.datetime.now(datetime.timezone.utc)
                 if now.date() > today_midnight.date():
                     logger.info("Crossed the midnight, resetting the data")
                     yesterday_midnight = today_midnight
