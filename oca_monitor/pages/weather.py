@@ -194,7 +194,7 @@ class WeatherDataWidget(QWidget):
             try:
                 # if we crossed the midnight, we want to copy today's data to yesterday's and start today from scratch
                 now = datetime.datetime.now(datetime.timezone.utc)
-                if now > today_midnight:
+                if now.date() > today_midnight.date():
                     logger.info("Crossed the midnight, resetting the data")
                     # yesterday_midnight = today_midnight
                     today_midnight = await self.get_today_midnight()
