@@ -191,7 +191,7 @@ class WeatherDataWidget(QWidget):
                 if now.date() > today_midnight.date():
                     logger.info("Crossed the midnight, resetting the data")
                     yesterday_midnight = today_midnight
-                    today_midnight = datetime.datetime.combine(now.date(), datetime.time(0))
+                    today_midnight = datetime.datetime.combine(now.date(), datetime.time(0)).astimezone(datetime.timezone.utc)
                     self.ln_yesterday_wind.set_data(
                         self.ln_today_wind.get_xdata(),
                         self.ln_today_wind.get_ydata()
@@ -217,7 +217,7 @@ class WeatherDataWidget(QWidget):
                     self.ln_today_pres.set_data([], [])
 
                 # handle current datapoint. it has measurement timestamp in data.ts, and the measurement in data.measurement
-                ts = dt_ensure_datetime(data['ts']).astimezone()
+                ts = dt_ensure_datetime(data['ts']).astimezone(datetime.timezone.utc)
                 measurement = data['measurements']
                 wind_speed10 = measurement['wind_10min_ms']
                 temp = measurement['temperature_C']
@@ -225,7 +225,7 @@ class WeatherDataWidget(QWidget):
                 pres = measurement['pressure_Pa']
                 # depending on the date of the measurement, we want to add point to the yesterday or today data
                 hour = ts.hour + ts.minute / 60 + ts.second / 3600
-                if ts < today_midnight.astimezone():
+                if ts < today_midnight.astimezone(datetime.timezone.utc):
                     # logger.info(f'Adding point to yesterday data {wind_speed10}')
                     self.ln_yesterday_wind.set_data(
                         list(self.ln_yesterday_wind.get_xdata()) + [hour],
