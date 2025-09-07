@@ -160,7 +160,7 @@ class WeatherDataWidget(QWidget):
         msg = Messenger()
 
         # We want the data from the midnight of yesterday
-        today_midnight = datetime.datetime.combine(datetime.date.today(), datetime.time(0))
+        today_midnight = datetime.datetime.combine(datetime.date.today(), datetime.time(0)).astimezone(datetime.timezone.utc)
         yesterday_midnight = today_midnight - datetime.timedelta(days=1)
 
         rdr = msg.get_reader(
