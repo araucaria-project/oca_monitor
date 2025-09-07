@@ -162,7 +162,7 @@ class WeatherDataWidget(QWidget):
         # We want the data from the midnight of yesterday
         today_midnight = datetime.datetime.combine(datetime.date.today(), datetime.time(0)).astimezone(datetime.timezone.utc)
         yesterday_midnight = today_midnight - datetime.timedelta(days=1)
-
+        logger.info(f"Start reader weather data chart: {yesterday_midnight}")
         rdr = msg.get_reader(
             self.weather_subject,
             deliver_policy='by_start_time',
@@ -170,19 +170,19 @@ class WeatherDataWidget(QWidget):
         )
         logger.info(f"Subscribed to {self.weather_subject}")
 
-        sample_measurement = {
-            "temperature_C": 10,
-            "humidity": 50,
-            "wind_dir_deg": 180,
-            "wind_ms": 5,
-            "wind_10min_ms": 5,
-            "pressure_Pa": 101325,
-            "bar_trend": 0,
-            "rain_mm": 0,
-            "rain_day_mm": 0,
-            "indoor_temperature_C": 20,
-            "indoor_humidity": 50,
-        }
+        # sample_measurement = {
+        #     "temperature_C": 10,
+        #     "humidity": 50,
+        #     "wind_dir_deg": 180,
+        #     "wind_ms": 5,
+        #     "wind_10min_ms": 5,
+        #     "pressure_Pa": 101325,
+        #     "bar_trend": 0,
+        #     "rain_mm": 0,
+        #     "rain_day_mm": 0,
+        #     "indoor_temperature_C": 20,
+        #     "indoor_humidity": 50,
+        # }
 
         async for data, meta in rdr:
             try:
@@ -217,7 +217,7 @@ class WeatherDataWidget(QWidget):
                     self.ln_today_pres.set_data([], [])
 
                 # handle current datapoint. it has measurement timestamp in data.ts, and the measurement in data.measurement
-                ts = dt_ensure_datetime(data['ts']).astimezone(datetime.timezone.utc)
+                ts = dt_ensure_datetime(data['ts']) #.astimezone(datetime.timezone.utc)
                 measurement = data['measurements']
                 wind_speed10 = measurement['wind_10min_ms']
                 temp = measurement['temperature_C']
@@ -286,11 +286,11 @@ class WeatherDataWidget(QWidget):
     def _update_ephem(self):
         self.ephem_text,sunalt = ephemeris(self.vertical)
         self.sunalt = float(sunalt)
-        if self.sunalt > -2.:
+        if self.sunalt > -2.0:
             self.label_ephem.setStyleSheet("background-color : coral; color: black")
-        elif self.sunalt <= -2. and self.sunalt > -18.:
+        elif self.sunalt <= -2.0 and self.sunalt > -18.0:
             self.label_ephem.setStyleSheet("background-color : yellow; color: black")
-        elif self.sunalt <= -18.:
+        elif self.sunalt <= -18.0:
             self.label_ephem.setStyleSheet("background-color : lightgreen; color: black")
         self.label_ephem.setText(self.ephem_text)
         QtCore.QTimer.singleShot(1000, self._update_ephem)
