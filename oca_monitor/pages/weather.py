@@ -156,11 +156,17 @@ class WeatherDataWidget(QWidget):
         self._update_ephem()
         # logger.info(f"WeatherDataWidget UI setup done")
 
+    async def get_today_midnight(self) -> datetime.datetime:
+        now = datetime.datetime.now(datetime.timezone.utc)
+        return datetime.datetime(year=now.year, month=now.month, day=now.day, tzinfo=datetime.timezone.utc)
+
     async def reader_loop(self):
         msg = Messenger()
 
         # We want the data from the midnight of yesterday
-        today_midnight = datetime.datetime.combine(datetime.date.today(), datetime.time(0)).astimezone(datetime.timezone.utc)
+        # today_midnight = datetime.datetime.combine(datetime.date.today(), datetime.time(0))
+
+        today_midnight = await self.get_today_midnight()
         yesterday_midnight = today_midnight - datetime.timedelta(days=1)
         logger.info(f"Start reader weather data chart: {yesterday_midnight}")
         rdr = msg.get_reader(
@@ -188,10 +194,10 @@ class WeatherDataWidget(QWidget):
             try:
                 # if we crossed the midnight, we want to copy today's data to yesterday's and start today from scratch
                 now = datetime.datetime.now(datetime.timezone.utc)
-                if now.date() > today_midnight.date():
+                if now > today_midnight:
                     logger.info("Crossed the midnight, resetting the data")
                     # yesterday_midnight = today_midnight
-                    today_midnight = datetime.datetime.combine(now.date(), datetime.time(0)).astimezone(datetime.timezone.utc)
+                    today_midnight = await self.get_today_midnight()
                     self.ln_yesterday_wind.set_data(
                         self.ln_today_wind.get_xdata(),
                         self.ln_today_wind.get_ydata()
