@@ -47,7 +47,6 @@ class ConditionsScreensWidget(QWidget):
         for sens, params in self.htsensors.items():
             if sens not in self.sensors.keys():
                 self.sensors[sens]=sensor(sens,params[0],x=params[1],y=params[2])
-                logger.info(sens,params[1],params[2])
             subject = self.subject_conditions+'.'+sens
             await create_task(self.reader_loop_conditions(subject,sens), f"nats_reader_conditions_{sens}")
 
