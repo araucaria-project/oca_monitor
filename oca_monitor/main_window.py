@@ -13,13 +13,14 @@ import logging
 from asyncio import Lock
 from importlib import import_module
 import dataclasses
-from typing import Dict, List, TypedDict, Callable, Optional
-
+from typing import Dict, List, TypedDict, Callable, Optional, Any
+from nats.errors import TimeoutError as NatsTimeoutError
 from PyQt6.QtCore import QTimer
 from PyQt6.QtWidgets import QMainWindow, QGridLayout, QWidget, QTabWidget, QLabel, QToolBar
 from PyQt6.QtWidgets import QPushButton, QVBoxLayout
 from serverish.base.task_manager import create_task_sync, create_task, Task, TaskManager
 from serverish.messenger import Messenger, single_read
+from serverish.messenger.msg_callback_sub import MsgCallbackSubscriber
 
 from oca_monitor.config import settings
 from oca_monitor.tab_config_dialog import TabConfigDialog
@@ -174,6 +175,7 @@ class MainWindow(QMainWindow):
         super().__init__()
         self._config = None
         self.task_manager: TaskManager = TaskManager()
+        self.subscriptions: List[Any] = []
         self.initUI()
 
     def initUI(self):
@@ -246,27 +248,22 @@ class MainWindow(QMainWindow):
 
     async def run_task_monitor(self, period: float = 60) -> None:
         logger.info(f"Task monitor starting with period {period}s")
-        task_names_list = []
+        # task_names_list = []
         while True:
-            checked_tasks = 0
-            error_task = 0
-            ok_task = 0
-            current_names_list = []
-            for task in self.task_manager.children:
-                if 'nats' in task.name:
-                    checked_tasks += 1
-                    if task.done():
-                        error_task += 1
-                        logger.error(f"Task {task.name} error")
-                    else:
-                        ok_task += 1
-                    if task.name not in task_names_list:
-                        task_names_list.append(task.name)
-                    current_names_list.append(task.name)
-            for task_name in task_names_list:
-                if task_name not in current_names_list:
-                    logger.info(f"Missing task {task_name}")
-            logger.info(f"Nats tasks ok: {ok_task}, error: {error_task}, all: {checked_tasks}")
+            # checked_tasks = 0
+            # error_task = 0
+            # ok_task = 0
+            for task in self.subscriptions:
+                if task.done():
+                    logger.error(f"Task {task.name} error")
+            #
+            #     if task.name not in task_names_list:
+            #         task_names_list.append(task.name)
+            #     current_names_list.append(task.name)
+            # for task_name in task_names_list:
+            #     if task_name not in current_names_list:
+            #         logger.info(f"Missing task {task_name}")
+            # logger.info(f"Nats tasks ok: {ok_task}, error: {error_task}, all: {checked_tasks}")
             await asyncio.sleep(period)
 
     @asyncSlot()
@@ -290,3 +287,12 @@ class MainWindow(QMainWindow):
                     logger.info(f'Obtained Observatory Config. Published: {self._config["published"]}')
         return self._config
 
+    async def run_reader(self, clb: Callable, subject: str, deliver_policy: str = None, opt_start_time=None) -> None:
+        msg = Messenger()
+        sub: MsgCallbackSubscriber = msg.get_callbacksubscriber(
+            subject=subject,
+            deliver_policy=deliver_policy
+        )
+        subscribed = await sub.subscribe(callback=clb)
+        self.subscriptions.append(subscribed)
+        logger.info(f"Subscription to {subject} started")

@@ -132,48 +132,72 @@ class ConditionsScreensWidget(QWidget):
             except (LookupError, ValueError, TypeError):
                 self.label_water.setText('No data')
 
-    async def reader_loop_energy(self):
-        msg = Messenger()
-
-        # We want the data from the midnight of yesterday
-        today_midnight = datetime.datetime.combine(datetime.date.today(), datetime.time(0))
-        # yesterday_midnight = today_midnight - datetime.timedelta(days=1)
-
-        rdr = msg.get_reader(
-            self.subject_energy,
-            deliver_policy='by_start_time',
-            opt_start_time=today_midnight,
-        )
-        logger.info(f"Subscribed to {self.subject_energy}")
-
-        # sample_measurement = {
-        #         "state_of_charge": 100,
-        #         "pv_power": 0,
-        #         "battery charge": 0,
-        #         "battery_discharge": 0,
-        # }
-        async for data, meta in rdr:
-            try:
-                # now = datetime.datetime.now()
-                # handle current datapoint. it has measurement timestamp in data.ts, and the measurement in data.measurement
-                # ts = dt_ensure_datetime(data['ts']).astimezone()
-                measurement = data['measurements']
-                soc = measurement['state_of_charge']
-                pv = measurement['pv_power']
-                if pv < 0:
-                    pv = 0
-                bc = measurement['battery_charge']
-                bd = measurement['battery_discharge']
-                ec = bd + pv - bc
-                # depending on the date of the measurement, we want to add point to the yesterday or today data
-                # hour = ts.hour + ts.minute / 60 + ts.second / 3600
-            except (ValueError, TypeError, LookupError):
-                soc = 'NaN'
-                pv = 'NaN'
-                ec = 'NaN'
-
-            text = 'ENERGY:\nClusters state of charge\t'+str(soc)+' %\n' + 'Solar Power\t\t'+str(pv)+' W\n'+ 'Power consumption\t'+str(ec)+' W'
+    async def reader_loop_energy_clb(self, data, meta) -> bool:
+        try:
+            measurement = data['measurements']
+            soc = measurement['state_of_charge']
+            pv = measurement['pv_power']
+            if pv < 0:
+                pv = 0
+            bc = measurement['battery_charge']
+            bd = measurement['battery_discharge']
+            ec = bd + pv - bc
+            text = 'ENERGY:\nClusters state of charge\t' + str(soc) + ' %\n' + 'Solar Power\t\t' + str(
+                pv) + ' W\n' + 'Power consumption\t' + str(ec) + ' W'
             self.label_energy.setText(text)
+        except (ValueError, TypeError, LookupError):
+            pass
+        return True
+
+    async def reader_loop_energy(self):
+        await self.main_window.run_reader(
+            clb=self.reader_loop_energy_clb,
+            subject=self.subject_energy,
+            deliver_policy='last'
+        )
+
+    # async def reader_loop_energy(self):
+    #     msg = Messenger()
+    #
+    #     # We want the data from the midnight of yesterday
+    #     today_midnight = datetime.datetime.combine(datetime.date.today(), datetime.time(0))
+    #     # yesterday_midnight = today_midnight - datetime.timedelta(days=1)
+    #
+    #     rdr = msg.get_reader(
+    #         self.subject_energy,
+    #         deliver_policy='by_start_time',
+    #         opt_start_time=today_midnight,
+    #     )
+    #     logger.info(f"Subscribed to {self.subject_energy}")
+    #
+    #     # sample_measurement = {
+    #     #         "state_of_charge": 100,
+    #     #         "pv_power": 0,
+    #     #         "battery charge": 0,
+    #     #         "battery_discharge": 0,
+    #     # }
+    #     async for data, meta in rdr:
+    #         try:
+    #             # now = datetime.datetime.now()
+    #             # handle current datapoint. it has measurement timestamp in data.ts, and the measurement in data.measurement
+    #             # ts = dt_ensure_datetime(data['ts']).astimezone()
+    #             measurement = data['measurements']
+    #             soc = measurement['state_of_charge']
+    #             pv = measurement['pv_power']
+    #             if pv < 0:
+    #                 pv = 0
+    #             bc = measurement['battery_charge']
+    #             bd = measurement['battery_discharge']
+    #             ec = bd + pv - bc
+    #             # depending on the date of the measurement, we want to add point to the yesterday or today data
+    #             # hour = ts.hour + ts.minute / 60 + ts.second / 3600
+    #         except (ValueError, TypeError, LookupError):
+    #             soc = 'NaN'
+    #             pv = 'NaN'
+    #             ec = 'NaN'
+    #
+    #         text = 'ENERGY:\nClusters state of charge\t'+str(soc)+' %\n' + 'Solar Power\t\t'+str(pv)+' W\n'+ 'Power consumption\t'+str(ec)+' W'
+    #         self.label_energy.setText(text)
                                        
 
 widget_class = ConditionsScreensWidget

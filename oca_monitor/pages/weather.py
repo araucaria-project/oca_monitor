@@ -1,3 +1,4 @@
+import asyncio
 import logging
 import datetime
 
@@ -55,13 +56,18 @@ class WeatherDataWidget(QWidget):
         self.vertical = bool(vertical_screen)
         self.initUI()
         # async init
-        QTimer.singleShot(0, self.async_init)
         logger.info(f"WeatherDataWidget init setup done")
 
     @asyncSlot()
     async def async_init(self):
         # obs_config = await self.main_window.observatory_config()
         await create_task(self.reader_loop(), "nats_wind reader")
+
+        await self.main_window.run_reader(
+            clb=self.reader_loop_2_clb,
+            subject=self.weather_subject,
+            deliver_policy='last'
+        )
 
     def initUI(self,):
         # Layout
@@ -146,18 +152,23 @@ class WeatherDataWidget(QWidget):
             self.layout.addWidget(self.label,2)
             self.layout.addWidget(self.canvas,10)
 
-        QtCore.QTimer.singleShot(0, self._update_warningWindow)
-        QtCore.QTimer.singleShot(1000, self._update_ephem)
+        self.async_init()
+        self._update_ephem()
         # logger.info(f"WeatherDataWidget UI setup done")
 
+    async def get_today_midnight(self) -> datetime.datetime:
+        now = datetime.datetime.now(datetime.timezone.utc)
+        return datetime.datetime(year=now.year, month=now.month, day=now.day, tzinfo=datetime.timezone.utc)
 
     async def reader_loop(self):
         msg = Messenger()
 
         # We want the data from the midnight of yesterday
-        today_midnight = datetime.datetime.combine(datetime.date.today(), datetime.time(0))
-        yesterday_midnight = today_midnight - datetime.timedelta(days=1)
+        # today_midnight = datetime.datetime.combine(datetime.date.today(), datetime.time(0))
 
+        today_midnight = await self.get_today_midnight()
+        yesterday_midnight = today_midnight - datetime.timedelta(days=1)
+        logger.info(f"Start reader weather data chart: {yesterday_midnight}")
         rdr = msg.get_reader(
             self.weather_subject,
             deliver_policy='by_start_time',
@@ -165,28 +176,28 @@ class WeatherDataWidget(QWidget):
         )
         logger.info(f"Subscribed to {self.weather_subject}")
 
-        sample_measurement = {
-                "temperature_C": 10,
-                "humidity": 50,
-                "wind_dir_deg": 180,
-                "wind_ms": 5,
-                "wind_10min_ms": 5,
-                "pressure_Pa": 101325,
-                "bar_trend": 0,
-                "rain_mm": 0,
-                "rain_day_mm": 0,
-                "indoor_temperature_C": 20,
-                "indoor_humidity": 50,
-        }
+        # sample_measurement = {
+        #     "temperature_C": 10,
+        #     "humidity": 50,
+        #     "wind_dir_deg": 180,
+        #     "wind_ms": 5,
+        #     "wind_10min_ms": 5,
+        #     "pressure_Pa": 101325,
+        #     "bar_trend": 0,
+        #     "rain_mm": 0,
+        #     "rain_day_mm": 0,
+        #     "indoor_temperature_C": 20,
+        #     "indoor_humidity": 50,
+        # }
 
         async for data, meta in rdr:
             try:
                 # if we crossed the midnight, we want to copy today's data to yesterday's and start today from scratch
-                now = datetime.datetime.now()
+                now = datetime.datetime.now(datetime.timezone.utc)
                 if now.date() > today_midnight.date():
                     logger.info("Crossed the midnight, resetting the data")
-                    yesterday_midnight = today_midnight
-                    today_midnight = datetime.datetime.combine(now.date(), datetime.time(0))
+                    # yesterday_midnight = today_midnight
+                    today_midnight = await self.get_today_midnight()
                     self.ln_yesterday_wind.set_data(
                         self.ln_today_wind.get_xdata(),
                         self.ln_today_wind.get_ydata()
@@ -212,16 +223,17 @@ class WeatherDataWidget(QWidget):
                     self.ln_today_pres.set_data([], [])
 
                 # handle current datapoint. it has measurement timestamp in data.ts, and the measurement in data.measurement
-                ts = dt_ensure_datetime(data['ts']).astimezone()
+                ts = dt_ensure_datetime(data['ts']) #.astimezone(datetime.timezone.utc)
                 measurement = data['measurements']
                 wind_speed10 = measurement['wind_10min_ms']
                 temp = measurement['temperature_C']
                 hum = measurement['humidity']
                 pres = measurement['pressure_Pa']
+
                 # depending on the date of the measurement, we want to add point to the yesterday or today data
                 hour = ts.hour + ts.minute / 60 + ts.second / 3600
-                if ts < today_midnight.astimezone():
-                    #logger.info(f'Adding point to yesterday data {wind_speed10}')
+                if ts < today_midnight:
+                    # logger.info(f'Adding point to yesterday data {wind_speed10}')
                     self.ln_yesterday_wind.set_data(
                         list(self.ln_yesterday_wind.get_xdata()) + [hour],
                         list(self.ln_yesterday_wind.get_ydata()) + [wind_speed10]
@@ -242,7 +254,7 @@ class WeatherDataWidget(QWidget):
                         list(self.ln_yesterday_pres.get_ydata()) + [pres]
                     )
                 else:
-                    #logger.info(f'Adding point to today data {wind_speed10}')
+                    # logger.info(f'Adding point to today data {wind_speed10}')
                     self.ln_today_wind.set_data(
                         list(self.ln_today_wind.get_xdata()) + [hour],
                         list(self.ln_today_wind.get_ydata()) + [wind_speed10]
@@ -281,92 +293,57 @@ class WeatherDataWidget(QWidget):
     def _update_ephem(self):
         self.ephem_text,sunalt = ephemeris(self.vertical)
         self.sunalt = float(sunalt)
-        if self.sunalt > -2.:
+        if self.sunalt > -2.0:
             self.label_ephem.setStyleSheet("background-color : coral; color: black")
-        elif self.sunalt <= -2. and self.sunalt > -18.:
+        elif self.sunalt <= -2.0 and self.sunalt > -18.0:
             self.label_ephem.setStyleSheet("background-color : yellow; color: black")
-        elif self.sunalt <= -18.:
+        elif self.sunalt <= -18.0:
             self.label_ephem.setStyleSheet("background-color : lightgreen; color: black")
         self.label_ephem.setText(self.ephem_text)
         QtCore.QTimer.singleShot(1000, self._update_ephem)
 
-
-    @asyncSlot()
-    async def _update_warningWindow(self):
-        self.wind = '0.0'
-        self.temp = '0.0'
-        self.hum = '0.0'
-        self.pres = '0.0'
-        await create_task(self.reader_loop_2(), "nats_weather reader_2")
-        
-        #warning = 'Wind: '+str(self.wind)+' m/s\n'+'Temperature: '+str(self.temp)+' C\n'+'Humidity: '+str(self.hum)+' %\n'+'Wind dir: '+str(self.main_window.winddir)+'\n'
-        #self.label.setText(warning)
-
-
-    async def reader_loop_2(self):
-
-        msg = Messenger()
-
-        # We want the data from the midnight of yesterday
-
-
-        rdr = msg.get_reader(
-            self.weather_subject,
-            deliver_policy='last',
-        )
-        logger.info(f"Subscribed to {self.weather_subject}")
-
-        sample_measurement = {
-                "temperature_C": 10,
-                "humidity": 50,
-                "wind_dir_deg": 180,
-                "wind_ms": 5,
-                "wind_10min_ms": 5,
-                "pressure_Pa": 101325,
-                "bar_trend": 0,
-                "rain_mm": 0,
-                "rain_day_mm": 0,
-                "indoor_temperature_C": 20,
-                "indoor_humidity": 50,
-        }
-        async for data, meta in rdr:
-            ts = dt_ensure_datetime(data['ts']).astimezone()
-            # hour = ts.hour + ts.minute / 60 + ts.second / 3600
+    async def reader_loop_2_clb(self, data, meta) -> bool:
+        try:
             measurement = data['measurements']
-            self.wind = "{:.1f}".format(measurement['wind_10min_ms'])
-            self.temp = "{:.1f}".format(measurement['temperature_C'])
-            self.hum = int(measurement['humidity'])
-            self.pres = int(measurement['pressure_Pa'])
-            self.winddir = int(measurement['wind_dir_deg'])
+            wind = "{:.1f}".format(measurement['wind_10min_ms'])
+            temp = "{:.1f}".format(measurement['temperature_C'])
+            hum = int(measurement['humidity'])
+            pres = int(measurement['pressure_Pa'])
+            winddir = int(measurement['wind_dir_deg'])
 
-            self.main_window.wind = self.wind
-            self.main_window.temp = self.temp
-            self.main_window.hum = self.hum
-            self.main_window.winddir = self.winddir
-            self.main_window.skytemp = '0'
+            # self.main_window.wind = self.wind
+            # self.main_window.temp = self.temp
+            # self.main_window.hum = self.hum
+            # self.main_window.winddir = self.winddir
+            # self.main_window.skytemp = '0'
             if self.vertical:
-                warning = 'Wind:\t'+str(self.wind)+' m/s\n'+'Temp:\t'+str(self.temp)+' C\n'+'Hum:\t'+str(self.hum)+' %\n'+'Wdir:\t'+str(self.main_window.winddir)+' deg'
+                warning = 'Wind:\t' + str(wind) + ' m/s\n' + 'Temp:\t' + str(temp) + ' C\n' + 'Hum:\t' + str(
+                    hum) + ' %\n' + 'Wdir:\t' + str(winddir) + ' deg'
             else:
-                warning = '   Wind:\t\t'+str(self.wind)+' m/s\n'+'   Temperature:\t'+str(self.temp)+' C\n'+'   Humidity:\t'+str(self.hum)+' %\n'+'   Wind dir:\t'+str(self.main_window.winddir)+' deg'
-            if (float(self.wind) >= 11. and float(self.wind) < 14.) or float(self.hum) > 70.:
+                warning = '   Wind:\t\t' + str(wind) + ' m/s\n' + '   Temperature:\t' + str(
+                    temp) + ' C\n' + '   Humidity:\t' + str(hum) + ' %\n' + '   Wind dir:\t' + str(
+                    winddir) + ' deg'
+            if (11. <= float(wind) < 14.) or float(hum) > 70.:
                 self.label.setStyleSheet("background-color : yellow; color: black")
-                if self.main_window.sound_page:
-                    pass
+                # if self.main_window.sound_page:
+                #     pass
                     # self.main_window.sound_page.play_weather_warning(True)
-            elif float(self.wind) >= 14. or float(self.hum) > 75. or float(self.temp) < 0.:
+            elif float(wind) >= 14. or float(hum) > 75. or float(temp) < 0.:
                 self.label.setStyleSheet("background-color : red; color: black")
-                if self.main_window.sound_page:
-                    pass
+                # if self.main_window.sound_page:
+                #     pass
                     # self.main_window.sound_page.play_weather_warning(False)
                     # self.main_window.sound_page.play_weather_stop(True)
             else:
-                if self.main_window.sound_page:
-                    pass
-                    # self.main_window.sound_page.play_weather_warning(False)
-                    # self.main_window.sound_page.play_weather_stop(False)
+                # if self.main_window.sound_page:
+                #     self.main_window.sound_page.play_weather_warning(False)
+                #     self.main_window.sound_page.play_weather_stop(False)
                 self.label.setStyleSheet("background-color : lightgreen; color: black")
 
             self.label.setText(warning)
+        except (ValueError, TypeError, LookupError):
+            pass
+        return True
 
 
 widget_class = WeatherDataWidget

@@ -1,6 +1,6 @@
 [tool.poetry]
 name = "oca_monitor"
-version = "0.4.8" # Also change the version in oca_monitor_bases.py
+version = "0.4.11" # Also change the version in oca_monitor_bases.py
 description = "Flexible GUI for displaying telescopes and other OCM systems status"
 license = "MIT"
 authors = ["pwielgorski"]
