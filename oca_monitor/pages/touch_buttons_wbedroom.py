@@ -49,9 +49,9 @@ class WaterPump:
     def url(self) -> str:
         return f'http://{self.ip}/state'
 
-    @asyncSlot()
-    async def connect(self):
-        self.button.pressed.connect(self.button_pressed)
+    # @asyncSlot()
+    # async def connect(self):
+    #     self.button.pressed.connect(self.button_pressed)
 
     @asyncSlot()
     async def button_pressed(self) -> None:
@@ -146,6 +146,7 @@ class TouchButtonsWBedroom(QWidget):
         self.vbox_right.addWidget(self.label_weather)
 
         self.water_pump = WaterPump(ip=config.bbox_bedroom_west['hot_water'])
+        self.water_pump.button.stateChanged.connect(self.water_pump_button_pressed)
         self.vbox_center.addWidget(self.water_pump.button)
 
         self.layout.addLayout(self.vbox_left)
@@ -158,6 +159,10 @@ class TouchButtonsWBedroom(QWidget):
         # self._update_allsky()
         QTimer.singleShot(0, self.async_init)
         logger.info("UI setup done")
+
+    @asyncSlot()
+    async def water_pump_button_pressed(self):
+        await self.water_pump.button_pressed()
 
     @staticmethod
     async def image_instance(image_path: str) -> Any:
