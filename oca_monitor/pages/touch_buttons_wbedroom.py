@@ -67,16 +67,16 @@ class WaterPump:
             value = 1
         else:
             value = 0
-        logger.info(f'Water pomp sent to state {value}')
-        # try:
-        #     async with aiohttp.ClientSession(timeout=aiohttp.ClientTimeout(total=self.timeout)) as session:
-        #         await session.post(
-        #             self.url,
-        #             json={"relays": [{"relay": 0, "state": value}]}
-        #         )
-        #         logger.info(f'Water pomp sent to state {value}')
-        # except (aiohttp.ClientError, asyncio.TimeoutError):
-        #     logger.error(f'Hot water pump can not be connected')
+        # logger.info(f'Water pomp sent to state {value}')
+        try:
+            async with aiohttp.ClientSession(timeout=aiohttp.ClientTimeout(total=self.timeout)) as session:
+                await session.post(
+                    self.url,
+                    json={"relays": [{"relay": 0, "state": value}]}
+                )
+                logger.info(f'Water pomp sent to state {value}')
+        except (aiohttp.ClientError, asyncio.TimeoutError):
+            logger.error(f'Hot water pump can not be connected')
 
 
 class TouchButtonsWBedroom(QWidget):
