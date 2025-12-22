@@ -63,7 +63,7 @@ class WaterPump:
         else:
             value = 0
         try:
-            async with aiohttp.ClientSession() as session:
+            async with aiohttp.ClientSession(timeout=aiohttp.ClientTimeout(total=2)) as session:
                 await session.post(
                     self.url,
                     json={"relays": [{"relay": 0, "state": value}]}
