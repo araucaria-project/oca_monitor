@@ -169,7 +169,6 @@ class TouchButtonsWBedroom(QWidget):
 
     @asyncSlot()
     async def async_init(self):
-        await self.water_pump.connect()
         logger.info('Starting allsky display.')
         display = ImageDisplay(
             name='allsky', images_dir=self.dir, image_display_clb=self.image_display,
@@ -178,6 +177,7 @@ class TouchButtonsWBedroom(QWidget):
             sort_reverse=True
         )
         await display.display_init()
+        await self.water_pump.connect()
 
     # @asyncSlot()
     # async def water_button_pressed(self,wylacz=False):
