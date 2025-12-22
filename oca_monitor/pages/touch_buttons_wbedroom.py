@@ -58,14 +58,13 @@ class WaterPump:
         # Water pump signal need to be pressed for 2 seconds to get effect
         await self.change_state()
         await asyncio.sleep(2)
-        await self.change_state()
+        self.button.setChecked(False)
 
     @asyncSlot()
     async def change_state(self):
 
         if self.button.isChecked():
             value = 1
-            self.button.setChecked(False)
         else:
             value = 0
         logger.info(f'Water pomp sent to state {value}')
