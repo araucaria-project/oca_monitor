@@ -64,10 +64,10 @@ class WaterPump:
     async def change_state(self):
 
         if self.button.isChecked():
-            value = 1
+            value = 0
             self.button.setChecked(False)
         else:
-            value = 0
+            value = 1
             self.button.setChecked(True)
         logger.info(f'Water pomp sent to state {value}')
         # try:
