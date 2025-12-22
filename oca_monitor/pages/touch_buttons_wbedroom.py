@@ -50,11 +50,13 @@ class WaterPump:
         return f'http://{self.ip}/state'
 
     @asyncSlot()
-    async def button_pressed(self) -> None:
+    async def button_pressed(self) -> int:
         # Water pump signal need to be pressed for 2 seconds to get effect
         await self.change_state()
+        self.button.setChecked(True)
         await asyncio.sleep(2)
         await self.change_state()
+        return 0
 
     @asyncSlot()
     async def change_state(self):
