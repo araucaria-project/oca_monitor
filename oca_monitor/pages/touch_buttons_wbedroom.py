@@ -68,7 +68,6 @@ class WaterPump:
             self.button.setChecked(False)
         else:
             value = 0
-            self.button.setChecked(True)
         logger.info(f'Water pomp sent to state {value}')
         # try:
         #     async with aiohttp.ClientSession(timeout=aiohttp.ClientTimeout(total=self.timeout)) as session:
