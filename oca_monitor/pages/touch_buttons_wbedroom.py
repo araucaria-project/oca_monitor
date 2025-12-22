@@ -145,7 +145,7 @@ class TouchButtonsWBedroom(QWidget):
         self.vbox_right.addWidget(self.label_weather)
 
         self.water_pump = WaterPump(ip=config.bbox_bedroom_west['hot_water'])
-        self.water_pump.button.stateChanged.connect(self.water_pump_button_pressed)
+        self.water_pump.button.clicked.connect(self.water_pump_button_pressed)
         self.vbox_center.addWidget(self.water_pump.button)
 
         self.layout.addLayout(self.vbox_left)
