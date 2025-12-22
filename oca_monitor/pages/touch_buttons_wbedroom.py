@@ -36,10 +36,10 @@ def ephemeris():
 
 
 class WaterPump:
-    def __init__(self, name: str = 'hot_water'):
+    def __init__(self, ip: str, name: str = 'hot_water'):
         self.name = name
         self.timeout: float = 2
-        self.ip = config.bbox_bedroom_west['hot_water']
+        self.ip = ip
         self.button = QCheckBox()
         self.button.setStyleSheet("QCheckBox::indicator{width: 170px; height:170px;} QCheckBox::indicator:checked {image: url(./Icons/hot_water_on.png)} QCheckBox::indicator:unchecked {image: url(./Icons/hot_water_off.png)}")
         self.button.setChecked(False)
@@ -137,7 +137,7 @@ class TouchButtonsWBedroom(QWidget):
 
         self.vbox_right.addWidget(self.label_weather)
 
-        self.water_pump = WaterPump()
+        self.water_pump = WaterPump(ip=config.bbox_bedroom_west['hot_water'])
         self.vbox_center.addWidget(self.water_pump.button)
 
         self.layout.addLayout(self.vbox_left)
