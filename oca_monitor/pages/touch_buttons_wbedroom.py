@@ -38,6 +38,7 @@ def ephemeris():
 class WaterPump:
     def __init__(self, name: str = 'hot_water'):
         self.name = name
+        self.timeout: float = 2
         self.ip = config.bbox_bedroom_west['hot_water']
         self.button = QCheckBox()
         self.button.setStyleSheet("QCheckBox::indicator{width: 170px; height:170px;} QCheckBox::indicator:checked {image: url(./Icons/hot_water_on.png)} QCheckBox::indicator:unchecked {image: url(./Icons/hot_water_off.png)}")
@@ -63,7 +64,7 @@ class WaterPump:
         else:
             value = 0
         try:
-            async with aiohttp.ClientSession(timeout=aiohttp.ClientTimeout(total=2)) as session:
+            async with aiohttp.ClientSession(timeout=aiohttp.ClientTimeout(total=self.timeout)) as session:
                 await session.post(
                     self.url,
                     json={"relays": [{"relay": 0, "state": value}]}
