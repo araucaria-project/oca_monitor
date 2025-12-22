@@ -38,7 +38,7 @@ def ephemeris():
 class WaterPump:
     def __init__(self, ip: str, name: str = 'hot_water'):
         self.name = name
-        self.timeout: float = 2
+        self.timeout: float = 5
         self.ip = ip
         self.button = QCheckBox()
         self.button.setStyleSheet("QCheckBox::indicator{width: 170px; height:170px;} QCheckBox::indicator:checked {image: url(./Icons/hot_water_on.png)} QCheckBox::indicator:unchecked {image: url(./Icons/hot_water_off.png)}")
