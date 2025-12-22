@@ -65,10 +65,10 @@ class WaterPump:
 
         if self.button.isChecked():
             value = 1
-            # self.button.setChecked(True)
+            self.button.setChecked(False)
         else:
             value = 0
-            # self.button.setChecked(False)
+            self.button.setChecked(True)
         logger.info(f'Water pomp sent to state {value}')
         # try:
         #     async with aiohttp.ClientSession(timeout=aiohttp.ClientTimeout(total=self.timeout)) as session:
@@ -185,7 +185,7 @@ class TouchButtonsWBedroom(QWidget):
             sort_reverse=True
         )
         await display.display_init()
-        await self.water_pump.connect()
+
     # @asyncSlot()
     # async def water_button_pressed(self,wylacz=False):
     #     if wylacz:
