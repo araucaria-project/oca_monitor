@@ -6,7 +6,8 @@ from nats.errors import TimeoutError as NatsTimeoutError
 from PyQt6.QtWidgets import QDialog,QWidget, QVBoxLayout, QHBoxLayout, QLabel,QSlider,QDial,QScrollBar,QPushButton,QCheckBox
 from PyQt6 import QtCore, QtGui
 from PyQt6.QtGui import QPixmap
-import json,requests
+import json, requests
+import aiohttp
 import oca_monitor.config as config
 from qasync import asyncSlot
 from PyQt6.QtCore import QTimer
@@ -33,42 +34,42 @@ def ephemeris():
     #return str(lt).replace(' ','\n\n',1),str(sun.alt).split(':')[0]
     return str(lt),str(sun.alt).split(':')[0]
 
-class bboxItem():
-    def __init__(self,name,ip,button):
+
+class WaterPump:
+    def __init__(self, name: str = 'hot_water'):
         self.name = name
-        self.ip = ip
-        self.button = button
-        self.is_available()
+        self.ip = config.bbox_bedroom_west['hot_water']
+        self.button = QCheckBox()
+        self.button.setStyleSheet("QCheckBox::indicator{width: 170px; height:170px;} QCheckBox::indicator:checked {image: url(./Icons/hot_water_on.png)} QCheckBox::indicator:unchecked {image: url(./Icons/hot_water_off.png)}")
+        self.button.setChecked(False)
+        self.button.stateChanged.connect(self.button_pressed)
 
-    def is_available(self):
+    @property
+    def url(self) -> str:
+        return f'http://{self.ip}/state'
+
+    @asyncSlot()
+    async def button_pressed(self) -> None:
+        # Water pump signal need to be pressed for 2 seconds to get effect
+        await self.change_state()
+        await asyncio.sleep(2)
+        await self.change_state()
+
+    @asyncSlot()
+    async def change_state(self):
+
+        if self.button.isChecked():
+            value = 1
+        else:
+            value = 0
         try:
-        #if True:
-            req = requests.get('http://'+self.ip+'/info',timeout=0.5)
-            if int(req.status_code) != 200:
-                self.is_active = False
-            else:
-                self.is_active = True 
-        except:
-            self.is_active = False
-        return self.is_active
-
-    def changeState(self):
-        if self.is_active:
-            #try:
-            if True:
-                if self.button.isChecked():
-                    value = 1
-                else:
-                    value = 0
-                
-                self.req(value)
-            #except:
-            #    pass
-
-        return True
-
-    def req(self,val):
-        requests.post('http://'+self.ip+'/state',json={"relays":[{"relay":0,"state":val}]})
+            async with aiohttp.ClientSession() as session:
+                await session.post(
+                    self.url,
+                    json={"relays": [{"relay": 0, "state": value}]}
+                )
+        except (aiohttp.ClientError, asyncio.TimeoutError):
+            logger.error(f'Hot water pump can not be connected')
 
 
 class TouchButtonsWBedroom(QWidget):
@@ -90,6 +91,7 @@ class TouchButtonsWBedroom(QWidget):
         self.freq = 2000
         self.counter = 0
         self.dir = allsky_dir
+        self.water_pump = None
         self.wind: str | int | float = '0.0'
         self.temp: str | int | float = '0.0'
         self.hum: str | int | float = '0.0'
@@ -134,10 +136,7 @@ class TouchButtonsWBedroom(QWidget):
 
         self.vbox_right.addWidget(self.label_weather)
 
-        self.water_pump=bboxItem('hot_water',config.bbox_bedroom_west['hot_water'],QCheckBox())
-        self.water_pump.button.setStyleSheet("QCheckBox::indicator{width: 170px; height:170px;} QCheckBox::indicator:checked {image: url(./Icons/hot_water_on.png)} QCheckBox::indicator:unchecked {image: url(./Icons/hot_water_off.png)}")
-        self.water_pump.button.setChecked(False)
-        self.water_pump.button.stateChanged.connect(self.water_button_pressed)
+        self.water_pump = WaterPump()
         self.vbox_center.addWidget(self.water_pump.button)
 
         self.layout.addLayout(self.vbox_left)
@@ -173,18 +172,18 @@ class TouchButtonsWBedroom(QWidget):
         )
         await display.display_init()
 
-    @asyncSlot()
-    async def water_button_pressed(self,wylacz=False):
-        if wylacz:
-            self.water_pump.button.setChecked(False)
-        await self.changeWaterState()
-        if self.water_pump.button.isChecked():
-            #przycisk musi byc wlaczony przez okolo 2 sekundy zeby pompa sie uruchomila
-            
-            QtCore.QTimer.singleShot(2000, lambda: self.water_button_pressed(wylacz=True))
-
-    async def changeWaterState(self):
-        self.water_pump.changeState()
+    # @asyncSlot()
+    # async def water_button_pressed(self,wylacz=False):
+    #     if wylacz:
+    #         self.water_pump.button.setChecked(False)
+    #     await self.changeWaterState()
+    #     if self.water_pump.button.isChecked():
+    #         #przycisk musi byc wlaczony przez okolo 2 sekundy zeby pompa sie uruchomila
+    #
+    #         QtCore.QTimer.singleShot(2000, lambda: self.water_button_pressed(wylacz=True))
+    #
+    # async def changeWaterState(self):
+    #     self.water_pump.changeState()
 
     def send_alarm(self):
         print(self.b_alarm.isChecked())
