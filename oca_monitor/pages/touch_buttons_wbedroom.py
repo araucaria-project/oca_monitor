@@ -43,15 +43,14 @@ class WaterPump:
         self.button = QCheckBox()
         self.button.setStyleSheet("QCheckBox::indicator{width: 170px; height:170px;} QCheckBox::indicator:checked {image: url(./Icons/hot_water_on.png)} QCheckBox::indicator:unchecked {image: url(./Icons/hot_water_off.png)}")
         self.button.setChecked(False)
-        self.button.clicked.connect(self.button_pressed)
 
     @property
     def url(self) -> str:
         return f'http://{self.ip}/state'
 
-    # @asyncSlot()
-    # async def connect(self):
-    #     self.button.clicked.connect(self.button_pressed)
+    @asyncSlot()
+    async def connect(self):
+        self.button.clicked.connect(self.button_pressed)
 
     @asyncSlot()
     async def button_pressed(self, action) -> None:
@@ -179,7 +178,7 @@ class TouchButtonsWBedroom(QWidget):
             sort_reverse=True
         )
         await display.display_init()
-
+        await self.water_pump.connect()
     # @asyncSlot()
     # async def water_button_pressed(self,wylacz=False):
     #     if wylacz:
