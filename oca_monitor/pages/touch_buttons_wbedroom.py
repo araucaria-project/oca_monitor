@@ -50,10 +50,10 @@ class WaterPump:
 
     @asyncSlot()
     async def connect(self):
-        self.button.clicked.connect(self.button_pressed)
+        self.button.pressed.connect(self.button_pressed)
 
     @asyncSlot()
-    async def button_pressed(self, action) -> None:
+    async def button_pressed(self) -> None:
         # Water pump signal need to be pressed for 2 seconds to get effect
         await self.change_state()
         await asyncio.sleep(2)
@@ -178,7 +178,7 @@ class TouchButtonsWBedroom(QWidget):
             sort_reverse=True
         )
         await display.display_init()
-        await self.water_pump.connect()
+        # await self.water_pump.connect()
     # @asyncSlot()
     # async def water_button_pressed(self,wylacz=False):
     #     if wylacz:
