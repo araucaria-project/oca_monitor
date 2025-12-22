@@ -67,7 +67,7 @@ class WaterPump:
             value = 1
         else:
             value = 0
-        # logger.info(f'Water pomp sent to state {value}')
+        logger.info(f'Water pomp sent {value} to {self.url}')
         try:
             async with aiohttp.ClientSession(timeout=aiohttp.ClientTimeout(total=self.timeout)) as session:
                 await session.post(
