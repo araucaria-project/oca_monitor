@@ -54,7 +54,7 @@ class WaterPump:
     #     self.button.clicked.connect(self.button_pressed)
 
     @asyncSlot()
-    async def button_pressed(self) -> None:
+    async def button_pressed(self, action) -> None:
         # Water pump signal need to be pressed for 2 seconds to get effect
         await self.change_state()
         await asyncio.sleep(2)
