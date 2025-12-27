@@ -1,19 +1,18 @@
 import asyncio
 import logging
-from typing import Any
+from typing import Any, Optional
 
-from PyQt6.QtWidgets import QDialog,QWidget, QVBoxLayout, QHBoxLayout, QLabel,QSlider,QDial,QScrollBar,QPushButton,QCheckBox
+from PyQt6.QtWidgets import QWidget, QVBoxLayout, QHBoxLayout, QLabel
 from PyQt6 import QtCore, QtGui
 from PyQt6.QtGui import QPixmap
-import json, requests
-import aiohttp
 import oca_monitor.config as config
 from qasync import asyncSlot
 from PyQt6.QtCore import QTimer
-from serverish.base.task_manager import create_task_sync, create_task
+from serverish.base.task_manager import create_task
 import ephem
 import time
 
+from oca_monitor.controls.panic_alarm import PanicAlarm
 from oca_monitor.controls.water_pump import WaterPump
 from oca_monitor.image_display import ImageDisplay
 
@@ -55,15 +54,16 @@ class TouchButtonsWBedroom(QWidget):
         self.freq = 2000
         self.counter = 0
         self.dir = allsky_dir
-        self.water_pump = None
+        self.water_pump: Optional[WaterPump] = None
+        self.b_alarm: Optional[QCheckBox] = None
         self.wind: str | int | float = '0.0'
         self.temp: str | int | float = '0.0'
         self.hum: str | int | float = '0.0'
         self.pres: str | int | float = '0.0'
         self.lock: asyncio.Lock = asyncio.Lock()
-        self.initUI(example_parameter,subject)
+        self.initUI(example_parameter, subject)
 
-    def initUI(self, text,subject):
+    def initUI(self, text, subject):
         
         self.layout = QHBoxLayout(self)
         self.vbox_left = QVBoxLayout()

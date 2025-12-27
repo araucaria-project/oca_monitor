@@ -17,7 +17,6 @@ class WaterPump:
         self.button = QCheckBox()
         self.button.setStyleSheet("QCheckBox::indicator{width: 170px; height:170px;} QCheckBox::indicator:checked {image: url(./Icons/hot_water_on.png)} QCheckBox::indicator:unchecked {image: url(./Icons/hot_water_off.png)}")
         self.button.setChecked(False)
-        # self.button.pressed.connect(self.button_pressed)
 
     @property
     def url(self) -> str:
