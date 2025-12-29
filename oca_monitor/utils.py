@@ -1,14 +1,12 @@
 import asyncio
 import logging
 import time
-from typing import List, Dict, Any, Tuple, Iterable, Set, Literal, Callable
-from nats.errors import TimeoutError as NatsTimeoutError
+from typing import List, Dict, Any, Tuple, Iterable, Set, Literal, Callable, Optional
+import aiohttp
 import ephem
-import numpy as np
 import requests
 from astropy.time import Time as czas_astro
 import aiofiles
-from serverish.messenger import Messenger
 
 
 logger = logging.getLogger(__name__.rsplit('.')[-1])
@@ -70,7 +68,7 @@ def ephemeris():
     return text, sun.alt
 
 
-async def a_read_file(path: str, raise_err: bool = True, mode: Literal['r'] = 'r') -> str or None:
+async def a_read_file(path: str, raise_err: bool = True, mode: Literal['r'] = 'r') -> Optional[str]:
     try:
         async with aiofiles.open(file=path, mode=mode) as f:
             return await f.read()
@@ -79,4 +77,4 @@ async def a_read_file(path: str, raise_err: bool = True, mode: Literal['r'] = 'r
         if raise_err:
             raise
         else:
-            return False
+            return None
