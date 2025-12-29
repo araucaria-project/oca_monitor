@@ -3,6 +3,7 @@ import logging
 
 from PyQt6.QtWidgets import QCheckBox
 import aiohttp
+from oca_monitor.utils import send_http
 from qasync import asyncSlot
 
 
@@ -37,12 +38,21 @@ class WaterPump:
         else:
             value = 0
         logger.info(f'Water pomp sent {value} to {self.url}')
-        try:
-            async with aiohttp.ClientSession(timeout=aiohttp.ClientTimeout(total=self.timeout)) as session:
-                await session.post(
-                    self.url,
-                    json={"relays": [{"relay": 0, "state": value}]}
-                )
-                logger.info(f'Water pomp sent to state {value}')
-        except (aiohttp.ClientError, asyncio.TimeoutError):
-            logger.error(f'Hot water pump can not be connected')
+
+        await send_http(
+            name='water_pump',
+            url=self.url,
+            json={"relays": [{"relay": 0, "state": value}]},
+            timeout=self.timeout
+        )
+
+        # try:
+        #     async with aiohttp.ClientSession(timeout=aiohttp.ClientTimeout(total=self.timeout)) as session:
+        #         await session.post(
+        #             self.url,
+        #             json={"relays": [{"relay": 0, "state": value}]}
+        #         )
+        #         logger.info(f'Water pomp sent to state {value}')
+        # except (aiohttp.ClientError, asyncio.TimeoutError):
+        #     logger.error(f'Hot water pump can not be connected')
+
