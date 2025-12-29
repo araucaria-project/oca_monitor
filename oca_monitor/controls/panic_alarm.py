@@ -3,7 +3,6 @@ from typing import Optional
 
 from PyQt6.QtWidgets import QDialog, QVBoxLayout, QHBoxLayout, QLabel, QPushButton, QCheckBox
 import json, requests
-import aiohttp
 import oca_monitor.config as config
 from qasync import asyncSlot
 

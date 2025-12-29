@@ -2,7 +2,8 @@ import asyncio
 import logging
 from typing import Any, Optional
 
-from PyQt6.QtWidgets import QWidget, QVBoxLayout, QHBoxLayout, QLabel
+import requests
+from PyQt6.QtWidgets import QWidget, QVBoxLayout, QHBoxLayout, QLabel, QCheckBox, QDialog, QPushButton
 from PyQt6 import QtCore, QtGui
 from PyQt6.QtGui import QPixmap
 import oca_monitor.config as config
