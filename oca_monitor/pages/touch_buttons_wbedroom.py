@@ -13,10 +13,9 @@ from serverish.base.task_manager import create_task
 import ephem
 import time
 
-from oca_monitor.controls.panic_alarm import PanicAlarm
 from oca_monitor.controls.water_pump import WaterPump
 from oca_monitor.image_display import ImageDisplay
-
+from oca_monitor.utils import send_http
 
 # please use logging like here, it will name the log record with the name of the module
 logger = logging.getLogger(__name__.rsplit('.')[-1])
@@ -222,19 +221,27 @@ class TouchButtonsWBedroom(QWidget):
         await self.siren(wyj)
         self.d_close_clicked()
 
-    async def push(self, name,user,token,mess):
+    @staticmethod
+    async def push(name, user, token, mess) -> None:
+
         pars = {'token':token,'user':user,'message':mess+name+'!'}
-        try:
-            requests.post('https://api.pushover.net/1/messages.json',data=pars)
-        except:
-            pass
+
+        await send_http(name='push', url='https://api.pushover.net/1/messages.json', data=pars)
+
+        # try:
+        #     requests.post('https://api.pushover.net/1/messages.json',data=pars)
+        # except:
+        #     pass
 
     def c_close_clicked(self):
         self.c.close()
 
-    async def siren(self,wyj):
+    @staticmethod
+    async def siren(wyj):
         for siren,ip in config.bbox_sirens.items():
-            requests.post('http://'+ip+'/state',json={"relays":[{"relay":0,"state":wyj}]})
+            await send_http(name='siren', url='http://'+ip+'/state', json={"relays":[{"relay":0,"state":wyj}]})
+
+            # requests.post('http://'+ip+'/state',json={"relays":[{"relay":0,"state":wyj}]})
 
     def _update_ephem(self):
         lt, sunalt = ephemeris()

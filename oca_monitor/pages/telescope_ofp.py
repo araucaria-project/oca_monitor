@@ -64,7 +64,7 @@ class TelescopeOfp(QWidget):
 
         self.info_e = QTextEdit("")
         self.info_e.setFixedHeight(self.INFO_HEIGHT)
-        self.info_e.setStyleSheet(f"background-color: {color}; color: black")
+        self.info_e.setStyleSheet(f"background-color: {color}; color: white")
         # self.set_pix_maps()
 
         self.layout.addWidget(self.fits_pic)
