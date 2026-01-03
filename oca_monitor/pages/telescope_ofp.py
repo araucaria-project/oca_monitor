@@ -51,7 +51,7 @@ class TelescopeOfp(QWidget):
         font = QtGui.QFont()
         font.setBold(True)
         self.tel_e.setFont(font)
-        self.tel_e.setStyleSheet(f"background-color: black; color: #F5F5F5")
+        self.tel_e.setStyleSheet(f"background-color: black; color: white")
         try:
             color = self.main_window.nats_cfg["config"]["telescopes"][self.tel]["observatory"]["style"]["color"]
         except (LookupError, TypeError):
@@ -64,7 +64,7 @@ class TelescopeOfp(QWidget):
 
         self.info_e = QTextEdit("")
         self.info_e.setFixedHeight(self.INFO_HEIGHT)
-        self.info_e.setStyleSheet(f"background-color: {color}; color: #F5F5F5")
+        self.info_e.setStyleSheet(f"background-color: {color}; color: white")
         # self.set_pix_maps()
 
         self.layout.addWidget(self.fits_pic)
@@ -109,7 +109,11 @@ class TelescopeOfp(QWidget):
             txt = txt + f" <i>{type}</i> <b>{obj}</b>"
             txt = txt + f" {n}/{ndit} <b>{filter}</b>  <b>{exptime:.1f}</b> s. <br> </p>"
             self.info_e.clear()
-            self.info_e.setStyleSheet(f"background-color: {color}; color: #F5F5F5")
+            if color == '#67F4F5':
+                text_color = 'black'
+            else:
+                text_color = 'white'
+            self.info_e.setStyleSheet(f"background-color: {color}; color: {text_color}")
             self.info_e.setHtml(txt)
             self.repaint()
 
