@@ -1,6 +1,6 @@
 import asyncio
 import logging
-from typing import List, Dict, Literal, Optional
+from typing import List, Dict, Literal, Optional, Union
 import aiohttp
 import aiofiles
 import datetime
@@ -36,19 +36,19 @@ async def a_read_file(path: str, raise_err: bool = True, mode: Literal['r'] = 'r
             return None
 
 
-async def get_time_ago_text(date: datetime.datetime) -> str:
+async def get_time_ago_text(date: datetime.datetime) -> Optional[Dict[str, Union[str, int, float]]]:
     if date is None:
-        return ''
+        return None
     now = datetime.datetime.now(datetime.timezone.utc)
     diff = now - date
     if diff.total_seconds() < 60:
-        return f'{round(diff.total_seconds())} s ago'
+        return {'total_sec': diff.total_seconds(), 'txt': f'{round(diff.total_seconds())} s ago'}
     elif 3600 > diff.total_seconds() >= 60:
-        return f'{round(diff.total_seconds() / 60)} min ago'
+        return {'total_sec': diff.total_seconds(), 'txt': f'{round(diff.total_seconds() / 60)} min ago'}
     elif diff.total_seconds() > 3600:
-        return f'{round(diff.total_seconds() / 3600)} h ago'
+        return {'total_sec': diff.total_seconds(), 'txt': f'{round(diff.total_seconds() / 3600)} h ago'}
     elif diff.total_seconds() > 86400:
-        return f'{round(diff.total_seconds() / 86400)} days ago'
+        return {'total_sec': diff.total_seconds(), 'txt': f'{round(diff.total_seconds() / 86400)} days ago'}
     else:
-        return ''
+        return None
 
