@@ -40,7 +40,7 @@ async def get_time_ago_text(date: datetime.datetime) -> str:
     if date is None:
         return ''
     now = datetime.datetime.now(datetime.timezone.utc)
-    diff = now - date,
+    diff = now - date
     if diff.total_seconds() < 60:
         return f'{round(diff.total_seconds())} s ago'
     elif 3600 > diff.total_seconds() >= 60:
