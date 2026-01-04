@@ -96,7 +96,7 @@ class TelescopeOfp(QWidget):
 
             ago_txt = await get_time_ago_text(date=self.info_e_last_date_obs)
 
-            format_ago_txt = f" <p style='font-size: 15pt;'> {ago_txt}"
+            format_ago_txt = f" <p style='font-size: 15pt;'> [{ago_txt}] "
             txt = format_ago_txt + self.info_e_txt
             self.info_e.clear()
             self.info_e.setStyleSheet(f"background-color: {bkg_color}; color: {text_color}")
