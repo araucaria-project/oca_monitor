@@ -96,10 +96,11 @@ class TelescopeOfp(QWidget):
 
             ago_txt = await get_time_ago_text(date=self.info_e_last_date_obs)
 
-
+            format_ago_txt = f" <p style='font-size: 15pt;'> {ago_txt}"
+            txt = format_ago_txt + self.info_e_txt
             self.info_e.clear()
             self.info_e.setStyleSheet(f"background-color: {bkg_color}; color: {text_color}")
-            self.info_e.setHtml(ago_txt + ' ' + self.info_e_txt)
+            self.info_e.setHtml(txt)
             self.repaint()
 
             await asyncio.sleep(self.REPAINT_INFO_E_INTERVAL)
@@ -135,7 +136,7 @@ class TelescopeOfp(QWidget):
 
             txt = ""
             # txt = txt + f" <p style='font-size: 15pt;'> {date.split('T')[0]} {date.split('T')[1].split('.')[0]} "
-            txt = txt + f" <p style='font-size: 15pt;'>"
+            # txt = txt + f" <p style='font-size: 15pt;'>"
             txt = txt + f"<i>{type}</i> <b>{obj}</b>"
             txt = txt + f" {n}/{ndit} <b>{filter}</b>  <b>{exptime:.1f}</b> s. <br> </p>"
             self.info_e_txt = txt
