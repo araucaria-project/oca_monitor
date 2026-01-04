@@ -36,7 +36,9 @@ async def a_read_file(path: str, raise_err: bool = True, mode: Literal['r'] = 'r
             return None
 
 
-async def get_time_ago_text(date: datetime.datetime) -> Optional[str]:
+async def get_time_ago_text(date: datetime.datetime) -> str:
+    if date is None:
+        return ''
     now = datetime.datetime.now(datetime.timezone.utc)
     diff = now - date,
     if diff.total_seconds() < 60:

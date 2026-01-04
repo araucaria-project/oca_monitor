@@ -106,11 +106,6 @@ class TelescopeOfp(QWidget):
 
     async def info_display(self) -> None:
 
-        try:
-            color = self.main_window.nats_cfg["config"]["telescopes"][self.tel]["observatory"]["style"]["color"]
-        except (LookupError, TypeError):
-            color = 'gray'
-
         file_content = await a_read_file(path=os.path.join(self.dir, self.JSON_FILE_NAME), raise_err=False)
         if file_content:
             try:
