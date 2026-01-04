@@ -102,7 +102,7 @@ class TelescopeOfp(QWidget):
                 else:
                     t_col = text_color
                 txt = f" <p style='font-size: 15pt;'>"
-                txt +=  f"<span style='color: {t_col};'> [{ago_txt['txt']}] </span> "
+                txt +=  f"<span style='color: {t_col}; font-weight: bold;'> [{ago_txt['txt']}] </span> "
                 txt += self.info_e_txt
                 self.info_e.clear()
                 self.info_e.setStyleSheet(f"background-color: {bkg_color}; color: {text_color}")
