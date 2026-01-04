@@ -1,9 +1,13 @@
-import logging
 import asyncio
+import datetime
+import logging
 import os.path
 from typing import Any, Optional
 import json
 
+from serverish.base import create_task
+
+from oca_monitor.utils import get_time_ago_text
 from PyQt6.QtWidgets import QWidget, QVBoxLayout, QLabel, QTextEdit, QLineEdit
 from PyQt6 import QtCore, QtGui
 from qasync import asyncSlot
@@ -22,6 +26,7 @@ class TelescopeOfp(QWidget):
     JSON_FILE_NAME = 'thumbnail_display.json'
     PNG_FILE_NAME = 'thumbnail_display.png'
     LC_FILE_NAME = 'last_light_curve_chart_display.png'
+    REPAINT_INFO_E_INTERVAL = 0.5 # seconds
 
     # You can use just def __init__(self, **kwargs) if you don't want to bother with the arguments
     def __init__(self,
@@ -34,6 +39,8 @@ class TelescopeOfp(QWidget):
         self.tel = tel
         self.dir = f"/data/fits/{self.tel}/processed-ofp/thumbnails/"
         self.main_window = main_window
+        self.info_e_txt: str = ''
+        self.info_e_last_date_obs: Optional[datetime.datetime] = None
         super().__init__()
         self.initUI()
         logger.info(f"TelescopeOfp {self.tel} init setup done")
@@ -75,6 +82,28 @@ class TelescopeOfp(QWidget):
         QtCore.QTimer.singleShot(0, self.async_init)
         # logger.info(f"TelescopeOfp {self.tel} UI setup done")
 
+    async def repaint_info_e(self) -> None:
+        while True:
+            try:
+                bkg_color = self.main_window.nats_cfg["config"]["telescopes"][self.tel]["observatory"]["style"]["color"]
+                if bkg_color == '#67F4F5':
+                    text_color = 'black'
+                else:
+                    text_color = 'white'
+            except (LookupError, TypeError):
+                bkg_color = 'gray'
+                text_color = 'black'
+
+            ago_txt = get_time_ago_text(date=self.info_e_last_date_obs)
+
+
+            self.info_e.clear()
+            self.info_e.setStyleSheet(f"background-color: {bkg_color}; color: {text_color}")
+            self.info_e.setHtml(ago_txt + ' ' + self.info_e_txt)
+            self.repaint()
+
+            await asyncio.sleep(self.REPAINT_INFO_E_INTERVAL)
+
     async def info_display(self) -> None:
 
         try:
@@ -104,18 +133,17 @@ class TelescopeOfp(QWidget):
             except (ValueError, LookupError) as e:
                 logger.warning(f"Can not parse data: {e}")
                 return
+            try:
+                self.info_e_last_date_obs = datetime.datetime.fromisoformat(date)
+            except (ValueError, TypeError):
+                return
+
             txt = ""
-            txt = txt + f" <p style='font-size: 15pt;'> {date.split('T')[0]} {date.split('T')[1].split('.')[0]} "
-            txt = txt + f" <i>{type}</i> <b>{obj}</b>"
+            # txt = txt + f" <p style='font-size: 15pt;'> {date.split('T')[0]} {date.split('T')[1].split('.')[0]} "
+            txt = txt + f" <p style='font-size: 15pt;'>"
+            txt = txt + f"<i>{type}</i> <b>{obj}</b>"
             txt = txt + f" {n}/{ndit} <b>{filter}</b>  <b>{exptime:.1f}</b> s. <br> </p>"
-            self.info_e.clear()
-            if color == '#67F4F5':
-                text_color = 'black'
-            else:
-                text_color = 'white'
-            self.info_e.setStyleSheet(f"background-color: {color}; color: {text_color}")
-            self.info_e.setHtml(txt)
-            self.repaint()
+            self.info_e_txt = txt
 
     @staticmethod
     async def image_instance(image_path: str) -> Any:
@@ -157,6 +185,8 @@ class TelescopeOfp(QWidget):
         await self.image_display(object_to_display=im_on_init)
         lc_on_init = await self.image_instance(image_path=os.path.join(self.dir, self.LC_FILE_NAME))
         await self.lc_display(object_to_display=lc_on_init)
+
+        await create_task(self.repaint_info_e(), "repaint_info_e")
 
         display = ImageDisplay(
             name='telescope', images_dir=self.dir, image_display_clb=self.image_display,

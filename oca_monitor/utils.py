@@ -3,6 +3,7 @@ import logging
 from typing import List, Dict, Literal, Optional
 import aiohttp
 import aiofiles
+import datetime
 
 
 logger = logging.getLogger(__name__.rsplit('.')[-1])
@@ -33,3 +34,19 @@ async def a_read_file(path: str, raise_err: bool = True, mode: Literal['r'] = 'r
             raise
         else:
             return None
+
+
+async def get_time_ago_text(date: datetime.datetime) -> Optional[str]:
+    now = datetime.datetime.now(datetime.timezone.utc)
+    diff = now - date,
+    if diff.total_seconds() < 60:
+        return f'{round(diff.total_seconds())} s ago'
+    elif 3600 > diff.total_seconds() >= 60:
+        return f'{round(diff.total_seconds() / 60)} min ago'
+    elif diff.total_seconds() > 3600:
+        return f'{round(diff.total_seconds() / 3600)} h ago'
+    elif diff.total_seconds() > 86400:
+        return f'{round(diff.total_seconds() / 86400)} days ago'
+    else:
+        return ''
+
