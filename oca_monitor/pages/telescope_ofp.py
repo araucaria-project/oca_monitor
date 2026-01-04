@@ -94,7 +94,7 @@ class TelescopeOfp(QWidget):
                 bkg_color = 'gray'
                 text_color = 'black'
 
-            ago_txt = get_time_ago_text(date=self.info_e_last_date_obs)
+            ago_txt = await get_time_ago_text(date=self.info_e_last_date_obs)
 
 
             self.info_e.clear()
