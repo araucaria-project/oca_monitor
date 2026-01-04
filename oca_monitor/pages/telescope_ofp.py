@@ -136,7 +136,7 @@ class TelescopeOfp(QWidget):
                 logger.warning(f"Can not parse data: {e}")
                 return
             try:
-                self.info_e_last_date_obs = datetime.datetime.fromisoformat(date).astimezone(datetime.timezone.utc)
+                self.info_e_last_date_obs = datetime.datetime.fromisoformat(date).replace(tzinfo=datetime.timezone.utc)
             except (ValueError, TypeError):
                 return
 
