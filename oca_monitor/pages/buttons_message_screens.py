@@ -94,7 +94,7 @@ class ButtonsMessageWidget(QWidget):
     def initUI(self,):
         self.layout = QHBoxLayout(self)
         self.info_e = QTextEdit()
-        self.swiatlo = LightPoint(self.light,config.bbox_led_control_main[self.light],QDial())
+        self.swiatlo = LightPoint(name=self.light,ip=config.bbox_led_control_main[self.light],slider=QDial())
             
 
         self.layout.addWidget(self.swiatlo.slider,1)
