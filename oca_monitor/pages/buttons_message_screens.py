@@ -172,7 +172,8 @@ class ButtonsMessageWidget(QWidget):
         self.send_alarm()
 
     def raise_alarm(self, mess, wyj=0):
-        self.raise_alarm_2(self, mess, wyj=0)
+        QtCore.QTimer.singleShot(0, self.raise_alarm_2(self, mess, wyj=0))
+
 
     @asyncSlot()
     async def raise_alarm_2(self,mess,wyj=0):
