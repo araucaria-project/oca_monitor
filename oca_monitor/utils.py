@@ -1,6 +1,6 @@
 import asyncio
 import logging
-from typing import List, Dict, Literal, Optional, Union
+from typing import Dict, Literal, Optional, Union
 import aiohttp
 import aiofiles
 import datetime
@@ -10,14 +10,32 @@ logger = logging.getLogger(__name__.rsplit('.')[-1])
 
 
 async def send_http(
-        name: str, url: str, data: Optional[Dict] = None, json: Optional[Dict] = None, timeout: float = 5) -> None:
-
+        name: str, url: str, data: Optional[Dict] = None, json: Optional[Dict] = None,
+        params: Optional[Dict] = None, timeout: float = 5) -> None:
     try:
         async with aiohttp.ClientSession(timeout=aiohttp.ClientTimeout(total=timeout)) as session:
             await session.post(
                 url,
                 json=json,
-                data=data
+                data=data,
+                params=params,
+            )
+            logger.info(f'{name} sent to {url}')
+    except (aiohttp.ClientError, asyncio.TimeoutError):
+        logger.error(f'{name} can not be send')
+
+
+async def get_http(
+        name: str, url: str,  json: Optional[Dict] = None, data: Optional[Dict] = None,
+        params: Optional[Dict] = None, timeout: float = 5) -> None:
+
+    try:
+        async with aiohttp.ClientSession(timeout=aiohttp.ClientTimeout(total=timeout)) as session:
+            await session.get(
+                url,
+                json=json,
+                data=data,
+                params=params,
             )
             logger.info(f'{name} sent to {url}')
     except (aiohttp.ClientError, asyncio.TimeoutError):
@@ -52,4 +70,3 @@ async def get_time_ago_text(date: datetime.datetime) -> Optional[Dict[str, Union
         return {'total_sec': diff.total_seconds(), 'txt': f'{round(tot_sec / 86400)} days ago'}
     else:
         return None
-

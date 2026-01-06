@@ -1,3 +1,4 @@
+import asyncio
 import logging
 import os
 import subprocess
@@ -12,21 +13,23 @@ from serverish.base import dt_ensure_datetime
 from serverish.base.task_manager import create_task_sync, create_task
 from serverish.messenger import get_reader
 
+from oca_monitor.utils import send_http, get_http
 
 logger = logging.getLogger(__name__.rsplit('.')[-1])
 
 
-class light_point():
+class LightPoint:
+
     def __init__(self,name,ip,slider):
         self.name = name
         self.ip = ip
         
-        self.slider= slider
+        self.slider = slider
         self.slider.setGeometry(100, 100, 100, 100)
         self.slider.setNotchesVisible(True)
         self.slider.valueChanged.connect(self.changeLight)
 
-    def changeLight(self):
+    async def changeLight(self):
         try:
             if self.is_active:
                 new_value = int(self.slider.value()*255/100)
@@ -38,23 +41,24 @@ class light_point():
                 if len(val) == 1:
                     val = '0'+val
                 
-                self.req(val)
+                await self.req(val)
         except:
             pass
 
-    
+    @asyncSlot()
+    async def req(self,val):
+        # try:
+        #
+        #     requests.post('http://'+self.ip+'/api/rgbw/set',json={"rgbw":{"desiredColor":val}})
+        # except:
+        #     pass
+        await send_http(url='http://'+self.ip+'/api/rgbw/set', json={"rgbw":{"desiredColor":val}})
 
-    def req(self,val):
-        try:
-            requests.post('http://'+self.ip+'/api/rgbw/set',json={"rgbw":{"desiredColor":val}})
-        except:
-            pass
-
-    def status(self):
+    async def status(self):
         try:
         #if True:
-            req = requests.get('http://'+self.ip+'/api/rgbw/state',timeout=0.5)
-            
+            # req = requests.get('http://'+self.ip+'/api/rgbw/state',timeout=0.5)
+            req = await get_http(url='http://'+self.ip+'/api/rgbw/state', timeout=1)
             if int(req.status_code) != 200:
                 self.is_active = False
             else:
@@ -81,7 +85,7 @@ class ButtonsMessageWidget(QWidget):
 
     @asyncSlot()
     async def async_init(self):
-
+        await create_task(self._update_lights_status(), "update_light_status")
         for tel in self.parent.telescope_names:
             await create_task(self.toi_message_reader(tel), f"nats_toi_message_reader_{tel}")
 
@@ -89,7 +93,7 @@ class ButtonsMessageWidget(QWidget):
     def initUI(self,):
         self.layout = QHBoxLayout(self)
         self.info_e = QTextEdit()
-        self.swiatlo = light_point(self.light,config.bbox_led_control_main[self.light],QDial())
+        self.swiatlo = LightPoint(self.light,config.bbox_led_control_main[self.light],QDial())
             
 
         self.layout.addWidget(self.swiatlo.slider,1)
@@ -103,14 +107,16 @@ class ButtonsMessageWidget(QWidget):
         self._update_lights_status()
         # Some async operation
         logger.info("UI setup done")
-        
 
-    def _update_lights_status(self):
-        self.swiatlo.status()
+    @asyncSlot()
+    async def _update_lights_status(self):
+        while True:
+            await self.swiatlo.status()
+            await asyncio.sleep(20)
+            # QtCore.QTimer.singleShot(30000, self._update_lights_status)
 
-        QtCore.QTimer.singleShot(30000, self._update_lights_status)
-
-    def send_alarm(self):
+    @asyncSlot()
+    async def send_alarm(self):
         print(self.b_alarm.isChecked())
         if self.b_alarm.isChecked():
             self.d = QDialog()
@@ -193,17 +199,19 @@ class ButtonsMessageWidget(QWidget):
 
     async def push(self, name,user,token,mess):
         pars = {'token':token,'user':user,'message':mess+name+'!'}
-        try:
-            requests.post('https://api.pushover.net/1/messages.json',data=pars)
-        except:
-            pass
+        # try:
+        #     requests.post('https://api.pushover.net/1/messages.json',data=pars)
+        # except:
+        #     pass
+        await send_http(name='push', url='https://api.pushover.net/1/messages.json', data=pars)
 
     def c_close_clicked(self):
         self.c.close()
 
     async def siren(self,wyj):
-        for siren,ip in config.bbox_sirens.items():
-            requests.post('http://'+ip+'/state',json={"relays":[{"relay":0,"state":wyj}]})
+        for siren, ip in config.bbox_sirens.items():
+            # requests.post('http://'+ip+'/state',json={"relays":[{"relay":0,"state":wyj}]})
+            await send_http(name='siren', url='http://'+ip+'/state', json={"relays":[{"relay":0,"state":wyj}]})
 
     async def toi_message_reader(self,tel):
         try:
