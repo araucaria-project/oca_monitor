@@ -29,8 +29,8 @@ class LightPoint:
         self.slider.setNotchesVisible(True)
         self.slider.valueChanged.connect(self.changeLight)
 
-    @asyncSlot()
-    async def changeLight(self):
+
+    def changeLight(self):
         try:
             if self.is_active:
                 new_value = int(self.slider.value()*255/100)
@@ -42,7 +42,7 @@ class LightPoint:
                 if len(val) == 1:
                     val = '0'+val
                 
-                await self.req(val)
+                self.req(val)
         except:
             pass
 
