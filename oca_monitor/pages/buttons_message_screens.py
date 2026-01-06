@@ -109,7 +109,6 @@ class ButtonsMessageWidget(QWidget):
         # Some async operation
         logger.info("UI setup done")
 
-    @asyncSlot()
     async def _update_lights_status(self):
         while True:
             await self.swiatlo.status()
