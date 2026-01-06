@@ -29,6 +29,7 @@ class LightPoint:
         self.slider.setNotchesVisible(True)
         self.slider.valueChanged.connect(self.changeLight)
 
+    @asyncSlot()
     async def changeLight(self):
         try:
             if self.is_active:
@@ -104,7 +105,7 @@ class ButtonsMessageWidget(QWidget):
         self.b_alarm.setChecked(False)
         self.b_alarm.clicked.connect(self.send_alarm)
         self.layout.addWidget(self.b_alarm,1)
-        self._update_lights_status()
+        # self._update_lights_status()
         # Some async operation
         logger.info("UI setup done")
 
