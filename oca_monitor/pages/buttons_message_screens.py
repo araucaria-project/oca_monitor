@@ -171,8 +171,11 @@ class ButtonsMessageWidget(QWidget):
         print('status',self.b_alarm.isChecked())
         self.send_alarm()
 
+    def raise_alarm(self, mess, wyj=0):
+        self.raise_alarm_2(self, mess, wyj=0)
+
     @asyncSlot()
-    async def raise_alarm(self,mess,wyj=0):
+    async def raise_alarm_2(self,mess,wyj=0):
         if len(mess) > 0:
             for name,po_data in config.pushover.items():
             
