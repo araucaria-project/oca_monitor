@@ -1,21 +1,21 @@
 import asyncio
 import logging
-from typing import Any
+from typing import Any, Optional
 
-from nats.errors import TimeoutError as NatsTimeoutError
-from PyQt6.QtWidgets import QDialog,QWidget, QVBoxLayout, QHBoxLayout, QLabel,QSlider,QDial,QScrollBar,QPushButton,QCheckBox
+import requests
+from PyQt6.QtWidgets import QWidget, QVBoxLayout, QHBoxLayout, QLabel, QCheckBox, QDialog, QPushButton
 from PyQt6 import QtCore, QtGui
 from PyQt6.QtGui import QPixmap
-import json, requests
-import aiohttp
 import oca_monitor.config as config
 from qasync import asyncSlot
 from PyQt6.QtCore import QTimer
-from serverish.base.task_manager import create_task_sync, create_task
+from serverish.base.task_manager import create_task
 import ephem
 import time
-from oca_monitor.image_display import ImageDisplay
 
+from oca_monitor.controls.water_pump import WaterPump
+from oca_monitor.image_display import ImageDisplay
+from oca_monitor.utils import send_http
 
 # please use logging like here, it will name the log record with the name of the module
 logger = logging.getLogger(__name__.rsplit('.')[-1])
@@ -33,50 +33,6 @@ def ephemeris():
     sun.compute(arm)
     #return str(lt).replace(' ','\n\n',1),str(sun.alt).split(':')[0]
     return str(lt),str(sun.alt).split(':')[0]
-
-
-class WaterPump:
-    def __init__(self, ip: str, name: str = 'hot_water'):
-        self.name = name
-        self.timeout: float = 5
-        self.ip = ip
-        self.button = QCheckBox()
-        self.button.setStyleSheet("QCheckBox::indicator{width: 170px; height:170px;} QCheckBox::indicator:checked {image: url(./Icons/hot_water_on.png)} QCheckBox::indicator:unchecked {image: url(./Icons/hot_water_off.png)}")
-        self.button.setChecked(False)
-        # self.button.pressed.connect(self.button_pressed)
-
-    @property
-    def url(self) -> str:
-        return f'http://{self.ip}/state'
-
-    # @asyncSlot()
-    # async def connect(self):
-    #     self.button.pressed.connect(self.button_pressed)
-
-    @asyncSlot()
-    async def button_pressed(self) -> None:
-        # Water pump signal need to be pressed for 2 seconds to get effect
-        await self.change_state()
-        await asyncio.sleep(2)
-        self.button.setChecked(False)
-
-    @asyncSlot()
-    async def change_state(self):
-
-        if self.button.isChecked():
-            value = 1
-        else:
-            value = 0
-        logger.info(f'Water pomp sent {value} to {self.url}')
-        try:
-            async with aiohttp.ClientSession(timeout=aiohttp.ClientTimeout(total=self.timeout)) as session:
-                await session.post(
-                    self.url,
-                    json={"relays": [{"relay": 0, "state": value}]}
-                )
-                logger.info(f'Water pomp sent to state {value}')
-        except (aiohttp.ClientError, asyncio.TimeoutError):
-            logger.error(f'Hot water pump can not be connected')
 
 
 class TouchButtonsWBedroom(QWidget):
@@ -98,15 +54,16 @@ class TouchButtonsWBedroom(QWidget):
         self.freq = 2000
         self.counter = 0
         self.dir = allsky_dir
-        self.water_pump = None
+        self.water_pump: Optional[WaterPump] = None
+        self.b_alarm: Optional[QCheckBox] = None
         self.wind: str | int | float = '0.0'
         self.temp: str | int | float = '0.0'
         self.hum: str | int | float = '0.0'
         self.pres: str | int | float = '0.0'
         self.lock: asyncio.Lock = asyncio.Lock()
-        self.initUI(example_parameter,subject)
+        self.initUI(example_parameter, subject)
 
-    def initUI(self, text,subject):
+    def initUI(self, text, subject):
         
         self.layout = QHBoxLayout(self)
         self.vbox_left = QVBoxLayout()
@@ -184,18 +141,6 @@ class TouchButtonsWBedroom(QWidget):
         )
         await display.display_init()
 
-    # @asyncSlot()
-    # async def water_button_pressed(self,wylacz=False):
-    #     if wylacz:
-    #         self.water_pump.button.setChecked(False)
-    #     await self.changeWaterState()
-    #     if self.water_pump.button.isChecked():
-    #         #przycisk musi byc wlaczony przez okolo 2 sekundy zeby pompa sie uruchomila
-    #
-    #         QtCore.QTimer.singleShot(2000, lambda: self.water_button_pressed(wylacz=True))
-    #
-    # async def changeWaterState(self):
-    #     self.water_pump.changeState()
 
     def send_alarm(self):
         print(self.b_alarm.isChecked())
@@ -276,8 +221,13 @@ class TouchButtonsWBedroom(QWidget):
         await self.siren(wyj)
         self.d_close_clicked()
 
-    async def push(self, name,user,token,mess):
+    @staticmethod
+    async def push(name, user, token, mess) -> None:
+
         pars = {'token':token,'user':user,'message':mess+name+'!'}
+
+        # await send_http(name='push', url='https://api.pushover.net/1/messages.json', data=pars)
+
         try:
             requests.post('https://api.pushover.net/1/messages.json',data=pars)
         except:
@@ -286,8 +236,11 @@ class TouchButtonsWBedroom(QWidget):
     def c_close_clicked(self):
         self.c.close()
 
-    async def siren(self,wyj):
+    @staticmethod
+    async def siren(wyj):
         for siren,ip in config.bbox_sirens.items():
+            # await send_http(name='siren', url='http://'+ip+'/state', json={"relays":[{"relay":0,"state":wyj}]})
+
             requests.post('http://'+ip+'/state',json={"relays":[{"relay":0,"state":wyj}]})
 
     def _update_ephem(self):

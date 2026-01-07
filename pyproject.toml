@@ -1,6 +1,6 @@
 [tool.poetry]
 name = "oca_monitor"
-version = "0.4.12" # Also change the version in oca_monitor_bases.py
+version = "0.4.14" # Also change the version in oca_monitor_bases.py
 description = "Flexible GUI for displaying telescopes and other OCM systems status"
 license = "MIT"
 authors = ["pwielgorski"]
@@ -9,7 +9,7 @@ include = ["settings.toml", "oca_monitor/resources/icons/*"]
 
 
 [tool.poetry.dependencies]
-python = "^3.10, <3.12"
+python = "^3.10, <3.14"
 #paho-mqtt = "^1.6.1"
 
 # pyqy6 is optional, because there is no such package for ARM
