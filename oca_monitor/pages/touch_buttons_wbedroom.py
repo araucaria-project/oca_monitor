@@ -226,12 +226,12 @@ class TouchButtonsWBedroom(QWidget):
 
         pars = {'token':token,'user':user,'message':mess+name+'!'}
 
-        await send_http(name='push', url='https://api.pushover.net/1/messages.json', data=pars)
+        # await send_http(name='push', url='https://api.pushover.net/1/messages.json', data=pars)
 
-        # try:
-        #     requests.post('https://api.pushover.net/1/messages.json',data=pars)
-        # except:
-        #     pass
+        try:
+            requests.post('https://api.pushover.net/1/messages.json',data=pars)
+        except:
+            pass
 
     def c_close_clicked(self):
         self.c.close()
@@ -239,9 +239,9 @@ class TouchButtonsWBedroom(QWidget):
     @staticmethod
     async def siren(wyj):
         for siren,ip in config.bbox_sirens.items():
-            await send_http(name='siren', url='http://'+ip+'/state', json={"relays":[{"relay":0,"state":wyj}]})
+            # await send_http(name='siren', url='http://'+ip+'/state', json={"relays":[{"relay":0,"state":wyj}]})
 
-            # requests.post('http://'+ip+'/state',json={"relays":[{"relay":0,"state":wyj}]})
+            requests.post('http://'+ip+'/state',json={"relays":[{"relay":0,"state":wyj}]})
 
     def _update_ephem(self):
         lt, sunalt = ephemeris()
