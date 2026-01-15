@@ -6,6 +6,7 @@ from typing import Any, Optional
 import json
 
 from serverish.base import create_task
+from serverish.base.iterators import AsyncDictItemsIter
 
 from oca_monitor.utils import get_time_ago_text
 from PyQt6.QtWidgets import QWidget, QVBoxLayout, QLabel, QTextEdit, QLineEdit
@@ -113,6 +114,20 @@ class TelescopeOfp(QWidget):
 
     async def info_display(self) -> None:
 
+        """
+        {"fits_id": "devc_1055_85806", "telescope": "dev", "date_obs": "2026-01-15T08:35:36.703790",
+         "imagetyp": "science", "object": "W_Tuc", "loop": 1, "nloops": 1, "filter": "B", "exptime": 1.0,
+          "min": 269.0, "max": 64479.0, "mean": 338.7979793548584, "median": 338.0, "rms": 162.9519195516698,
+           "sigma_quantile": 10.0, "fwhm_x": 3.066431900922051, "fwhm_y": 3.553626041588144,
+            "fwhm": 3.3100289712550977,
+             "objects": {
+             "w_tuc": {"ra": 14.540435, "dec": -63.395658, "per": 0.6422382, "hjd0": null, "mode": "lc",
+              "B": null, "V": null, "Rc": null, "Ic": null, "u": null, "g": null, "r": null, "i": null,
+               "z": null, "x_pix": 943.0337994128126, "y_pix": 867.0749773159023, "in_frame": 1,
+                "naxis_1": 2048, "naxis_2": 2048, "x_edge_dist": 943.0337994128126, "y_edge_dist": 867.0749773159023,
+                 "moon_separation": 77.31975147253051, "adu_max": 30479.0, "adu_aperture_rad": 6}}}
+        """
+
         file_content = await a_read_file(path=os.path.join(self.dir, self.JSON_FILE_NAME), raise_err=False)
         if file_content:
             try:
@@ -122,16 +137,20 @@ class TelescopeOfp(QWidget):
                 content = None
         else:
             content = None
-        # logger.info(content)
+
+        txt = ""
         if content:
             try:
                 date = content["date_obs"]
                 obj = content["object"]
                 type = content["imagetyp"]
-                filter = content["filter"]
+                filter_ = content["filter"]
                 n = content["loop"]
-                ndit = content["nloops"]
+                n_dit = content["nloops"]
                 exptime = content["exptime"]
+
+                txt = txt + f"<i>{type}</i> <b>{obj}</b>"
+                txt = txt + f" | {n}/{n_dit} <b>{filter_}</b>  <b>{exptime:.1f}</b>s |"
             except (ValueError, LookupError) as e:
                 logger.warning(f"Can not parse data: {e}")
                 return
@@ -140,12 +159,37 @@ class TelescopeOfp(QWidget):
             except (ValueError, TypeError):
                 return
 
-            txt = ""
-            # txt = txt + f" <p style='font-size: 15pt;'> {date.split('T')[0]} {date.split('T')[1].split('.')[0]} "
-            # txt = txt + f" <p style='font-size: 15pt;'>"
-            txt = txt + f"<i>{type}</i> <b>{obj}</b>"
-            txt = txt + f" {n}/{ndit} <b>{filter}</b>  <b>{exptime:.1f}</b> s. <br> </p>"
-            self.info_e_txt = txt
+            try:
+                arr_min = content["min"]
+                arr_max = content["max"]
+                mean = content["mean"]
+                median = content["median"]
+
+                txt = txt + (f'<font size="3"> min:{arr_min:.0f}'
+                             f' max:{arr_max:.0f} mean:{mean:.0f} </font>|')
+                # med: {median: .0f}
+
+            except (ValueError, LookupError) as e:
+                pass
+
+            txt = txt + '<br>'
+
+            try:
+                if len(content["objects"]) > 0:
+                    txt = txt + f'|'
+                    async for obj_name, obj_data in AsyncDictItemsIter(content["objects"]):
+                        adu_max = obj_data["adu_max"]
+                        moon_sep = obj_data["moon_separation"]
+
+                        txt = txt + (f' <font size="3"><b>{obj_name}</b>'
+                                     f' max-adu:{adu_max:.0f} moon-dist:{moon_sep:.0f} </font>|')
+
+            except (ValueError, LookupError) as e:
+                pass
+
+            txt = txt + f" </p>"
+
+        self.info_e_txt = txt
 
     @staticmethod
     async def image_instance(image_path: str) -> Any:
@@ -203,3 +247,6 @@ class TelescopeOfp(QWidget):
             image_cascade_sec=0, image_pause_sec=0, refresh_list_sec=1, mode='update_files_show_once',
         )
         await lc.display_init()
+
+
+widget_class = TelescopeOfp
