@@ -24,7 +24,7 @@ logger = logging.getLogger(__name__.rsplit('.')[-1])
 class TelescopeOfp(QWidget):
 
     LC_HEIGHT = 150
-    INFO_HEIGHT = 50
+    INFO_HEIGHT = 75
     JSON_FILE_NAME = 'thumbnail_display.json'
     PNG_FILE_NAME = 'thumbnail_display.png'
     LC_FILE_NAME = 'last_light_curve_chart_display.png'
@@ -154,7 +154,7 @@ class TelescopeOfp(QWidget):
                 exptime = content["exptime"]
 
                 txt = txt + f"<i>{type}</i> <b>{obj}</b>"
-                txt = txt + f" | {n}/{n_dit} <b>{filter_}</b>  <b>{exptime:.1f}</b>s |"
+                txt = txt + f" | {n}/{n_dit} <b>{filter_}</b>  <b>{exptime:.1f}</b>s |<br>"
             except (ValueError, LookupError) as e:
                 logger.warning(f"Can not parse data: {e}")
                 return
@@ -164,19 +164,22 @@ class TelescopeOfp(QWidget):
                 return
 
             try:
+                fwhm_x = content["fwhm_x"]
+                fwhm_y = content["fwhm_y"]
                 arr_min = content["min"]
                 arr_max = content["max"]
                 mean = content["mean"]
                 median = content["median"]
 
-                txt = txt + (f'<font size="3"> min:{arr_min:.0f}'
-                             f' max:{arr_max:.0f} mean:{mean:.0f} </font>|')
+
+                txt = txt + (
+                    f'<font size="3">| fwhm x:{fwhm_x:.1f} y:{fwhm_y:.1f} min:{arr_min:.0f}'
+                    f' max:{arr_max:.0f} mean:{mean:.0f} median:{median:.0f}</font>|<br>')
                 # med: {median: .0f}
 
             except (ValueError, LookupError) as e:
                 pass
 
-            txt = txt + '<br>'
 
             try:
                 if len(content["objects"]) > 0:
