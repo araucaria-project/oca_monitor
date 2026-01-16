@@ -163,6 +163,8 @@ class TelescopeOfp(QWidget):
             except (ValueError, TypeError):
                 return
 
+
+
             try:
                 fwhm_x = content["fwhm_x"]
                 fwhm_y = content["fwhm_y"]
@@ -175,11 +177,16 @@ class TelescopeOfp(QWidget):
                 txt = txt + (
                     f'<font size="3">| fwhm x:{fwhm_x * scale:.1f} y:{fwhm_y * scale:.1f} min:{arr_min:.0f}'
                     f' max:{arr_max:.0f} mean:{mean:.0f} median:{median:.0f}</font>|<br>')
-                # med: {median: .0f}
 
             except (ValueError, LookupError) as e:
-                pass
+                arr_min = content["min"]
+                arr_max = content["max"]
+                mean = content["mean"]
+                median = content["median"]
 
+                txt = txt + (
+                    f'<font size="3">| min:{arr_min:.0f}'
+                    f' max:{arr_max:.0f} mean:{mean:.0f} median:{median:.0f}</font>|<br>')
 
             try:
                 if len(content["objects"]) > 0:
