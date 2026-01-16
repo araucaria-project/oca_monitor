@@ -142,7 +142,7 @@ class TelescopeOfp(QWidget):
         else:
             content = None
 
-        txt = "sssssssssssssss"
+        txt = ""
         if content:
             try:
                 date = content["date_obs"]
