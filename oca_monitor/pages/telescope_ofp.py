@@ -170,10 +170,10 @@ class TelescopeOfp(QWidget):
                 arr_max = content["max"]
                 mean = content["mean"]
                 median = content["median"]
-
+                scale = content["scale"]
 
                 txt = txt + (
-                    f'<font size="3">| fwhm x:{fwhm_x:.1f} y:{fwhm_y:.1f} min:{arr_min:.0f}'
+                    f'<font size="3">| fwhm x:{fwhm_x * scale:.1f} y:{fwhm_y * scale:.1f} min:{arr_min:.0f}'
                     f' max:{arr_max:.0f} mean:{mean:.0f} median:{median:.0f}</font>|<br>')
                 # med: {median: .0f}
 
