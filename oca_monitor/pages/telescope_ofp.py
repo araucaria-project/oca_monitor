@@ -11,6 +11,7 @@ from serverish.base.iterators import AsyncDictItemsIter
 from oca_monitor.utils import get_time_ago_text
 from PyQt6.QtWidgets import QWidget, QVBoxLayout, QLabel, QTextEdit, QLineEdit
 from PyQt6 import QtCore, QtGui
+from PyQt6.QtCore import Qt
 from qasync import asyncSlot
 from PyQt6.QtGui import QPixmap
 from oca_monitor.image_display import ImageDisplay
@@ -71,6 +72,9 @@ class TelescopeOfp(QWidget):
         self.curve_pix.setFixedHeight(self.LC_HEIGHT)
 
         self.info_e = QTextEdit("")
+        self.info_e.setLineWrapMode(QTextEdit.LineWrapMode.NoWrap)
+        self.info_e.setVerticalScrollBarPolicy(Qt.ScrollBarPolicy.ScrollBarAlwaysOff)
+        self.info_e.setHorizontalScrollBarPolicy(Qt.ScrollBarPolicy.ScrollBarAlwaysOff)
         self.info_e.setFixedHeight(self.INFO_HEIGHT)
         self.info_e.setStyleSheet(f"background-color: {color}; color: white")
         # self.set_pix_maps()
@@ -138,7 +142,7 @@ class TelescopeOfp(QWidget):
         else:
             content = None
 
-        txt = ""
+        txt = "sssssssssssssss"
         if content:
             try:
                 date = content["date_obs"]
