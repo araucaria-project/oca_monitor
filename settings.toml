@@ -74,9 +74,9 @@ source = "conditions"  # page source - page is defined in oca_monitor/pages/exam
 ##-------------------------- aux obs display---------------
 
 [aux]  # global configuration is used by all environments, setting from here override all other settings
-window_size = [2000, 1000]
-panel_columns = [1,1,1]  # The size ratio of the columns in the panel grid
-panel_rows = [1]   # The size ratio of the rows in the panel grid
+window_size = [2000, 1200]
+panel_columns = [1, 1, 1]  # The size ratio of the columns in the panel grid
+panel_rows = [3, 1]   # The size ratio of the rows in the panel grid
 style = "dark"
 #style = "white"
 
@@ -104,6 +104,22 @@ tel = 'zb08'
 #auto_interval = 10  # seconds, how long to show this page before auto switching to next page
 source = "telescope_ofp"  # page source - page is defined in oca_monitor/pages/example.py
 tel = 'jk15'
+
+[aux.quality.00.wk06]
+#auto_interval = 10  # seconds, how long to show this page before auto switching to next page
+source = "quality_log"  # page source - page is defined in oca_monitor/pages/example.py
+tel = 'wk06'
+
+[aux.quality.01.zb08]
+#auto_interval = 10  # seconds, how long to show this page before auto switching to next page
+source = "quality_log"  # page source - page is defined in oca_monitor/pages/example.py
+tel = 'zb08'
+
+[aux.quality.02.jk15]
+#auto_interval = 10  # seconds, how long to show this page before auto switching to next page
+source = "quality_log"  # page source - page is defined in oca_monitor/pages/example.py
+tel = 'jk15'
+
 
 
 ##--------------------------touchpanel west bedroom---------------
