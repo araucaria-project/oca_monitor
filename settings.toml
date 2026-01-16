@@ -105,17 +105,17 @@ tel = 'zb08'
 source = "telescope_ofp"  # page source - page is defined in oca_monitor/pages/example.py
 tel = 'jk15'
 
-[aux.quality.00.wk06]
+[aux.panels.10.wk06]
 #auto_interval = 10  # seconds, how long to show this page before auto switching to next page
 source = "quality_log"  # page source - page is defined in oca_monitor/pages/example.py
 tel = 'wk06'
 
-[aux.quality.01.zb08]
+[aux.panels.11.zb08]
 #auto_interval = 10  # seconds, how long to show this page before auto switching to next page
 source = "quality_log"  # page source - page is defined in oca_monitor/pages/example.py
 tel = 'zb08'
 
-[aux.quality.02.jk15]
+[aux.panels.12.jk15]
 #auto_interval = 10  # seconds, how long to show this page before auto switching to next page
 source = "quality_log"  # page source - page is defined in oca_monitor/pages/example.py
 tel = 'jk15'
@@ -297,3 +297,51 @@ source = "wind"
 source = "example"
 example_parameter = "Ho Ho"
 
+##-------------------------- aux dev obs display---------------
+
+[aux_dev]  # global configuration is used by all environments, setting from here override all other settings
+window_size = [1900, 900]
+panel_columns = [1, 1, 1]  # The size ratio of the columns in the panel grid
+panel_rows = [3, 1]   # The size ratio of the rows in the panel grid
+style = "dark"
+#style = "white"
+
+nats_host = "192.168.8.140"
+nats_port = 4222
+
+#log_level = "DEBUG"
+log_level = "INFO"
+#log_level = "WARNING"
+
+# Panel page declaration:
+# environment.panels.rowcolumn.tabname
+
+[aux_dev.panels.00.wk06]
+#auto_interval = 10  # seconds, how long to show this page before auto switching to next page
+source = "telescope_ofp"  # page source - page is defined in oca_monitor/pages/example.py
+tel = 'wk06'
+
+[aux_dev.panels.01.zb08]
+#auto_interval = 10  # seconds, how long to show this page before auto switching to next page
+source = "telescope_ofp"  # page source - page is defined in oca_monitor/pages/example.py
+tel = 'zb08'
+
+[aux_dev.panels.02.jk15]
+#auto_interval = 10  # seconds, how long to show this page before auto switching to next page
+source = "telescope_ofp"  # page source - page is defined in oca_monitor/pages/example.py
+tel = 'jk15'
+
+[aux_dev.panels.10.wk06]
+#auto_interval = 10  # seconds, how long to show this page before auto switching to next page
+source = "quality_log"  # page source - page is defined in oca_monitor/pages/example.py
+tel = 'wk06'
+
+[aux_dev.panels.11.zb08]
+#auto_interval = 10  # seconds, how long to show this page before auto switching to next page
+source = "quality_log"  # page source - page is defined in oca_monitor/pages/example.py
+tel = 'zb08'
+
+[aux_dev.panels.12.jk15]
+#auto_interval = 10  # seconds, how long to show this page before auto switching to next page
+source = "quality_log"  # page source - page is defined in oca_monitor/pages/example.py
+tel = 'jk15'

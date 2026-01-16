@@ -61,11 +61,11 @@ async def get_time_ago_text(date: datetime.datetime) -> Optional[Dict[str, Union
     diff = now - date
     tot_sec = diff.total_seconds()
     if tot_sec < 60:
-        return {'total_sec': diff.total_seconds(), 'txt': f'{round(tot_sec)} s ago'}
+        return {'total_sec': diff.total_seconds(), 'txt': f'{round(tot_sec)}s ago'}
     elif 3600 > tot_sec >= 60:
-        return {'total_sec': diff.total_seconds(), 'txt': f'{round(tot_sec / 60)} min ago'}
+        return {'total_sec': diff.total_seconds(), 'txt': f'{round(tot_sec / 60)}min ago'}
     elif 86400 > tot_sec >= 3600:
-        return {'total_sec': diff.total_seconds(), 'txt': f'{round(tot_sec / 3600)} h ago'}
+        return {'total_sec': diff.total_seconds(), 'txt': f'{round(tot_sec / 3600)}h ago'}
     elif tot_sec >= 86400:
         return {'total_sec': diff.total_seconds(), 'txt': f'{round(tot_sec / 86400)} days ago'}
     else:

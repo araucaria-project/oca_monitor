@@ -1,99 +1,240 @@
+import asyncio
+import copy
+import datetime
 import logging
-import os
-import subprocess
-import time
+import random
+from dataclasses import dataclass
+from typing import Union, List, Optional
 
 from PyQt6.QtWidgets import  QWidget, QHBoxLayout, QTextEdit
 from PyQt6.QtCore import QTimer, Qt
-
+from PyQt6.QtGui import QColor
 from qasync import asyncSlot
-from serverish.base import dt_ensure_datetime
-from serverish.base.task_manager import create_task_sync, create_task
+from serverish.base import create_task, dt_from_array
+from serverish.base.iterators import AsyncListIter
 from serverish.messenger import get_reader
 
+from oca_monitor.utils import get_time_ago_text
+
+try:
+    from enum import StrEnum
+except ImportError:
+    from enum import Enum
+    class StrEnum(str, Enum):
+        pass
 
 logger = logging.getLogger(__name__.rsplit('.')[-1])
 
+
+class LogLevel(StrEnum):
+    debug = 'DEBUG'
+    info = 'INFO'
+    notice = 'NOTICE'
+    warning = 'WARNING'
+    major = 'MAJOR'
+
+    @property
+    def color(self) -> str:
+        return {
+            # LogLevel.debug: Qt.GlobalColor.gray,
+            # LogLevel.info: Qt.GlobalColor.green,
+            # LogLevel.notice: Qt.GlobalColor.yellow,
+            # LogLevel.warning: QColor(255, 165, 0),
+            # LogLevel.major: Qt.GlobalColor.red,
+            LogLevel.debug: 'gray',
+            LogLevel.info: 'green',
+            LogLevel.notice: 'yellow',
+            LogLevel.warning: 'orange',
+            LogLevel.major: 'red',
+        }[self]
+
+
+@dataclass
+class Record:
+    dt: datetime.datetime
+    txt: str
+    level: LogLevel
+    show_time: bool = True
+
+
 class QualityLogWidget(QWidget):
+
+    HIDE_RECORD_SEC = 7200
+    REMOVE_RECORD_SEC = 86000
+    REFRESH_LOG_INTERVAL_SEC = 1
+    REMOVE_RECORD_INTERVAL_SEC = 3600
+
     def __init__(self, main_window, tel: str, subject='telemetry.weather.davis', vertical_screen = False, **kwargs):
         super().__init__()
         self.parent = main_window
-        self.subject = subject
         self.vertical = bool(vertical_screen)
+        self.layout = QHBoxLayout(self)
+        self.info_e = QTextEdit("")
+        self.layout.addWidget(self.info_e)
         self.tel = tel
-        self.initUI()
-        self.parent.sound_page = self
-        self.one_sun_sound = True
-        self.one_weather_warning = True
-        self.one_weather_stop = True
+        self.subject = f'tic.journal.{tel}.quality'
+        self.log: List[Record] = []
+        self.lock: asyncio.Lock = asyncio.Lock()
+        # self.displayed: List[Record] = []
         QTimer.singleShot(0, self.async_init)
-        logger.info(f"QualityLogWidget init setup done")
+        logger.info(f"QualityLogWidget {self.tel} init setup done")
 
     @asyncSlot()
     async def async_init(self):
-        # await create_task(self.reader_ocm_messages(), "nats_ocm_message_reader")
-        pass
+        await self.display_log_levels()
+        await create_task(self.display_records(), "display_records")
+        await create_task(self.records_reader(), "records_reader")
+        await create_task(self.clean_records(), "records_reader")
+        # await create_task(self.add_test_records(), "add_test_records")
 
-    def initUI(self,):
-        self.layout = QHBoxLayout(self)
-        self.info_e = QTextEdit()
+    async def add_record(self, dt: datetime.datetime, txt: str, level: LogLevel, show_time: bool = True) -> None:
+        async with self.lock:
+            self.log.append(Record(dt=dt, txt=txt, level=level, show_time=show_time))
 
-        self.layout.addWidget(self.info_e)
-        # logger.info(f"MessageWidget UI setup done")
+    async def add_test_records(self):
+        while True:
+            l = [LogLevel.info, LogLevel.notice, LogLevel.warning, LogLevel.major]
+            r = random.randint(0, len(l) - 1)
+            await self.add_record(
+                dt=datetime.datetime.now(datetime.timezone.utc),
+                txt=l[r],
+                level=l[r]
+            )
+            await asyncio.sleep(self.REFRESH_LOG_INTERVAL_SEC)
 
+    @staticmethod
+    async def get_log_level(level_int: int) -> Optional[LogLevel]:
+        val = {
+            'DEBUG': LogLevel.debug,
+            'NOTICE': LogLevel.notice,
+            'INFO': LogLevel.info,
+            'WARNING': LogLevel.warning,
+            'ERROR': LogLevel.major
+        }
+        if level_int == 25:
+            lev = 'NOTICE'
+        else:
+            lev = logging.getLevelName(level_int)
+        try:
+            return val[lev]
+        except (LookupError, ValueError, TypeError):
+            return None
 
+    async def records_reader(self) -> None:
+        r = get_reader(subject=self.subject, deliver_policy='new')
+        async for data, meta in r:
+            try:
+                dt = dt_from_array(data['timestamp'])
+                txt = data['message']
+                log_level = await self.get_log_level(data['level'])
+                if log_level is None:
+                    log_level = LogLevel.info
+                await self.add_record(
+                    dt=dt,
+                    txt=txt,
+                    level=log_level
+                )
+            except (LookupError, TypeError, ValueError):
+                logger.error(f'Can not read journal quality msg')
 
+    async def clean_records(self) -> None:
+        while True:
+            to_remove = []
+            async for record in AsyncListIter(self.log.copy()):
+                ago = await get_time_ago_text(date=record.dt)
+                if ago['total_sec'] >= self.REMOVE_RECORD_SEC:
+                    to_remove.append(record)
 
-    # async def reader_ocm_messages(self):
-    #         r = get_reader(f'tic.status.ocm.messages', deliver_policy='new')
-    #         async for data, meta in r:
-    #             try:
-    #                 label = data["label"]
-    #                 c = Qt.GlobalColor.gray
-    #                 if label == "INFO":
-    #                     c = Qt.GlobalColor.gray
-    #                 elif label == "PING":
-    #                     c = Qt.GlobalColor.darkYellow
-    #                     subprocess.run(["aplay", f"{os.getcwd()}/sounds/tos_alien_sound_4.wav"])
-    #                 elif label == "PROGRAM STOP":
-    #                     c = Qt.GlobalColor.gray
-    #                     subprocess.run(["aplay", f"{os.getcwd()}/sounds/alert07.wav"])
-    #                 elif label == "PROGRAM BELL":
-    #                     c = Qt.GlobalColor.gray
-    #                     subprocess.run(["aplay",f"{os.getcwd()}/sounds/romulan_alarm.wav"])
-    #                 elif label == "PROGRAM ERROR":
-    #                     c = Qt.GlobalColor.red
-    #                     subprocess.run(["aplay",f"{os.getcwd()}/sounds/alert06.wav"])
-    #                 elif label == "WEATHER ALERT":
-    #                     c = Qt.GlobalColor.red
-    #                     subprocess.run(["aplay", f"{os.getcwd()}/sounds/klingon_alert.wav"])
-    #                 elif label == "WEATHER WARNING":
-    #                     c = Qt.GlobalColor.darkYellow
-    #                     subprocess.run(["aplay", f"{os.getcwd()}/sounds/alert09.wav"])
-    #                 elif label == "SUN WARNING":
-    #                     c = Qt.GlobalColor.darkYellow
-    #                     subprocess.run(["aplay", f"{os.getcwd()}/sounds/alert23.wav"])
-    #                 elif label == "FWHM WARNING":
-    #                     c = Qt.GlobalColor.darkYellow
-    #                     subprocess.run(["aplay", f"{os.getcwd()}/sounds/computerbeep_12.wav"])
-    #                 else:
-    #                     c = Qt.GlobalColor.gray
-    #                     subprocess.run(["aplay", f"{os.getcwd()}/sounds/computerbeep_12.wav"])
+            async for record in AsyncListIter(to_remove):
+                async with self.lock:
+                    self.log.remove(record)
+            await asyncio.sleep(self.REMOVE_RECORD_INTERVAL_SEC)
+
+    # async def add_msg_to_log(self, txt: str, color: Union[Qt.GlobalColor, QColor]):
     #
-    #
-    #                 # if label == "TOI RESPONDER":
-    #                 #     c = QtCore.Qt.darkGreen
-    #                 # if label == "PLANRUNNER":
-    #                 #     c = QtCore.Qt.darkGray
-    #
-    #                 txt = f'{data["ut"]} [{data["user"]}] {data["info"]}'
-    #                 self.info_e.setTextColor(c)
-    #                 self.info_e.append(txt)
-    #                 self.info_e.repaint()
-    #
-    #
-    #             except Exception as e:
-    #                 logger.warning(f'{e} {data}')
+    #     self.info_e.setTextColor(color)
+    #     self.info_e.append(txt)
+    #     self.info_e.repaint()
+
+    async def display_records(self) -> None:
+        while True:
+            _log = copy.deepcopy(self.log)
+            _log.reverse()
+            txt = ""
+            async for record in AsyncListIter(_log):
+                ago = await get_time_ago_text(date=record.dt)
+                if ago['total_sec'] <= self.HIDE_RECORD_SEC:
+                    if record.show_time:
+                        txt += (f"<span style='color: {record.level.color}; font-weight: bold;'>"
+                                f"[{ago['txt']}] {record.txt}</span><br>")
+                        # txt += f'[{ago["txt"]}] {record.txt}<br>'
+                    else:
+                        txt += (f"<span style='color: {record.level.color}; font-weight: bold;'>"
+                                f"{record.txt}</span><br>")
+                    # await self.add_msg_to_log(txt=txt, color=record.level.color)
+            self.info_e.setHtml(txt)
+            self.repaint()
+            await asyncio.sleep(self.REFRESH_LOG_INTERVAL_SEC)
+
+    async def display_log_levels(self) -> None:
+
+        await self.add_record(
+            dt=datetime.datetime.now(datetime.timezone.utc),
+            txt="",
+            level=LogLevel.debug,
+            show_time = False
+        )
+
+
+        await self.add_record(
+            dt=datetime.datetime.now(datetime.timezone.utc),
+            txt=LogLevel.major,
+            level=LogLevel.major,
+            show_time = False
+        )
+
+        await self.add_record(
+            dt=datetime.datetime.now(datetime.timezone.utc),
+            txt=LogLevel.warning,
+            level=LogLevel.warning,
+            show_time=False
+        )
+
+        await self.add_record(
+            dt=datetime.datetime.now(datetime.timezone.utc),
+            txt=LogLevel.notice,
+            level=LogLevel.notice,
+            show_time=False
+
+        )
+
+        await self.add_record(
+            dt=datetime.datetime.now(datetime.timezone.utc),
+            txt=LogLevel.info,
+            level=LogLevel.info,
+            show_time=False
+        )
+
+        await self.add_record(
+            dt=datetime.datetime.now(datetime.timezone.utc),
+            txt='----------------------------------------',
+            level=LogLevel.debug,
+            show_time=False
+        )
+
+        await self.add_record(
+            dt=datetime.datetime.now(datetime.timezone.utc),
+            txt='Quality log levels:',
+            level=LogLevel.debug,
+            show_time=False
+        )
+
+        await self.add_record(
+            dt=datetime.datetime.now(datetime.timezone.utc),
+            txt='',
+            level=LogLevel.debug,
+            show_time=False
+        )
 
 
 widget_class = QualityLogWidget
