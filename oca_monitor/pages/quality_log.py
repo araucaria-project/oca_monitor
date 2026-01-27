@@ -48,7 +48,7 @@ class LogLevel(StrEnum):
         return {
             LogLevel.debug: "#4f4f4f",  # darker gray
             LogLevel.info: "#1f5f2e",  # darker green
-            LogLevel.notice: "#d48806",  # darker amber
+            LogLevel.notice: "#9E9A5C",  # darker amber
             LogLevel.warning: "#cc5200",  # darker orange
             LogLevel.major: "#9f1d1d",  # darker red
         }[self]
@@ -68,7 +68,8 @@ class QualityLogWidget(QWidget):
     REMOVE_RECORD_FROM_DATA_SEC = 86000
     REFRESH_LOG_INTERVAL_SEC = 1
     REMOVE_RECORD_FROM_DISPLAY_SEC = 7200
-    DIM_RECORD_SEC = 1200
+    # DIM_RECORD_SEC = 1200
+    DIM_RECORD_SEC = 10
 
     def __init__(self, main_window, tel: str, subject='telemetry.weather.davis', vertical_screen = False, **kwargs):
         super().__init__()
