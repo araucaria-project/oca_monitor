@@ -36,16 +36,21 @@ class LogLevel(StrEnum):
     @property
     def color(self) -> str:
         return {
-            # LogLevel.debug: Qt.GlobalColor.gray,
-            # LogLevel.info: Qt.GlobalColor.green,
-            # LogLevel.notice: Qt.GlobalColor.yellow,
-            # LogLevel.warning: QColor(255, 165, 0),
-            # LogLevel.major: Qt.GlobalColor.red,
             LogLevel.debug: 'gray',
             LogLevel.info: 'green',
             LogLevel.notice: 'yellow',
             LogLevel.warning: 'orange',
             LogLevel.major: 'red',
+        }[self]
+
+    @property
+    def dim_color(self) -> str:
+        return {
+            LogLevel.debug: "#4f4f4f",  # darker gray
+            LogLevel.info: "#1f5f2e",  # darker green
+            LogLevel.notice: "#d48806",  # darker amber
+            LogLevel.warning: "#cc5200",  # darker orange
+            LogLevel.major: "#9f1d1d",  # darker red
         }[self]
 
 
@@ -60,9 +65,10 @@ class Record:
 class QualityLogWidget(QWidget):
 
     HIDE_RECORD_SEC = 7200
-    REMOVE_RECORD_SEC = 86000
+    REMOVE_RECORD_FROM_DATA_SEC = 86000
     REFRESH_LOG_INTERVAL_SEC = 1
-    REMOVE_RECORD_INTERVAL_SEC = 3600
+    REMOVE_RECORD_FROM_DISPLAY_SEC = 7200
+    DIM_RECORD_SEC = 1200
 
     def __init__(self, main_window, tel: str, subject='telemetry.weather.davis', vertical_screen = False, **kwargs):
         super().__init__()
@@ -142,13 +148,13 @@ class QualityLogWidget(QWidget):
             to_remove = []
             async for record in AsyncListIter(self.log.copy()):
                 ago = await get_time_ago_text(date=record.dt)
-                if ago['total_sec'] >= self.REMOVE_RECORD_SEC:
+                if ago['total_sec'] >= self.REMOVE_RECORD_FROM_DATA_SEC:
                     to_remove.append(record)
 
             async for record in AsyncListIter(to_remove):
                 async with self.lock:
                     self.log.remove(record)
-            await asyncio.sleep(self.REMOVE_RECORD_INTERVAL_SEC)
+            await asyncio.sleep(self.REMOVE_RECORD_FROM_DISPLAY_SEC)
 
     # async def add_msg_to_log(self, txt: str, color: Union[Qt.GlobalColor, QColor]):
     #
@@ -164,12 +170,16 @@ class QualityLogWidget(QWidget):
             async for record in AsyncListIter(_log):
                 ago = await get_time_ago_text(date=record.dt)
                 if ago['total_sec'] <= self.HIDE_RECORD_SEC:
+                    if ago['total_sec'] > self.DIM_RECORD_SEC:
+                        color = record.level.dim_color
+                    else:
+                        color = record.level.color
                     if record.show_time:
-                        txt += (f"<span style='color: {record.level.color}; font-weight: bold;'>"
+                        txt += (f"<span style='color: {color}; font-weight: bold; opacity: 0.05;'>"
                                 f"[{ago['txt']}] {record.txt}</span><br>")
                         # txt += f'[{ago["txt"]}] {record.txt}<br>'
                     else:
-                        txt += (f"<span style='color: {record.level.color}; font-weight: bold;'>"
+                        txt += (f"<span style='color: {color}; font-weight: bold; opacity: 0.05;'>"
                                 f"{record.txt}</span><br>")
                     # await self.add_msg_to_log(txt=txt, color=record.level.color)
             self.info_e.setHtml(txt)
