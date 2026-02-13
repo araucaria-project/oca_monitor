@@ -29,6 +29,10 @@ class TelescopeOfp(QWidget):
     PNG_FILE_NAME = 'thumbnail_display.png'
     LC_FILE_NAME = 'last_light_curve_chart_display.png'
     REPAINT_INFO_E_INTERVAL = 0.5 # seconds
+    OBSERV_AGO_WARN_TIME = 1800
+    OBSERV_AGO_WARN_COLOR = 'yellow'
+    OBSERV_AGO_BAD_TIME = 3600
+    OBSERV_AGO_BAD_COLOR = 'red'
 
     # You can use just def __init__(self, **kwargs) if you don't want to bother with the arguments
     def __init__(self,
@@ -102,8 +106,10 @@ class TelescopeOfp(QWidget):
             ago_txt = await get_time_ago_text(date=self.info_e_last_date_obs)
 
             if ago_txt is not None:
-                if ago_txt['total_sec'] >= 3600:
-                    t_col = 'red'
+                if self.OBSERV_AGO_BAD_TIME > ago_txt['total_sec'] >= self.OBSERV_AGO_WARN_TIME:
+                    t_col = self.OBSERV_AGO_WARN_COLOR
+                elif ago_txt['total_sec'] >= self.OBSERV_AGO_BAD_TIME:
+                    t_col = self.OBSERV_AGO_BAD_COLOR
                 else:
                     t_col = text_color
                 txt = f" <p style='font-size: 15pt;'>"
