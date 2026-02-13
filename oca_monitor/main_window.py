@@ -14,13 +14,13 @@ from asyncio import Lock
 from importlib import import_module
 import dataclasses
 from typing import Dict, List, TypedDict, Callable, Optional, Any
-from nats.errors import TimeoutError as NatsTimeoutError
 from PyQt6.QtCore import QTimer
 from PyQt6.QtWidgets import QMainWindow, QGridLayout, QWidget, QTabWidget, QLabel, QToolBar
 from PyQt6.QtWidgets import QPushButton, QVBoxLayout
 from serverish.base.task_manager import create_task_sync, create_task, Task, TaskManager
 from serverish.messenger import Messenger, single_read
 from serverish.messenger.msg_callback_sub import MsgCallbackSubscriber
+from serverish.base.exceptions import MessengerNotConnected
 
 from oca_monitor.config import settings
 from oca_monitor.tab_config_dialog import TabConfigDialog
@@ -273,17 +273,20 @@ class MainWindow(QMainWindow):
             data, meta = await single_read(subject=f'tic.config.observatory')
             self.nats_cfg = data
             logger.info('Config loaded ok')
-        except (AttributeError, LookupError, ValueError):
+        except (AttributeError, LookupError, ValueError, MessengerNotConnected):
             logger.error(f'Can not get observatory config.')
             self.nats_cfg = {}
         await create_task(self.run_task_monitor(), "task_monitor")
 
     @asyncSlot()
-    async def observatory_config(self) -> dict:
+    async def observatory_config(self) -> Optional[Dict]:
         if self._config is None:
             async with self._config_reading_in_progress:
                 if self._config is None:
-                    self._config, meta = await single_read('tic.config.observatory')
+                    try:
+                        self._config, meta = await single_read('tic.config.observatory')
+                    except MessengerNotConnected:
+                        return None
                     logger.info(f'Obtained Observatory Config. Published: {self._config["published"]}')
         return self._config
 

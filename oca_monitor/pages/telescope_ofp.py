@@ -11,6 +11,7 @@ from serverish.base.iterators import AsyncDictItemsIter
 from oca_monitor.utils import get_time_ago_text
 from PyQt6.QtWidgets import QWidget, QVBoxLayout, QLabel, QTextEdit, QLineEdit
 from PyQt6 import QtCore, QtGui
+from PyQt6.QtCore import Qt
 from qasync import asyncSlot
 from PyQt6.QtGui import QPixmap
 from oca_monitor.image_display import ImageDisplay
@@ -23,11 +24,15 @@ logger = logging.getLogger(__name__.rsplit('.')[-1])
 class TelescopeOfp(QWidget):
 
     LC_HEIGHT = 150
-    INFO_HEIGHT = 50
+    INFO_HEIGHT = 75
     JSON_FILE_NAME = 'thumbnail_display.json'
     PNG_FILE_NAME = 'thumbnail_display.png'
     LC_FILE_NAME = 'last_light_curve_chart_display.png'
     REPAINT_INFO_E_INTERVAL = 0.5 # seconds
+    OBSERV_AGO_WARN_TIME = 1800
+    OBSERV_AGO_WARN_COLOR = 'yellow'
+    OBSERV_AGO_BAD_TIME = 3600
+    OBSERV_AGO_BAD_COLOR = 'red'
 
     # You can use just def __init__(self, **kwargs) if you don't want to bother with the arguments
     def __init__(self,
@@ -71,6 +76,9 @@ class TelescopeOfp(QWidget):
         self.curve_pix.setFixedHeight(self.LC_HEIGHT)
 
         self.info_e = QTextEdit("")
+        self.info_e.setLineWrapMode(QTextEdit.LineWrapMode.NoWrap)
+        self.info_e.setVerticalScrollBarPolicy(Qt.ScrollBarPolicy.ScrollBarAlwaysOff)
+        self.info_e.setHorizontalScrollBarPolicy(Qt.ScrollBarPolicy.ScrollBarAlwaysOff)
         self.info_e.setFixedHeight(self.INFO_HEIGHT)
         self.info_e.setStyleSheet(f"background-color: {color}; color: white")
         # self.set_pix_maps()
@@ -98,8 +106,10 @@ class TelescopeOfp(QWidget):
             ago_txt = await get_time_ago_text(date=self.info_e_last_date_obs)
 
             if ago_txt is not None:
-                if ago_txt['total_sec'] >= 3600:
-                    t_col = 'red'
+                if self.OBSERV_AGO_BAD_TIME > ago_txt['total_sec'] >= self.OBSERV_AGO_WARN_TIME:
+                    t_col = self.OBSERV_AGO_WARN_COLOR
+                elif ago_txt['total_sec'] >= self.OBSERV_AGO_BAD_TIME:
+                    t_col = self.OBSERV_AGO_BAD_COLOR
                 else:
                     t_col = text_color
                 txt = f" <p style='font-size: 15pt;'>"
@@ -150,7 +160,7 @@ class TelescopeOfp(QWidget):
                 exptime = content["exptime"]
 
                 txt = txt + f"<i>{type}</i> <b>{obj}</b>"
-                txt = txt + f" | {n}/{n_dit} <b>{filter_}</b>  <b>{exptime:.1f}</b>s |"
+                txt = txt + f" | {n}/{n_dit} <b>{filter_}</b>  <b>{exptime:.1f}</b>s |<br>"
             except (ValueError, LookupError) as e:
                 logger.warning(f"Can not parse data: {e}")
                 return
@@ -159,20 +169,30 @@ class TelescopeOfp(QWidget):
             except (ValueError, TypeError):
                 return
 
+
+
             try:
+                fwhm_x = content["fwhm_x"]
+                fwhm_y = content["fwhm_y"]
+                arr_min = content["min"]
+                arr_max = content["max"]
+                mean = content["mean"]
+                median = content["median"]
+                scale = content["scale"]
+
+                txt = txt + (
+                    f'<font size="3">| fwhm x:{fwhm_x * scale:.1f} y:{fwhm_y * scale:.1f} min:{arr_min:.0f}'
+                    f' max:{arr_max:.0f} mean:{mean:.0f} median:{median:.0f}</font>|<br>')
+
+            except (ValueError, LookupError) as e:
                 arr_min = content["min"]
                 arr_max = content["max"]
                 mean = content["mean"]
                 median = content["median"]
 
-                txt = txt + (f'<font size="3"> min:{arr_min:.0f}'
-                             f' max:{arr_max:.0f} mean:{mean:.0f} </font>|')
-                # med: {median: .0f}
-
-            except (ValueError, LookupError) as e:
-                pass
-
-            txt = txt + '<br>'
+                txt = txt + (
+                    f'<font size="3">| min:{arr_min:.0f}'
+                    f' max:{arr_max:.0f} mean:{mean:.0f} median:{median:.0f}</font>|<br>')
 
             try:
                 if len(content["objects"]) > 0:
