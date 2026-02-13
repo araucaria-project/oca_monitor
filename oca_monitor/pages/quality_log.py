@@ -73,7 +73,7 @@ class QualityLogWidget(QWidget):
     REMOVE_RECORD_FROM_DATA_SEC = 86000
     REFRESH_LOG_INTERVAL_SEC = 1
     REMOVE_RECORD_FROM_DISPLAY_SEC = 7200
-    DIM_RECORD_SEC = 5
+    DIM_RECORD_SEC = 1200
 
     def __init__(self, main_window, tel: str, subject='telemetry.weather.davis', vertical_screen = False, **kwargs):
         super().__init__()
