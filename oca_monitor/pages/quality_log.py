@@ -46,11 +46,16 @@ class LogLevel(StrEnum):
     @property
     def dim_color(self) -> str:
         return {
+            # LogLevel.debug: "#4f4f4f",  # darker gray
+            # LogLevel.info: "#1f5f2e",  # darker green
+            # LogLevel.notice: "#9E9A5C",  # darker amber
+            # LogLevel.warning: "#cc5200",  # darker orange
+            # LogLevel.major: "#9f1d1d",  # darker red
             LogLevel.debug: "#4f4f4f",  # darker gray
-            LogLevel.info: "#1f5f2e",  # darker green
-            LogLevel.notice: "#9E9A5C",  # darker amber
-            LogLevel.warning: "#cc5200",  # darker orange
-            LogLevel.major: "#9f1d1d",  # darker red
+            LogLevel.info: "#143d1f",  # darker green
+            LogLevel.notice: "#6e6a3a",  # darker amber
+            LogLevel.warning: "#662900",  # darker orange
+            LogLevel.major: "#6b1212",  # darker red
         }[self]
 
 
