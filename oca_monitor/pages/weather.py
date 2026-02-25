@@ -49,6 +49,12 @@ def ephemeris(vertical = 0):
 
 
 class WeatherDataWidget(QWidget):
+
+    MAX_WIND = 35
+    MAX_TEMP = 40
+    MAX_HUM = 100
+    PRESSURE_RANGE = [650, 800]
+
     def __init__(self, main_window, subject='telemetry.weather.davis', vertical_screen = False, **kwargs):
         super().__init__()
         self.main_window = main_window
@@ -234,45 +240,56 @@ class WeatherDataWidget(QWidget):
                 hour = ts.hour + ts.minute / 60 + ts.second / 3600
                 if ts < today_midnight:
                     # logger.info(f'Adding point to yesterday data {wind_speed10}')
-                    self.ln_yesterday_wind.set_data(
-                        list(self.ln_yesterday_wind.get_xdata()) + [hour],
-                        list(self.ln_yesterday_wind.get_ydata()) + [wind_speed10]
-                    )
 
-                    self.ln_yesterday_temp.set_data(
-                        list(self.ln_yesterday_temp.get_xdata()) + [hour],
-                        list(self.ln_yesterday_temp.get_ydata()) + [temp]
-                    )
+                    if wind_speed10 <= self.MAX_WIND:
+                        self.ln_yesterday_wind.set_data(
+                            list(self.ln_yesterday_wind.get_xdata()) + [hour],
+                            list(self.ln_yesterday_wind.get_ydata()) + [wind_speed10]
+                        )
 
-                    self.ln_yesterday_hum.set_data(
-                        list(self.ln_yesterday_hum.get_xdata()) + [hour],
-                        list(self.ln_yesterday_hum.get_ydata()) + [hum]
-                    )
+                    if temp < self.MAX_TEMP:
+                        self.ln_yesterday_temp.set_data(
+                            list(self.ln_yesterday_temp.get_xdata()) + [hour],
+                            list(self.ln_yesterday_temp.get_ydata()) + [temp]
+                        )
 
-                    self.ln_yesterday_pres.set_data(
-                        list(self.ln_yesterday_pres.get_xdata()) + [hour],
-                        list(self.ln_yesterday_pres.get_ydata()) + [pres]
-                    )
+                    if hum <= self.MAX_HUM:
+                        self.ln_yesterday_hum.set_data(
+                            list(self.ln_yesterday_hum.get_xdata()) + [hour],
+                            list(self.ln_yesterday_hum.get_ydata()) + [hum]
+                        )
+
+
+                    if self.PRESSURE_RANGE[0] < pres <= self.PRESSURE_RANGE[1]:
+                        self.ln_yesterday_pres.set_data(
+                                list(self.ln_yesterday_pres.get_xdata()) + [hour],
+                                list(self.ln_yesterday_pres.get_ydata()) + [pres]
+                            )
                 else:
                     # logger.info(f'Adding point to today data {wind_speed10}')
-                    self.ln_today_wind.set_data(
-                        list(self.ln_today_wind.get_xdata()) + [hour],
-                        list(self.ln_today_wind.get_ydata()) + [wind_speed10]
-                    )
-                    self.ln_today_temp.set_data(
-                        list(self.ln_today_temp.get_xdata()) + [hour],
-                        list(self.ln_today_temp.get_ydata()) + [temp]
-                    )
+                    if wind_speed10 <= self.MAX_WIND:
+                        self.ln_today_wind.set_data(
+                            list(self.ln_today_wind.get_xdata()) + [hour],
+                            list(self.ln_today_wind.get_ydata()) + [wind_speed10]
+                        )
 
-                    self.ln_today_hum.set_data(
-                        list(self.ln_today_hum.get_xdata()) + [hour],
-                        list(self.ln_today_hum.get_ydata()) + [hum]
-                    )
+                    if temp < self.MAX_TEMP:
+                        self.ln_today_temp.set_data(
+                            list(self.ln_today_temp.get_xdata()) + [hour],
+                            list(self.ln_today_temp.get_ydata()) + [temp]
+                        )
 
-                    self.ln_today_pres.set_data(
-                        list(self.ln_today_pres.get_xdata()) + [hour],
-                        list(self.ln_today_pres.get_ydata()) + [pres]
-                    )
+                    if hum <= self.MAX_HUM:
+                        self.ln_today_hum.set_data(
+                            list(self.ln_today_hum.get_xdata()) + [hour],
+                            list(self.ln_today_hum.get_ydata()) + [hum]
+                        )
+
+                    if self.PRESSURE_RANGE[0] < pres <= self.PRESSURE_RANGE[1]:
+                        self.ln_today_pres.set_data(
+                            list(self.ln_today_pres.get_xdata()) + [hour],
+                            list(self.ln_today_pres.get_ydata()) + [pres]
+                        )
                 # lazy redraw
 
                 self.ax_wind.relim()
