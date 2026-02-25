@@ -179,9 +179,10 @@ class TelescopeOfp(QWidget):
                 mean = content["mean"]
                 median = content["median"]
                 scale = content["scale"]
+                alt_tel = content["alt_tel"]
 
                 txt = txt + (
-                    f'<font size="3">| fwhm x:{fwhm_x * scale:.1f} y:{fwhm_y * scale:.1f} min:{arr_min:.0f}'
+                    f'<font size="3">| fwhm x:{fwhm_x * scale:.1f} y:{fwhm_y * scale:.1f} alt:{alt_tel:.0f} min:{arr_min:.0f}'
                     f' max:{arr_max:.0f} mean:{mean:.0f} median:{median:.0f}</font>|<br>')
 
             except (ValueError, LookupError) as e:
