@@ -33,6 +33,11 @@ class TelescopeOfp(QWidget):
     OBSERV_AGO_WARN_COLOR = 'yellow'
     OBSERV_AGO_BAD_TIME = 3600
     OBSERV_AGO_BAD_COLOR = 'red'
+    FOCUS_COEF = {
+        'jk15': {'temp': -9.071449, 'hum': -0.288137, 'intercept': 25448.052783},
+        'zb08': {'temp': -7.224958, 'hum': -0.609259, 'intercept': 15497.403565},
+        'wk06': {'temp': -4.636257, 'hum': -0.589260, 'intercept': 21310.862008},
+    }
 
     # You can use just def __init__(self, **kwargs) if you don't want to bother with the arguments
     def __init__(self,
@@ -169,8 +174,6 @@ class TelescopeOfp(QWidget):
             except (ValueError, TypeError):
                 return
 
-
-
             try:
                 fwhm_x = content["fwhm_x"]
                 fwhm_y = content["fwhm_y"]
@@ -180,10 +183,18 @@ class TelescopeOfp(QWidget):
                 median = content["median"]
                 scale = content["scale"]
                 alt_tel = content["alt_tel"]
+                focus = content["focus"]
+                temp_ws = content["temp_ws"]
+                hum_ws = content["hum_ws"]
+
+                foc_calc = (self.FOCUS_COEF[self.tel]['temp'] * temp_ws) + \
+                           (self.FOCUS_COEF[self.tel]['hum_ws'] * hum_ws) + self.FOCUS_COEF[self.tel]['intercept']
 
                 txt = txt + (
-                    f'<font size="3">| fwhm x:{fwhm_x * scale:.1f} y:{fwhm_y * scale:.1f} alt:{alt_tel:.0f} min:{arr_min:.0f}'
-                    f' max:{arr_max:.0f} mean:{mean:.0f} median:{median:.0f}</font>|<br>')
+                    f'<font size="3">| fwhm x:{fwhm_x * scale:.1f} y:{fwhm_y * scale:.1f} alt:{alt_tel:.0f}'
+                    f' min:{arr_min:.0f} max:{arr_max:.0f} mean:{mean:.0f} med:{median:.0f}'
+                    f' focus: {focus:.0f}({focus - foc_calc})</font>|<br>'
+                )
 
             except (ValueError, LookupError) as e:
                 arr_min = content["min"]
