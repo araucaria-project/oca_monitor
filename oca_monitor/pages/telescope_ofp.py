@@ -188,7 +188,7 @@ class TelescopeOfp(QWidget):
                 hum_ws = content["hum_ws"]
 
                 foc_calc = (self.FOCUS_COEF[self.tel]['temp'] * temp_ws) + \
-                           (self.FOCUS_COEF[self.tel]['hum_ws'] * hum_ws) + self.FOCUS_COEF[self.tel]['intercept']
+                           (self.FOCUS_COEF[self.tel]['hum'] * hum_ws) + self.FOCUS_COEF[self.tel]['intercept']
 
                 txt = txt + (
                     f'<font size="3">| fwhm x:{fwhm_x * scale:.1f} y:{fwhm_y * scale:.1f} alt:{alt_tel:.0f}'
@@ -206,7 +206,7 @@ class TelescopeOfp(QWidget):
                 hum_ws = content["hum_ws"]
 
                 foc_calc = (self.FOCUS_COEF[self.tel]['temp'] * temp_ws) + \
-                           (self.FOCUS_COEF[self.tel]['hum_ws'] * hum_ws) + self.FOCUS_COEF[self.tel]['intercept']
+                           (self.FOCUS_COEF[self.tel]['hum'] * hum_ws) + self.FOCUS_COEF[self.tel]['intercept']
 
                 txt = txt + (
                     f'<font size="3">| min:{arr_min:.0f}'
