@@ -193,7 +193,7 @@ class TelescopeOfp(QWidget):
                 txt = txt + (
                     f'<font size="3">| fwhm x:{fwhm_x * scale:.1f} y:{fwhm_y * scale:.1f} alt:{alt_tel:.0f}'
                     f' min:{arr_min:.0f} max:{arr_max:.0f} mean:{mean:.0f} med:{median:.0f}'
-                    f' focus: {focus:.0f}({focus - foc_calc})</font>|<br>'
+                    f' focus:{focus:.0f}({focus - foc_calc})</font>|<br>'
                 )
 
             except (ValueError, LookupError) as e:
@@ -201,10 +201,17 @@ class TelescopeOfp(QWidget):
                 arr_max = content["max"]
                 mean = content["mean"]
                 median = content["median"]
+                focus = content["focus"]
+                temp_ws = content["temp_ws"]
+                hum_ws = content["hum_ws"]
+
+                foc_calc = (self.FOCUS_COEF[self.tel]['temp'] * temp_ws) + \
+                           (self.FOCUS_COEF[self.tel]['hum_ws'] * hum_ws) + self.FOCUS_COEF[self.tel]['intercept']
 
                 txt = txt + (
                     f'<font size="3">| min:{arr_min:.0f}'
-                    f' max:{arr_max:.0f} mean:{mean:.0f} median:{median:.0f}</font>|<br>')
+                    f' max:{arr_max:.0f} mean:{mean:.0f} median:{median:.0f}'
+                    f' focus:{focus:.0f}({focus - foc_calc})</font>|<br>')
 
             try:
                 if len(content["objects"]) > 0:
