@@ -11,16 +11,16 @@ async def start():
     print(f"Connected")
     ts = datetime.datetime.now(datetime.timezone.utc) - datetime.timedelta(hours=24)
     print(f"Passsed")
-    # rdr = msg.get_reader(
-    #     "",
-    #     deliver_policy='by_start_time',
-    #     opt_start_time=ts
-    # )
-
     rdr = msg.get_reader(
-        "",
-        deliver_policy='last',
+        "telemetry.weather.davis",
+        deliver_policy='by_start_time',
+        opt_start_time=ts
     )
+
+    # rdr = msg.get_reader(
+    #     "telemetry.weather.davis",
+    #     deliver_policy='last',
+    # )
 
     async for data, meta in rdr:
         print(data)
