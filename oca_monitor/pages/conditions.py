@@ -62,6 +62,7 @@ class ConditionsWidget(QWidget):
             self.label_water.setText('No data')
         return True
 
+
     async def reader_loop_water(self):
 
         msg = Messenger()
@@ -86,7 +87,7 @@ class ConditionsWidget(QWidget):
 
         # We want the data from the midnight of yesterday
         today_midnight = datetime.datetime.combine(datetime.date.today(), datetime.time(0))
-        yesterday_midnight = today_midnight - datetime.timedelta(days=1)
+        # yesterday_midnight = today_midnight - datetime.timedelta(days=1)
 
         rdr = msg.get_reader(
             self.energy_subject,

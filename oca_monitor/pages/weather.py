@@ -15,6 +15,7 @@ import numpy as np
 import ephem
 import time
 from astropy.time import Time as czas_astro
+from oca_monitor.config import settings
 
 logger = logging.getLogger(__name__.rsplit('.')[-1])
 
@@ -167,7 +168,11 @@ class WeatherDataWidget(QWidget):
         return datetime.datetime(year=now.year, month=now.month, day=now.day, tzinfo=datetime.timezone.utc)
 
     async def reader_loop(self):
+        host, port = settings.nats_host, settings.nats_port
+
         msg = Messenger()
+        _opener = await msg.open(host, port, wait=3)
+        # msg = Messenger()
 
         # We want the data from the midnight of yesterday
         # today_midnight = datetime.datetime.combine(datetime.date.today(), datetime.time(0))
