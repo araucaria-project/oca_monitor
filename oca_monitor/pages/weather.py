@@ -196,8 +196,10 @@ class WeatherDataWidget(QWidget):
         #     "indoor_humidity": 50,
         # }
         logger.error(f"+++++++++++++++++++++++++ STARTS")
-        async for data in rdr:
-            logger.error(f"+++++++++++++++++++++++++ {data}")
+        logger.error(f"+++++++++++++++++++++++++ {rdr}")
+        async for data, meta in rdr:
+            logger.error(f"+++++++++++++++++++++++++data {data}")
+            logger.error(f"+++++++++++++++++++++++++meta {meta}")
             try:
                 # if we crossed the midnight, we want to copy today's data to yesterday's and start today from scratch
                 now = datetime.datetime.now(datetime.timezone.utc)
