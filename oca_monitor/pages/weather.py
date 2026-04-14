@@ -1,20 +1,23 @@
 import asyncio
 import logging
 import datetime
+from typing import Any
 
+import serverish
 from PyQt6.QtWidgets import QApplication, QWidget, QVBoxLayout, QHBoxLayout,QLabel
 from PyQt6.QtCore import QTimer
 from PyQt6 import QtCore, QtGui
 from matplotlib.backends.backend_qt5agg import FigureCanvasQTAgg as FigureCanvas
 from matplotlib.figure import Figure
 from qasync import asyncSlot
-from serverish.base import dt_ensure_datetime
+from serverish.base import dt_ensure_datetime, dt_from_array
 from serverish.base.task_manager import create_task_sync, create_task
 from serverish.messenger import Messenger
 import numpy as np
 import ephem
 import time
 from astropy.time import Time as czas_astro
+from oca_monitor.config import settings
 
 logger = logging.getLogger(__name__.rsplit('.')[-1])
 
@@ -127,7 +130,7 @@ class WeatherDataWidget(QWidget):
         self.ax_wind.fill_between(x,14,30,color='red',alpha=0.3)
 
         self.ax_hum.fill_between(x,70,80,color='orange',alpha=0.3)
-        self.ax_hum.fill_between(x,80,90,color='red',alpha=0.3)
+        self.ax_hum.fill_between(x,80,100,color='red',alpha=0.3)
 
         self.ln_yesterday_wind = self.ax_wind.plot([],[], '.', color='silver', alpha=0.1, label='Yesterday')[0]
         self.ln_today_wind = self.ax_wind.plot([],[], '.-', color='blue', label='Today')[0]
@@ -162,7 +165,7 @@ class WeatherDataWidget(QWidget):
         self._update_ephem()
         # logger.info(f"WeatherDataWidget UI setup done")
 
-    async def get_today_midnight(self) -> datetime.datetime:
+    async def get_today_midnight(self) -> Any:
         now = datetime.datetime.now(datetime.timezone.utc)
         return datetime.datetime(year=now.year, month=now.month, day=now.day, tzinfo=datetime.timezone.utc)
 
@@ -177,26 +180,17 @@ class WeatherDataWidget(QWidget):
         logger.info(f"Start reader weather data chart: {yesterday_midnight}")
         rdr = msg.get_reader(
             self.weather_subject,
-            deliver_policy='by_start_time',
-            opt_start_time=yesterday_midnight,
+            deliver_policy='all',
+            # opt_start_time=yesterday_midnight
         )
         logger.info(f"Subscribed to {self.weather_subject}")
-
-        # sample_measurement = {
-        #     "temperature_C": 10,
-        #     "humidity": 50,
-        #     "wind_dir_deg": 180,
-        #     "wind_ms": 5,
-        #     "wind_10min_ms": 5,
-        #     "pressure_Pa": 101325,
-        #     "bar_trend": 0,
-        #     "rain_mm": 0,
-        #     "rain_day_mm": 0,
-        #     "indoor_temperature_C": 20,
-        #     "indoor_humidity": 50,
-        # }
-
         async for data, meta in rdr:
+            try:
+                ts = dt_from_array(meta['ts'])
+                if ts is not None and ts < yesterday_midnight:
+                    continue
+            except (LookupError, ValueError, TypeError):
+                continue
             try:
                 # if we crossed the midnight, we want to copy today's data to yesterday's and start today from scratch
                 now = datetime.datetime.now(datetime.timezone.utc)

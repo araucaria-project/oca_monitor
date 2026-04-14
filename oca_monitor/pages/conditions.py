@@ -7,7 +7,7 @@ from PyQt6 import QtGui
 from matplotlib.backends.backend_qt5agg import FigureCanvasQTAgg as FigureCanvas
 from matplotlib.figure import Figure
 from qasync import asyncSlot
-from serverish.base import dt_ensure_datetime
+from serverish.base import dt_ensure_datetime, dt_from_array
 from serverish.base.task_manager import create_task_sync, create_task
 from serverish.messenger import Messenger
 import numpy as np
@@ -32,6 +32,11 @@ class ConditionsWidget(QWidget):
         #obs_config = await self.main_window.observatory_config()
         await create_task(self.reader_loop_water(), "nats_reader_water_conditions")
         await create_task(self.reader_loop_energy(), "nats_reader_energy_conditions")
+        # await self.main_window.run_reader(
+        #     clb=self.water_clb,
+        #     subject=self.water_subject,
+        #     deliver_policy='last'
+        # )
 
     def initUI(self):
         # Layout
@@ -45,12 +50,25 @@ class ConditionsWidget(QWidget):
         self.layout.addWidget(self.label_water)
         self.layout.addWidget(self.label_energy)
 
+    # async def water_clb(self, data, meta) -> bool:
+    #
+    #     try:
+    #         self.ts = dt_ensure_datetime(data['ts'])
+    #         measurement = data['measurements']
+    #         self.water_level = measurement['water_level']
+    #         logger.debug(f"Measured water level {self.water_level}")
+    #         self.label_water.setText('Water '+str(self.water_level)+ ' litres')
+    #     except (ValueError, TypeError, LookupError):
+    #         self.label_water.setText('No data')
+    #     return True
+
+
     async def reader_loop_water(self):
 
         msg = Messenger()
         rdr = msg.get_reader(
             self.water_subject,
-            deliver_policy='all',
+            deliver_policy='last',
         )
         logger.info(f"Subscribed to {self.water_subject}")
 
@@ -68,13 +86,12 @@ class ConditionsWidget(QWidget):
         msg = Messenger()
 
         # We want the data from the midnight of yesterday
-        today_midnight = datetime.datetime.combine(datetime.date.today(), datetime.time(0))
-        yesterday_midnight = today_midnight - datetime.timedelta(days=1)
+        today_midnight = datetime.datetime.combine(datetime.date.today(), datetime.time(0)).astimezone(datetime.timezone.utc)
+        # yesterday_midnight = today_midnight - datetime.timedelta(days=1)
 
         rdr = msg.get_reader(
             self.energy_subject,
-            deliver_policy='by_start_time',
-            opt_start_time=today_midnight,
+            deliver_policy='last'
         )
         logger.info(f"Subscribed to {self.energy_subject}")
 
