@@ -180,6 +180,7 @@ class WeatherDataWidget(QWidget):
             deliver_policy='by_start_time',
             opt_start_time=yesterday_midnight,
         )
+        await rdr.open()
         logger.info(f"Subscribed to {self.weather_subject}")
 
         # sample_measurement = {
