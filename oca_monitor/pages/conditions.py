@@ -35,7 +35,7 @@ class ConditionsWidget(QWidget):
         await self.main_window.run_reader(
             clb=self.water_clb,
             subject=self.water_subject,
-            deliver_policy='all'
+            deliver_policy='last'
         )
 
     def initUI(self):
@@ -68,7 +68,7 @@ class ConditionsWidget(QWidget):
         msg = Messenger()
         rdr = msg.get_reader(
             self.water_subject,
-            deliver_policy='all',
+            deliver_policy='last',
         )
         logger.info(f"Subscribed to {self.water_subject}")
 
@@ -91,7 +91,7 @@ class ConditionsWidget(QWidget):
 
         rdr = msg.get_reader(
             self.energy_subject,
-            deliver_policy='all',
+            deliver_policy='all'
             # opt_start_time=today_midnight,
         )
         logger.info(f"Subscribed to {self.energy_subject}")
