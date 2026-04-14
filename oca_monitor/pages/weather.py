@@ -340,7 +340,7 @@ class WeatherDataWidget(QWidget):
                 warning = '   Wind:\t\t' + str(wind) + ' m/s\n' + '   Temperature:\t' + str(
                     temp) + ' C\n' + '   Humidity:\t' + str(hum) + ' %\n' + '   Wind dir:\t' + str(
                     winddir) + ' deg'
-            if (11. <= float(wind) < 14.) or float(hum) > 70.:
+            if (11. <= float(wind) < 14.) or 75 >= float(hum) > 70.:
                 self.label.setStyleSheet("background-color : yellow; color: black")
                 # if self.main_window.sound_page:
                 #     pass
