@@ -130,7 +130,7 @@ class WeatherDataWidget(QWidget):
         self.ax_wind.fill_between(x,14,30,color='red',alpha=0.3)
 
         self.ax_hum.fill_between(x,70,80,color='orange',alpha=0.3)
-        self.ax_hum.fill_between(x,80,90,color='red',alpha=0.3)
+        self.ax_hum.fill_between(x,80,100,color='red',alpha=0.3)
 
         self.ln_yesterday_wind = self.ax_wind.plot([],[], '.', color='silver', alpha=0.1, label='Yesterday')[0]
         self.ln_today_wind = self.ax_wind.plot([],[], '.-', color='blue', label='Today')[0]
