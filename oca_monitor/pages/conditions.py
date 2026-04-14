@@ -99,6 +99,9 @@ class ConditionsWidget(QWidget):
         async for data, meta in rdr:
             try:
                 ts = dt_from_array(meta['ts'])
+                logger.error(f">>>>>>>>>>>>>>>>>>>>>>>>>> ts {ts}")
+                logger.error(f">>>>>>>>>>>>>>>>>>>>>>>>>> today_midnight {today_midnight}")
+
                 if ts is not None and ts < today_midnight:
                     continue
             except (LookupError, ValueError, TypeError):
