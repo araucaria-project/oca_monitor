@@ -185,7 +185,7 @@ class WeatherDataWidget(QWidget):
             deliver_policy='last',
             # opt_start_time=yesterday_midnight,
         )
-        logger.error(rdr2.read())
+        logger.error(await rdr2.read())
         logger.info(f"Subscribed to {self.weather_subject}")
 
         # sample_measurement = {
