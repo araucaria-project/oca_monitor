@@ -163,7 +163,7 @@ class WeatherDataWidget(QWidget):
         self._update_ephem()
         # logger.info(f"WeatherDataWidget UI setup done")
 
-    async def get_today_midnight(self) -> datetime.datetime:
+    async def get_today_midnight(self) -> datetime:
         now = datetime.datetime.now(datetime.timezone.utc)
         return datetime.datetime(year=now.year, month=now.month, day=now.day, tzinfo=datetime.timezone.utc)
 
@@ -182,8 +182,8 @@ class WeatherDataWidget(QWidget):
         logger.info(f"Start reader weather data chart: {yesterday_midnight}")
         rdr = msg.get_reader(
             self.weather_subject,
-            deliver_policy='all',
-            # opt_start_time=yesterday_midnight,
+            deliver_policy='by_start_time',
+            opt_start_time=yesterday_midnight,
         )
 
         # rdr2 = msg.get_singlereader(
