@@ -175,7 +175,7 @@ class WeatherDataWidget(QWidget):
         today_midnight = await self.get_today_midnight()
         yesterday_midnight = today_midnight - datetime.timedelta(days=1)
         logger.info(f"Start reader weather data chart: {yesterday_midnight}")
-        rdr = msg.get_singlereader(
+        rdr = msg.get_reader(
             self.weather_subject,
             deliver_policy='by_start_time',
             opt_start_time=yesterday_midnight,

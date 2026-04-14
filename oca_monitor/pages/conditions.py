@@ -30,8 +30,13 @@ class ConditionsWidget(QWidget):
     @asyncSlot()
     async def async_init(self):
         #obs_config = await self.main_window.observatory_config()
-        await create_task(self.reader_loop_water(), "nats_reader_water_conditions")
+        # await create_task(self.reader_loop_water(), "nats_reader_water_conditions")
         await create_task(self.reader_loop_energy(), "nats_reader_energy_conditions")
+        await self.main_window.run_reader(
+            clb=self.water_clb,
+            subject=self.water_subject,
+            deliver_policy='all'
+        )
 
     def initUI(self):
         # Layout
@@ -44,6 +49,18 @@ class ConditionsWidget(QWidget):
         self.label_energy.setFont(QtGui.QFont('Arial', 24))
         self.layout.addWidget(self.label_water)
         self.layout.addWidget(self.label_energy)
+
+    async def water_clb(self, data, meta) -> bool:
+
+        try:
+            self.ts = dt_ensure_datetime(data['ts'])
+            measurement = data['measurements']
+            self.water_level = measurement['water_level']
+            logger.debug(f"Measured water level {self.water_level}")
+            self.label_water.setText('Water '+str(self.water_level)+ ' litres')
+        except (ValueError, TypeError, LookupError):
+            self.label_water.setText('No data')
+        return True
 
     async def reader_loop_water(self):
 
