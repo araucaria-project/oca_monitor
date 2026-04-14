@@ -3,6 +3,7 @@ import logging
 import datetime
 from typing import Any
 
+import serverish
 from PyQt6.QtWidgets import QApplication, QWidget, QVBoxLayout, QHBoxLayout,QLabel
 from PyQt6.QtCore import QTimer
 from PyQt6 import QtCore, QtGui
@@ -180,8 +181,8 @@ class WeatherDataWidget(QWidget):
         logger.error(f"Start reader weather data chart: {type(yesterday_midnight)}")
         rdr = msg.get_reader(
             self.weather_subject,
-            deliver_policy='by_start_time',
-            opt_start_time=yesterday_midnight.date()
+            deliver_policy='all',
+            # opt_start_time=yesterday_midnight.date()
         )
 
         # rdr2 = msg.get_singlereader(
@@ -216,6 +217,10 @@ class WeatherDataWidget(QWidget):
         async for data, meta in rdr:
             # logger.error(f"+++++++++++++++++++++++++data {data}")
             # logger.error(f"+++++++++++++++++++++++++meta {meta}")
+            ts = serverish.base.dt_from_array(meta['ts'])
+
+            if ts is not None and ts < yesterday_midnight:
+                continue
             try:
                 # if we crossed the midnight, we want to copy today's data to yesterday's and start today from scratch
                 now = datetime.datetime.now(datetime.timezone.utc)
