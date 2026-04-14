@@ -319,7 +319,7 @@ class WeatherDataWidget(QWidget):
         self.label_ephem.setText(self.ephem_text)
         QtCore.QTimer.singleShot(1000, self._update_ephem)
 
-    async def reader_loop_2_clb(self, data, meta) -> bool:
+    async def reader_loop_2_clb(self, data) -> bool:
         try:
             measurement = data['measurements']
             wind = "{:.1f}".format(measurement['wind_10min_ms'])

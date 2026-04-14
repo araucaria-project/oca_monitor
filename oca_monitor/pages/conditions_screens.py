@@ -131,7 +131,7 @@ class ConditionsScreensWidget(QWidget):
             except (LookupError, ValueError, TypeError):
                 self.label_water.setText('No data')
 
-    async def reader_loop_energy_clb(self, data, meta) -> bool:
+    async def reader_loop_energy_clb(self, data) -> bool:
         try:
             measurement = data['measurements']
             soc = measurement['state_of_charge']
