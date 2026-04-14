@@ -175,16 +175,17 @@ class WeatherDataWidget(QWidget):
         today_midnight = await self.get_today_midnight()
         yesterday_midnight = today_midnight - datetime.timedelta(days=1)
         logger.info(f"Start reader weather data chart: {yesterday_midnight}")
-        rdr = msg.get_reader(
+        rdr = msg.get_singlereader(
             self.weather_subject,
             deliver_policy='by_start_time',
             opt_start_time=yesterday_midnight,
         )
-        rdr2 = msg.get_singlereader(
-            subject=self.weather_subject,
-            deliver_policy='last',
-            # opt_start_time=yesterday_midnight,
-        )
+
+        # rdr2 = msg.get_singlereader(
+        #     subject=self.weather_subject,
+        #     deliver_policy='last',
+        #     # opt_start_time=yesterday_midnight,
+        # )
         logger.error(await rdr2.read())
         logger.info(f"Subscribed to {self.weather_subject}")
 
@@ -201,16 +202,16 @@ class WeatherDataWidget(QWidget):
         #     "indoor_temperature_C": 20,
         #     "indoor_humidity": 50,
         # }
-        async for data, meta in rdr2:
-            logger.error(data)
-            logger.error(meta)
-            logger.error("UUUUUUUUUUUUUUUUUUUUUUUUUUU")
-        logger.error(f"+++++++++++++++++++++++++ STARTS")
-        logger.error(f"+++++++++++++++++++++++++rdr {rdr}")
-        logger.error(f"+++++++++++++++++++++++++is_open {rdr.is_open}")
+        # async for data, meta in rdr2:
+        #     logger.error(data)
+        #     logger.error(meta)
+        #     logger.error("UUUUUUUUUUUUUUUUUUUUUUUUUUU")
+        # logger.error(f"+++++++++++++++++++++++++ STARTS")
+        # logger.error(f"+++++++++++++++++++++++++rdr {rdr}")
+        # logger.error(f"+++++++++++++++++++++++++is_open {rdr.is_open}")
         # async for data, meta in rdr:
         async for data in rdr:
-            logger.error(f"+++++++++++++++++++++++++data {data}")
+            # logger.error(f"+++++++++++++++++++++++++data {data}")
             # logger.error(f"+++++++++++++++++++++++++meta {meta}")
             try:
                 # if we crossed the midnight, we want to copy today's data to yesterday's and start today from scratch
