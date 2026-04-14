@@ -69,11 +69,11 @@ class WeatherDataWidget(QWidget):
         # obs_config = await self.main_window.observatory_config()
         await create_task(self.reader_loop(), "nats_wind reader")
 
-        # await self.main_window.run_reader(
-        #     clb=self.reader_loop_2_clb,
-        #     subject=self.weather_subject,
-        #     deliver_policy='last'
-        # )
+        await self.main_window.run_reader(
+            clb=self.reader_loop_2_clb,
+            subject=self.weather_subject,
+            deliver_policy='last'
+        )
 
     def initUI(self,):
         # Layout
