@@ -16,6 +16,12 @@ async def start():
         deliver_policy='by_start_time',
         opt_start_time=ts
     )
+
+    rdr = msg.get_reader(
+        "",
+        deliver_policy='last',
+    )
+
     async for data, meta in rdr:
         print(data)
         print(meta)
