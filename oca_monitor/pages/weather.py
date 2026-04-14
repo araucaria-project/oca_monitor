@@ -10,7 +10,7 @@ from PyQt6 import QtCore, QtGui
 from matplotlib.backends.backend_qt5agg import FigureCanvasQTAgg as FigureCanvas
 from matplotlib.figure import Figure
 from qasync import asyncSlot
-from serverish.base import dt_ensure_datetime
+from serverish.base import dt_ensure_datetime, dt_from_array
 from serverish.base.task_manager import create_task_sync, create_task
 from serverish.messenger import Messenger
 import numpy as np
@@ -182,44 +182,15 @@ class WeatherDataWidget(QWidget):
         rdr = msg.get_reader(
             self.weather_subject,
             deliver_policy='all',
-            # opt_start_time=yesterday_midnight.date()
+            # opt_start_time=yesterday_midnight
         )
-
-        # rdr2 = msg.get_singlereader(
-        #     subject=self.weather_subject,
-        #     deliver_policy='last',
-        #     # opt_start_time=yesterday_midnight,
-        # )
-        # logger.error(await rdr2.read())
         logger.info(f"Subscribed to {self.weather_subject}")
-
-        # sample_measurement = {
-        #     "temperature_C": 10,
-        #     "humidity": 50,
-        #     "wind_dir_deg": 180,
-        #     "wind_ms": 5,
-        #     "wind_10min_ms": 5,
-        #     "pressure_Pa": 101325,
-        #     "bar_trend": 0,
-        #     "rain_mm": 0,
-        #     "rain_day_mm": 0,
-        #     "indoor_temperature_C": 20,
-        #     "indoor_humidity": 50,
-        # }
-        # async for data, meta in rdr2:
-        #     logger.error(data)
-        #     logger.error(meta)
-        #     logger.error("UUUUUUUUUUUUUUUUUUUUUUUUUUU")
-        # logger.error(f"+++++++++++++++++++++++++ STARTS")
-        # logger.error(f"+++++++++++++++++++++++++rdr {rdr}")
-        # logger.error(f"+++++++++++++++++++++++++is_open {rdr.is_open}")
-        # async for data, meta in rdr:
         async for data, meta in rdr:
-            # logger.error(f"+++++++++++++++++++++++++data {data}")
-            # logger.error(f"+++++++++++++++++++++++++meta {meta}")
-            ts = serverish.base.dt_from_array(meta['ts'])
-
-            if ts is not None and ts < yesterday_midnight:
+            try:
+                ts = dt_from_array(meta['ts'])
+                if ts is not None and ts < yesterday_midnight:
+                    continue
+            except (LookupError, ValueError, TypeError):
                 continue
             try:
                 # if we crossed the midnight, we want to copy today's data to yesterday's and start today from scratch

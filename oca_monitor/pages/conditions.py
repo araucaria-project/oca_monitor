@@ -7,7 +7,7 @@ from PyQt6 import QtGui
 from matplotlib.backends.backend_qt5agg import FigureCanvasQTAgg as FigureCanvas
 from matplotlib.figure import Figure
 from qasync import asyncSlot
-from serverish.base import dt_ensure_datetime
+from serverish.base import dt_ensure_datetime, dt_from_array
 from serverish.base.task_manager import create_task_sync, create_task
 from serverish.messenger import Messenger
 import numpy as np
@@ -97,6 +97,13 @@ class ConditionsWidget(QWidget):
         logger.info(f"Subscribed to {self.energy_subject}")
 
         async for data, meta in rdr:
+            try:
+                ts = dt_from_array(meta['ts'])
+                if ts is not None and ts < today_midnight:
+                    continue
+            except (LookupError, ValueError, TypeError):
+                continue
+
             try:
                 measurement = data['measurements']
                 soc = measurement['state_of_charge']
