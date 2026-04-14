@@ -186,7 +186,7 @@ class WeatherDataWidget(QWidget):
         #     deliver_policy='last',
         #     # opt_start_time=yesterday_midnight,
         # )
-        logger.error(await rdr2.read())
+        # logger.error(await rdr2.read())
         logger.info(f"Subscribed to {self.weather_subject}")
 
         # sample_measurement = {
@@ -210,7 +210,7 @@ class WeatherDataWidget(QWidget):
         # logger.error(f"+++++++++++++++++++++++++rdr {rdr}")
         # logger.error(f"+++++++++++++++++++++++++is_open {rdr.is_open}")
         # async for data, meta in rdr:
-        async for data in rdr:
+        async for data, meta in rdr:
             # logger.error(f"+++++++++++++++++++++++++data {data}")
             # logger.error(f"+++++++++++++++++++++++++meta {meta}")
             try:
