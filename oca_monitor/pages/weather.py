@@ -202,8 +202,9 @@ class WeatherDataWidget(QWidget):
         #     "indoor_humidity": 50,
         # }
         async for data, meta in rdr2:
-            print(data)
-            print(meta)
+            logger.error(data)
+            logger.error(meta)
+            logger.error("UUUUUUUUUUUUUUUUUUUUUUUUUUU")
         logger.error(f"+++++++++++++++++++++++++ STARTS")
         logger.error(f"+++++++++++++++++++++++++rdr {rdr}")
         logger.error(f"+++++++++++++++++++++++++is_open {rdr.is_open}")
