@@ -196,7 +196,8 @@ class WeatherDataWidget(QWidget):
         #     "indoor_humidity": 50,
         # }
         logger.error(f"+++++++++++++++++++++++++ STARTS")
-        logger.error(f"+++++++++++++++++++++++++ {rdr}")
+        logger.error(f"+++++++++++++++++++++++++rdr {rdr}")
+        logger.error(f"+++++++++++++++++++++++++is_open {rdr.is_open}")
         async for data, meta in rdr:
             logger.error(f"+++++++++++++++++++++++++data {data}")
             logger.error(f"+++++++++++++++++++++++++meta {meta}")
