@@ -181,7 +181,7 @@ class WeatherDataWidget(QWidget):
         rdr = msg.get_reader(
             self.weather_subject,
             deliver_policy='by_start_time',
-            opt_start_time=yesterday_midnight.strftime("%Y-%m-%d %H:%M:%S"),
+            opt_start_time=yesterday_midnight.date
         )
 
         # rdr2 = msg.get_singlereader(
