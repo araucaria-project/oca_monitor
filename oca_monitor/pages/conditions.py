@@ -91,21 +91,21 @@ class ConditionsWidget(QWidget):
 
         rdr = msg.get_reader(
             self.energy_subject,
-            deliver_policy='all'
+            deliver_policy='last'
             # opt_start_time=today_midnight,
         )
         logger.info(f"Subscribed to {self.energy_subject}")
 
         async for data, meta in rdr:
-            try:
-                ts = dt_from_array(meta['ts'])
-                logger.error(f">>>>>>>>>>>>>>>>>>>>>>>>>> ts {ts}")
-                logger.error(f">>>>>>>>>>>>>>>>>>>>>>>>>> today_midnight {today_midnight}")
-
-                if ts is not None and ts < today_midnight:
-                    continue
-            except (LookupError, ValueError, TypeError):
-                continue
+            # try:
+            #     ts = dt_from_array(meta['ts'])
+            #     logger.error(f">>>>>>>>>>>>>>>>>>>>>>>>>> ts {ts}")
+            #     logger.error(f">>>>>>>>>>>>>>>>>>>>>>>>>> today_midnight {today_midnight}")
+            #
+            #     if ts is not None and ts < today_midnight:
+            #         continue
+            # except (LookupError, ValueError, TypeError):
+            #     continue
 
             try:
                 measurement = data['measurements']
