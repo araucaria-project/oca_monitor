@@ -1,6 +1,7 @@
 import asyncio
 import logging
 import datetime
+from typing import Any
 
 from PyQt6.QtWidgets import QApplication, QWidget, QVBoxLayout, QHBoxLayout,QLabel
 from PyQt6.QtCore import QTimer
@@ -163,16 +164,12 @@ class WeatherDataWidget(QWidget):
         self._update_ephem()
         # logger.info(f"WeatherDataWidget UI setup done")
 
-    async def get_today_midnight(self) -> datetime:
+    async def get_today_midnight(self) -> Any:
         now = datetime.datetime.now(datetime.timezone.utc)
         return datetime.datetime(year=now.year, month=now.month, day=now.day, tzinfo=datetime.timezone.utc)
 
     async def reader_loop(self):
-        host, port = settings.nats_host, settings.nats_port
-
         msg = Messenger()
-        _opener = await msg.open(host, port, wait=3)
-        # msg = Messenger()
 
         # We want the data from the midnight of yesterday
         # today_midnight = datetime.datetime.combine(datetime.date.today(), datetime.time(0))
@@ -180,7 +177,7 @@ class WeatherDataWidget(QWidget):
         today_midnight = await self.get_today_midnight()
         yesterday_midnight = today_midnight - datetime.timedelta(days=1)
         logger.info(f"Start reader weather data chart: {yesterday_midnight}")
-        logger.error(type(yesterday_midnight))
+        logger.error(f"Start reader weather data chart: {type(yesterday_midnight)}")
         rdr = msg.get_reader(
             self.weather_subject,
             deliver_policy='by_start_time',
