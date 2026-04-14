@@ -8,6 +8,7 @@ from serverish.messenger import Messenger
 async def start():
     msg = Messenger()
     await msg.open("nats.oca.lan", 4222, wait=3)
+    print(f"Connected")
     ts = datetime.datetime.now(datetime.timezone.utc)
     rdr = msg.get_reader(
         "",
