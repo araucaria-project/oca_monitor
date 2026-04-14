@@ -182,8 +182,8 @@ class WeatherDataWidget(QWidget):
         logger.info(f"Start reader weather data chart: {yesterday_midnight}")
         rdr = msg.get_reader(
             self.weather_subject,
-            deliver_policy='by_start_time',
-            opt_start_time=yesterday_midnight,
+            deliver_policy='all',
+            # opt_start_time=yesterday_midnight,
         )
 
         # rdr2 = msg.get_singlereader(
