@@ -47,6 +47,10 @@ class ConditionsWidget(QWidget):
         self.label_energy = QLabel()
         self.label_energy.setStyleSheet("background-color : pink; color: black")
         self.label_energy.setFont(QtGui.QFont('Arial', 24))
+        soc = 'NaN'
+        pv = 'NaN'
+        ec = 'NaN'
+        self.display_energy(soc=soc, pv=pv, ec=ec)
         self.layout.addWidget(self.label_water)
         self.layout.addWidget(self.label_energy)
 
@@ -82,7 +86,7 @@ class ConditionsWidget(QWidget):
             except (ValueError, TypeError, LookupError):
                 self.label_water.setText('No data')
 
-    async def display_energy(self, soc, pv, ec):
+    def display_energy(self, soc, pv, ec):
         try:
             text = 'ENERGY:\nClusters state of charge\t' + str(soc) + ' %\n' + 'Solar Power\t\t' + str(
                 pv) + ' W\n' + 'Power consumption\t' + str(ec) + ' W'
@@ -91,10 +95,7 @@ class ConditionsWidget(QWidget):
             self.label_energy.setText('No data')
 
     async def reader_loop_energy(self):
-        soc = 'NaN'
-        pv = 'NaN'
-        ec = 'NaN'
-        await self.display_energy(soc=soc, pv=pv, ec=ec)
+
 
         msg = Messenger()
 
@@ -123,7 +124,7 @@ class ConditionsWidget(QWidget):
                 pv = 'NaN'
                 ec = 'NaN'
 
-            await self.display_energy(soc=soc, pv=pv, ec=ec)
+            self.display_energy(soc=soc, pv=pv, ec=ec)
                                 
 
 widget_class = ConditionsWidget
