@@ -82,7 +82,20 @@ class ConditionsWidget(QWidget):
             except (ValueError, TypeError, LookupError):
                 self.label_water.setText('No data')
 
+    async def display_energy(self, soc, pv, ec):
+        try:
+            text = 'ENERGY:\nClusters state of charge\t' + str(soc) + ' %\n' + 'Solar Power\t\t' + str(
+                pv) + ' W\n' + 'Power consumption\t' + str(ec) + ' W'
+            self.label_energy.setText(text)
+        except (ValueError, TypeError, LookupError):
+            self.label_energy.setText('No data')
+
     async def reader_loop_energy(self):
+        soc = 'NaN'
+        pv = 'NaN'
+        ec = 'NaN'
+        await self.display_energy(soc=soc, pv=pv, ec=ec)
+
         msg = Messenger()
 
         # We want the data from the midnight of yesterday
@@ -110,12 +123,7 @@ class ConditionsWidget(QWidget):
                 pv = 'NaN'
                 ec = 'NaN'
 
-            try:
-                text = 'ENERGY:\nClusters state of charge\t'+str(soc)+' %\n' + 'Solar Power\t\t'+str(pv)+' W\n'+ 'Power consumption\t'+str(ec)+' W'
-                self.label_energy.setText(text)
-            except (ValueError, TypeError, LookupError):
-                self.label_energy.setText('No data')
-        
+            await self.display_energy(soc=soc, pv=pv, ec=ec)
                                 
 
 widget_class = ConditionsWidget
