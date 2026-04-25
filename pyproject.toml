@@ -23,12 +23,14 @@ ephem = "^4.2.1"
 matplotlib = "*"
 requests = "^2.33.1"
 serverish = {version="^2.0.0", extras=["messenger"]}
-numpy = "^2.4.4"
-#numpy = "^1.26.4"  # this does not compile on RbPi
 qasync = "^0.28.0"
 dynaconf = "^3.2.13"
 aiofiles = "^25.1.0"
 aiohttp = "^3.13.5"
+numpy = [
+  { version = "^2.4.4", python = ">=3.11" },
+  { version = "^1.26", python = ">=3.10,<3.11" }
+]
 
 
 [tool.poetry.extras]
