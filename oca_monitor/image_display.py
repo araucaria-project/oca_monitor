@@ -3,7 +3,7 @@ import copy
 import logging
 import os
 import time
-from typing import List, Callable
+from typing import List, Callable, Optional
 
 from serverish.base.task_manager import create_task
 
@@ -19,7 +19,8 @@ class ImageDisplay:
     def __init__(
             self, name: str, images_dir: str, image_display_clb: Callable, image_instance_clb: Callable,
             images_prefix: str = '', image_cascade_sec: float = 0.75, image_pause_sec: float = 1.5,
-            refresh_list_sec: float = 10, mode: str = 'new_files', sort_reverse: bool = False) -> None:
+            refresh_list_sec: float = 10, mode: str = 'new_files', sort_reverse: bool = False,
+            max_age_sec: Optional[float] = None, on_stale_clb: Optional[Callable] = None) -> None:
         self.name = name
         self.images_dir = images_dir
         self.image_queue = asyncio.Queue()
@@ -32,6 +33,8 @@ class ImageDisplay:
         self.last_refresh = None
         self.mode = mode
         self.sort_reverse = sort_reverse
+        self.max_age_sec = max_age_sec
+        self.on_stale_clb = on_stale_clb
         super().__init__()
 
     async def new_files_refresh(self, files_list: List):
@@ -80,7 +83,7 @@ class ImageDisplay:
                             break
 
         if not ok:
-            self.image_queue = asyncio.Queue()
+            await self._drain_queue()
             async for new_file in AsyncListIter(files_list):
                 try:
                     image_object = await self.image_instance_clb(image_path=new_file)
@@ -95,19 +98,62 @@ class ImageDisplay:
             logger.debug(f'{self.name} files list updated by new files no: {len(files_list)}.')
             return
 
+    async def _drain_queue(self) -> None:
+        """Empty in place — (single-consumer)"""
+        while not self.image_queue.empty():
+            try:
+                self.image_queue.get_nowait()
+            except asyncio.QueueEmpty:
+                break
+
+    async def _notify_stale(self, reason: str) -> None:
+        if self.on_stale_clb is None:
+            return
+        try:
+            await self.on_stale_clb(reason=reason)
+        except Exception as e:
+            logger.warning(f'{self.name}: on_stale_clb failed: {e}')
+
     async def image_list_refresh(self):
-        current_files_list = []
         try:
             files_found = os.listdir(self.images_dir)
-        except OSError:
-            logger.error(f'Can not access {self.images_dir}.')
-            files_found = []
+        except OSError as e:
+            logger.error(f'Can not access {self.images_dir}: {e}')
+            await self._drain_queue()
+            await self._notify_stale(f'cannot access {self.images_dir}')
+            return
 
-        async for file in AsyncListIter(files_found):
-            if self.images_prefix in file:
-                current_files_list.append(file)
+        current_files_list = [f for f in files_found if self.images_prefix in f]
+        current_files_list_path = [os.path.join(self.images_dir, f) for f in current_files_list]
 
-        current_files_list_path = [os.path.join(self.images_dir, f) async for f in AsyncListIter(current_files_list)]
+        if self.max_age_sec is not None:
+            cutoff = time.time() - self.max_age_sec
+            fresh: List[str] = []
+            newest_mtime = 0.0
+            for path in current_files_list_path:
+                try:
+                    mtime = os.path.getmtime(path)
+                except OSError:
+                    continue
+                if mtime > newest_mtime:
+                    newest_mtime = mtime
+                if mtime >= cutoff:
+                    fresh.append(path)
+
+            if not fresh:
+                await self._drain_queue()
+                if newest_mtime > 0:
+                    age_min = int((time.time() - newest_mtime) / 60)
+                    if age_min < 60:
+                        msg = f'last image {age_min} min old'
+                    else:
+                        msg = f'last image {age_min // 60}h {age_min % 60}min old'
+                else:
+                    msg = f'no images in {self.images_dir}'
+                await self._notify_stale(msg)
+                return
+            current_files_list_path = fresh
+
         current_files_list_path.sort(reverse=self.sort_reverse)
         if self.mode in self.MODES:
             if self.mode == 'new_files':

@@ -28,13 +28,15 @@ class SatelliteAnimationWidget(QWidget):
     IMAGE_CHANGE_SEC = 0.75
     MAX_IMAGES_NO = 12
 
-    def __init__(self, main_window, allsky_dir='/data/misc/GOES_satellite/', vertical_screen = False, **kwargs):
+    def __init__(self, main_window, allsky_dir='/data/misc/GOES_satellite/', vertical_screen=False,
+                 max_age_sec: float = 1800, **kwargs):
         super().__init__()
         self.main_window = main_window
         self.dir = allsky_dir
         self.freq = 500
         self.vertical = bool(vertical_screen)
         self.counter = 0
+        self.max_age_sec = float(max_age_sec)
         self.lock = asyncio.Lock()
         self.image_queue = asyncio.Queue()
         self.files_list = []
@@ -77,13 +79,24 @@ class SatelliteAnimationWidget(QWidget):
             )
             self.label.setAlignment(QtCore.Qt.AlignmentFlag.AlignCenter)
 
+    async def show_stale(self, reason: str) -> None:
+        """Clear the satellite pixmap and show a red-on-black diagnostic so
+        observers do not act on yesterday's GOES frame."""
+        self.label.clear()
+        self.label.setStyleSheet(
+            "background-color: black; color: red; font-size: 24px; font-weight: bold;"
+        )
+        self.label.setAlignment(QtCore.Qt.AlignmentFlag.AlignCenter)
+        self.label.setText(f"GOES SATELLITE\nUNAVAILABLE\n\n{reason}")
+
     @asyncSlot()
     async def async_init(self):
         logger.info('Starting satellite display.')
         display = ImageDisplay(
             name='satellite', images_dir=self.dir, image_display_clb=self.image_display,
-            image_instance_clb=self.image_instance, images_prefix = '600x600',
-            image_cascade_sec = 0.75, image_pause_sec=1.25, refresh_list_sec = 10, mode='new_files'
+            image_instance_clb=self.image_instance, images_prefix=self.IMAGE_PREFIX,
+            image_cascade_sec=0.75, image_pause_sec=1.25, refresh_list_sec=10, mode='new_files',
+            max_age_sec=self.max_age_sec, on_stale_clb=self.show_stale,
         )
         await display.display_init()
 

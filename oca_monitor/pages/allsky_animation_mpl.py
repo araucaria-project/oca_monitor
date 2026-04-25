@@ -18,13 +18,15 @@ logger = logging.getLogger(__name__.rsplit('.')[-1])
 
 
 class AllskyAnimationMplWidget(QWidget):
-    def __init__(self, main_window, allsky_dir='/data/misc/allsky/', vertical_screen = False, **kwargs):
+    def __init__(self, main_window, allsky_dir='/data/misc/allsky/', vertical_screen=False,
+                 max_age_sec: float = 300, **kwargs):
         super().__init__()
         self.main_window = main_window
         self.dir = allsky_dir
         self.freq = 500
         self.vertical = bool(vertical_screen)
         self.counter = 0
+        self.max_age_sec = float(max_age_sec)
         self.initUI()
         logger.info(f"AllskyAnimationMplWidget init setup done")
         
@@ -156,6 +158,23 @@ class AllskyAnimationMplWidget(QWidget):
         self.layout.insertWidget(0, object_to_display)
         self.canvas.draw()
 
+    async def show_stale(self, reason: str) -> None:
+        """Replace the canvas with a red-on-black diagnostic so observers do not
+        mistake yesterday's images for current sky."""
+        figure = Figure(facecolor='black')
+        ax = figure.add_subplot(111)
+        ax.set_facecolor('black')
+        ax.text(
+            0.5, 0.5,
+            f"ALLSKY UNAVAILABLE\n\n{reason}",
+            ha='center', va='center',
+            fontsize=22, color='red', fontweight='bold',
+            transform=ax.transAxes,
+        )
+        ax.axis('off')
+        canvas = FigureCanvas(figure)
+        await self.image_display(canvas)
+
     @asyncSlot()
     async def async_init(self):
         logger.info('Starting allsky display.')
@@ -163,7 +182,8 @@ class AllskyAnimationMplWidget(QWidget):
             name='allsky', images_dir=self.dir, image_display_clb=self.image_display,
             image_instance_clb=self.image_instance, images_prefix='lastimage',
             image_cascade_sec=0.75, image_pause_sec=1.25, refresh_list_sec=10, mode='update_files',
-            sort_reverse=True
+            sort_reverse=True,
+            max_age_sec=self.max_age_sec, on_stale_clb=self.show_stale,
         )
         await display.display_init()
 
