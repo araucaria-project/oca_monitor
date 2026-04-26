@@ -74,8 +74,16 @@ vertical_screen = 0
 #   quality            — per-telescope star-presence ratio (pipeline.zdf)
 #   phot_zero          — per-telescope photometric zero point
 #                        (zero_monitor.lc), filter colour on marker edge
-charts = ["wind", "dome_wind_az", "humidity_pressure", "temperature", "fwhm", "phot_zero"]
-dome_danger_zone_deg = 30
+charts = ["wind", "temperature", "humidity_pressure", "fwhm", "phot_zero", "power"]
+# Optional alert thresholds (defaults shown):
+#wind_warn_ms = 11.0
+#wind_danger_ms = 14.0
+#humidity_warn_pct = 70
+#humidity_danger_pct = 75
+#temperature_danger_c = 0
+#soc_warn_pct = 30
+#soc_danger_pct = 15
+#dome_danger_zone_deg = 30
 
 [default.panels.12.Ephemeris]
 #auto_interval = 10  # seconds, how long to show this page before auto switching to next page

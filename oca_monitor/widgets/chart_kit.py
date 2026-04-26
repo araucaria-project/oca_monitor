@@ -40,14 +40,19 @@ COLOR_YESTERDAY = '#5a5a5a'  # legacy fallback; new style uses today-colour fade
 YESTERDAY_ALPHA = 0.30
 COLOR_WIND_ARROW = '#f5fbff'
 
-COLOR_WIND_WARN = '#f6ce46'
-COLOR_WIND_DANGER = '#ea4d3d'
+COLOR_WARN = '#f6ce46'
+COLOR_DANGER = '#ea4d3d'
+COLOR_WIND_WARN = COLOR_WARN
+COLOR_WIND_DANGER = COLOR_DANGER
 COLOR_HUMIDITY = '#6ed0a8'
-COLOR_HUMIDITY_WARN = '#f6ce46'
-COLOR_HUMIDITY_DANGER = '#ea4d3d'
+COLOR_HUMIDITY_WARN = COLOR_WARN
+COLOR_HUMIDITY_DANGER = COLOR_DANGER
 COLOR_PRESSURE = '#c98bd6'
 COLOR_TEMPERATURE = '#ffb070'
-COLOR_DOME_DANGER = '#ea4d3d'
+COLOR_BATTERY = '#7eea90'
+COLOR_SOLAR = '#fcb841'
+COLOR_LOAD = '#ff8866'
+COLOR_DOME_DANGER = COLOR_DANGER
 
 
 # ---- Figure / axes setup ---------------------------------------------------
@@ -60,6 +65,11 @@ def style_axes(ax: Axes) -> None:
     ax.set_facecolor(BG_AXES)
     for spine in ax.spines.values():
         spine.set_color(SPINE)
+    # Brighten the horizontal panel boundaries so adjacent stacked panels
+    # are visually separated even with hspace=0.
+    for side in ('top', 'bottom'):
+        ax.spines[side].set_color('#7a7a7a')
+        ax.spines[side].set_linewidth(1.2)
     ax.tick_params(colors=FG_DIM, which='both', labelsize=10)
     ax.grid(True, which='major', color=GRID_MAJOR, linewidth=0.6, alpha=0.7)
     ax.grid(True, which='minor', color=GRID_MINOR, linewidth=0.4, alpha=0.5)
@@ -272,3 +282,17 @@ def telescope_color(main_window, tel: str) -> str:
         return cfg['config']['telescopes'][tel]['observatory']['style']['color']
     except (KeyError, TypeError):
         return _FALLBACK_TELESCOPE_COLORS.get(tel, '#9a9a9a')
+
+
+def blend_colors(c1, c2, t: float = 0.5):
+    """Linear mix of two colors. ``t=0`` → c1, ``t=1`` → c2.
+
+    Accepts any colour matplotlib understands (hex, name, RGB tuple).
+    Returned as an RGB tuple (matplotlib accepts these directly).
+    """
+    from matplotlib.colors import to_rgb
+    r1, g1, b1 = to_rgb(c1)
+    r2, g2, b2 = to_rgb(c2)
+    return (r1 * (1 - t) + r2 * t,
+            g1 * (1 - t) + g2 * t,
+            b1 * (1 - t) + b2 * t)

@@ -22,7 +22,7 @@ astropy = "*"
 ephem = "^4.2.1"
 matplotlib = "*"
 requests = "^2.33.1"
-serverish = {version="^2.0.0", extras=["messenger"]}
+serverish = {version="^2.0.1", extras=["messenger"]}
 qasync = "^0.28.0"
 dynaconf = "^3.2.13"
 aiofiles = "^25.1.0"

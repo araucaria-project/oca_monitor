@@ -68,11 +68,18 @@ class _Panel:
     title: str = ''
 
     needs_weather_history: bool = False
+    needs_power_history: bool = False
     needs_faststat: bool = False
     needs_zdf: bool = False
     needs_zero_monitor: bool = False
     needs_dome_state: bool = False
     needs_mount_az: bool = False
+
+    # Which 'last'-callback feed this panel reads its overlay from:
+    # ``'weather'`` → ``telemetry.weather.davis``;
+    # ``'power'`` → ``telemetry.power.data-manager``;
+    # ``None`` → no live overlay.
+    live_subject_kind: Optional[str] = None
 
     def __init__(self) -> None:
         self.ax = None  # type: Optional[Any]
@@ -91,7 +98,11 @@ class _Panel:
     def format_overlay(self, msm: dict) -> Optional[str]:
         return None
 
-    def on_live_summary(self, msm: dict, alert_color: Optional[str]) -> None:
+    def alert_color(self, msm: dict) -> Optional[str]:
+        """Return ``COLOR_WARN`` / ``COLOR_DANGER`` if an alert applies, else ``None``."""
+        return None
+
+    def on_live_summary(self, msm: dict) -> None:
         if self._overlay is None:
             return
         try:
@@ -101,12 +112,14 @@ class _Panel:
         if text is None:
             return
         self._overlay.set_text(text)
-        if alert_color:
-            self._overlay.set_color(alert_color)
+        self._overlay.set_color(self.alert_color(msm) or ck.FG_TEXT)
 
     # Default no-ops; subclasses override.
     def on_weather(self, hour: float, ts: datetime.datetime, msm: dict,
                    *, is_yesterday: bool) -> None: ...
+
+    def on_power(self, hour: float, ts: datetime.datetime, msm: dict,
+                 *, is_yesterday: bool) -> None: ...
 
     def on_midnight_rollover(self) -> None: ...
 
@@ -126,6 +139,8 @@ class _SimpleSeriesPanel(_Panel):
 
     needs_weather_history = True
 
+    live_subject_kind = 'weather'
+
     def __init__(self, *, measurement_key: str, y_label: str,
                  today_color: str,
                  y_min: Optional[float] = None, y_max: Optional[float] = None,
@@ -134,7 +149,11 @@ class _SimpleSeriesPanel(_Panel):
                  zone_drawer=None,
                  smooth_window: int = 1,
                  overlay_unit: Optional[str] = None,
-                 overlay_format: str = '{:.1f}') -> None:
+                 overlay_format: str = '{:.1f}',
+                 warn_above: Optional[float] = None,
+                 danger_above: Optional[float] = None,
+                 warn_below: Optional[float] = None,
+                 danger_below: Optional[float] = None) -> None:
         super().__init__()
         self.measurement_key = measurement_key
         self.title = y_label
@@ -147,12 +166,31 @@ class _SimpleSeriesPanel(_Panel):
         self.smooth_window = max(1, int(smooth_window))
         self.overlay_unit = overlay_unit
         self.overlay_format = overlay_format
+        self.warn_above = warn_above
+        self.danger_above = danger_above
+        self.warn_below = warn_below
+        self.danger_below = danger_below
         self._today_x: List[float] = []
         self._today_y: List[float] = []
         self._yesterday_x: List[float] = []
         self._yesterday_y: List[float] = []
         self._line_today = None
         self._line_yesterday = None
+
+    def alert_color(self, msm):
+        try:
+            v = float(msm[self.measurement_key])
+        except (KeyError, TypeError, ValueError):
+            return None
+        if self.danger_above is not None and v >= self.danger_above:
+            return ck.COLOR_DANGER
+        if self.danger_below is not None and v <= self.danger_below:
+            return ck.COLOR_DANGER
+        if self.warn_above is not None and v >= self.warn_above:
+            return ck.COLOR_WARN
+        if self.warn_below is not None and v <= self.warn_below:
+            return ck.COLOR_WARN
+        return None
 
     def init_axes(self, ax) -> None:
         super().init_axes(ax)
@@ -226,15 +264,18 @@ class _SimpleSeriesPanel(_Panel):
 class _WindPanel(_SimpleSeriesPanel):
     """Wind speed + direction-arrow strip along the bottom."""
 
-    def __init__(self) -> None:
+    def __init__(self, *, warn_ms: float = ck.WIND_WARN_MS,
+                 danger_ms: float = ck.WIND_DANGER_MS) -> None:
         super().__init__(
             measurement_key='wind_10min_ms',
             y_label='Wind  [m/s]',
             today_color=ck.COLOR_TODAY,
             y_min=0.0, y_max=None,
-            reject_above=ck.WIND_DANGER_MS * 3.0,
+            reject_above=danger_ms * 3.0,
             reject_below=0.0,
             zone_drawer=ck.wind_zone_bands,
+            warn_above=warn_ms,
+            danger_above=danger_ms,
         )
         self._dir_x: List[float] = []
         self._dir_d: List[float] = []
@@ -242,7 +283,7 @@ class _WindPanel(_SimpleSeriesPanel):
 
     def init_axes(self, ax) -> None:
         super().init_axes(ax)
-        ax.set_ylim(0, max(15.0, ck.WIND_DANGER_MS * 1.4))
+        ax.set_ylim(0, max(15.0, self.danger_above * 1.4))
         self._add_overlay(ax)
 
     def format_overlay(self, msm):
@@ -317,6 +358,7 @@ class _HumidityPressurePanel(_Panel):
     """
 
     needs_weather_history = True
+    live_subject_kind = 'weather'
 
     title = 'Humidity  [%]'
     title_right = 'Pressure  [hPa]'
@@ -324,8 +366,11 @@ class _HumidityPressurePanel(_Panel):
     HUM_SMOOTH = 11      # ~11 minutes at 1 Hz Davis cadence
     PRES_SMOOTH = 21     # ~20 minutes — pressure changes very slowly
 
-    def __init__(self) -> None:
+    def __init__(self, *, warn_pct: float = 70.0,
+                 danger_pct: float = 75.0) -> None:
         super().__init__()
+        self.warn_pct = float(warn_pct)
+        self.danger_pct = float(danger_pct)
         self.ax_p = None
         self._h_today_x: List[float] = []
         self._h_today_y: List[float] = []
@@ -377,7 +422,18 @@ class _HumidityPressurePanel(_Panel):
         self._overlay_h = ck.big_overlay(ax, x=0.99, y=0.72, color=ck.COLOR_HUMIDITY)
         self._overlay_p = ck.big_overlay(ax, x=0.99, y=0.32, color=ck.COLOR_PRESSURE)
 
-    def on_live_summary(self, msm, alert_color) -> None:
+    def alert_color(self, msm):
+        try:
+            hum = float(msm['humidity'])
+        except (KeyError, TypeError, ValueError):
+            return None
+        if hum >= self.danger_pct:
+            return ck.COLOR_DANGER
+        if hum >= self.warn_pct:
+            return ck.COLOR_WARN
+        return None
+
+    def on_live_summary(self, msm) -> None:
         try:
             hum = int(msm['humidity'])
             pres = float(msm['pressure_Pa'])
@@ -385,10 +441,10 @@ class _HumidityPressurePanel(_Panel):
                 pres = pres / 100.0
         except (KeyError, TypeError, ValueError):
             return
+        col_h = self.alert_color(msm) or ck.COLOR_HUMIDITY
         if self._overlay_h is not None:
             self._overlay_h.set_text(f"{hum} %")
-            if alert_color:
-                self._overlay_h.set_color(alert_color)
+            self._overlay_h.set_color(col_h)
         if self._overlay_p is not None:
             self._overlay_p.set_text(f"{pres:.0f} hPa")
 
@@ -457,6 +513,249 @@ class _HumidityPressurePanel(_Panel):
         self._p_today_x, self._p_today_y = [], []
         self._redraw_humidity()
         self._redraw_pressure()
+
+
+class _PowerPanel(_Panel):
+    """Battery SOC (area, left axis) + Solar / Load (right axis).
+
+    Stream: ``telemetry.power.data-manager``
+    Fields read:
+      - ``state_of_charge`` (% 0-100) — battery
+      - ``pv_power`` (W) — solar generation; ``-2147483648`` is the
+        modbus int32-min sentinel meaning "no reading"
+      - ``battery_charge`` (W) — power flowing INTO the battery
+      - ``battery_discharge`` (W) — power flowing OUT of the battery
+
+    Site load (consumption) is derived from the power balance:
+      ``load = pv + battery_discharge − battery_charge``
+    Plotted as a negative number on the right axis so the chart reads
+    like a balance sheet (sources above zero, sinks below).
+    """
+
+    needs_power_history = True
+    live_subject_kind = 'power'
+
+    title = 'Battery  [%]'
+    title_right = 'Solar / Load  [W]'
+
+    # ``telemetry.power.data-manager`` ticks at ~5 s/sample (~12/min); window
+    # sized so the chart breathes at minutes-scale, not flickers per sample.
+    SOC_SMOOTH = 60   # ~5 min
+    KW_SMOOTH = 60    # ~5 min
+
+    # ``pv_power`` / battery flow sanity bounds; anything outside is treated
+    # as a sentinel/garbage reading and dropped.
+    _POWER_W_MIN = -1_000_000.0
+    _POWER_W_MAX = 1_000_000.0
+    _SENTINEL_INT32_MIN = -2_147_483_648
+
+    def __init__(self, *, soc_warn_pct: float = 30.0,
+                 soc_danger_pct: float = 15.0) -> None:
+        super().__init__()
+        self.soc_warn_pct = float(soc_warn_pct)
+        self.soc_danger_pct = float(soc_danger_pct)
+        self.ax_p = None
+        self._soc_today_x: List[float] = []
+        self._soc_today_y: List[float] = []
+        self._soc_yest_x: List[float] = []
+        self._soc_yest_y: List[float] = []
+        self._pv_today_x: List[float] = []
+        self._pv_today_y: List[float] = []
+        self._pv_yest_x: List[float] = []
+        self._pv_yest_y: List[float] = []
+        self._load_today_x: List[float] = []
+        self._load_today_y: List[float] = []
+        self._load_yest_x: List[float] = []
+        self._load_yest_y: List[float] = []
+        self._line_soc_today = None
+        self._line_soc_yest = None
+        self._fill_soc_today = None
+        self._line_pv_today = None
+        self._line_pv_yest = None
+        self._line_load_today = None
+        self._line_load_yest = None
+        self._overlay_soc = None
+        self._overlay_kw = None
+
+    def init_axes(self, ax) -> None:
+        super().init_axes(ax)
+        ax.set_ylim(0, 100)
+        ax.set_yticks([0, 25, 50, 75, 100])
+        ax.axhspan(0, self.soc_danger_pct, color=ck.COLOR_DANGER,
+                   alpha=0.20, linewidth=0, zorder=0)
+        ax.axhspan(self.soc_danger_pct, self.soc_warn_pct,
+                   color=ck.COLOR_WARN, alpha=0.15, linewidth=0, zorder=0)
+        self._line_soc_yest, = ax.plot([], [], '-', color=ck.COLOR_BATTERY,
+                                       alpha=ck.YESTERDAY_ALPHA, linewidth=0.9,
+                                       zorder=2)
+        self._line_soc_today, = ax.plot([], [], '-', color=ck.COLOR_BATTERY,
+                                        linewidth=1.3, zorder=4)
+
+        # Twin axis: solar + load. Solar is plotted positive, load is
+        # plotted as a negative number (so source/sink reads visually).
+        self.ax_p = ax.twinx()
+        self.ax_p.set_facecolor('none')
+        self.ax_p.grid(False)
+        self.ax_p.tick_params(axis='y', direction='in', length=4, pad=-4,
+                              labelsize=9, colors=ck.COLOR_SOLAR)
+        for label in self.ax_p.get_yticklabels():
+            label.set_horizontalalignment('right')
+        for side in ('top', 'bottom', 'left'):
+            self.ax_p.spines[side].set_visible(False)
+        self.ax_p.spines['right'].set_color(ck.COLOR_SOLAR)
+        # zero reference line on the right axis
+        self.ax_p.axhline(0, color='#5a5a5a', linewidth=0.8, alpha=0.6, zorder=1)
+        self._line_pv_yest, = self.ax_p.plot([], [], '-', color=ck.COLOR_SOLAR,
+                                             alpha=ck.YESTERDAY_ALPHA,
+                                             linewidth=0.9, zorder=2)
+        self._line_pv_today, = self.ax_p.plot([], [], '-', color=ck.COLOR_SOLAR,
+                                              linewidth=1.3, zorder=4)
+        self._line_load_yest, = self.ax_p.plot([], [], '-', color=ck.COLOR_LOAD,
+                                               alpha=ck.YESTERDAY_ALPHA,
+                                               linewidth=0.9, zorder=2)
+        self._line_load_today, = self.ax_p.plot([], [], '-', color=ck.COLOR_LOAD,
+                                                linewidth=1.3, zorder=4)
+        ck.inline_title(self.ax_p, self.title_right, side='right',
+                        color=ck.COLOR_SOLAR)
+        self._overlay_soc = ck.big_overlay(ax, x=0.99, y=0.72, color=ck.COLOR_BATTERY)
+        self._overlay_kw = ck.big_overlay(ax, x=0.99, y=0.32, color=ck.COLOR_SOLAR)
+
+    # ---- helpers ----
+
+    @classmethod
+    def _valid_w(cls, v) -> Optional[float]:
+        try:
+            f = float(v)
+        except (TypeError, ValueError):
+            return None
+        if f == cls._SENTINEL_INT32_MIN or not (cls._POWER_W_MIN < f < cls._POWER_W_MAX):
+            return None
+        return f
+
+    def _compute_balance(self, msm: dict):
+        """Return ``(pv_w, load_w)`` (either may be None if missing)."""
+        pv = self._valid_w(msm.get('pv_power'))
+        bc = self._valid_w(msm.get('battery_charge'))
+        bd = self._valid_w(msm.get('battery_discharge'))
+        if bc is not None and bd is not None:
+            load = (pv if pv is not None else 0.0) + bd - bc
+        else:
+            load = None
+        return pv, load
+
+    @staticmethod
+    def _fmt_kw(w: Optional[float]) -> str:
+        if w is None:
+            return '—'
+        kw = w / 1000.0
+        return f"{kw:.1f}"
+
+    # ---- alerts ----
+
+    def alert_color(self, msm):
+        try:
+            soc = float(msm['state_of_charge'])
+        except (KeyError, TypeError, ValueError):
+            return None
+        if soc <= self.soc_danger_pct:
+            return ck.COLOR_DANGER
+        if soc <= self.soc_warn_pct:
+            return ck.COLOR_WARN
+        return None
+
+    # ---- redraws ----
+
+    def _redraw_soc_fill(self):
+        if self.ax is None:
+            return
+        if self._fill_soc_today is not None:
+            try:
+                self._fill_soc_today.remove()
+            except (ValueError, AttributeError):
+                pass
+        if self._soc_today_x:
+            smoothed = ck.running_mean(self._soc_today_y, self.SOC_SMOOTH)
+            self._fill_soc_today = self.ax.fill_between(
+                self._soc_today_x, 0, smoothed,
+                color=ck.COLOR_BATTERY, alpha=0.18, linewidth=0, zorder=3)
+
+    def _redraw_soc(self):
+        if self._line_soc_today is not None:
+            self._line_soc_today.set_data(
+                self._soc_today_x, ck.running_mean(self._soc_today_y, self.SOC_SMOOTH))
+        if self._line_soc_yest is not None:
+            self._line_soc_yest.set_data(
+                self._soc_yest_x, ck.running_mean(self._soc_yest_y, self.SOC_SMOOTH))
+        self._redraw_soc_fill()
+
+    def _redraw_kw(self):
+        if self._line_pv_today is not None:
+            self._line_pv_today.set_data(
+                self._pv_today_x, ck.running_mean(self._pv_today_y, self.KW_SMOOTH))
+        if self._line_pv_yest is not None:
+            self._line_pv_yest.set_data(
+                self._pv_yest_x, ck.running_mean(self._pv_yest_y, self.KW_SMOOTH))
+        if self._line_load_today is not None:
+            self._line_load_today.set_data(
+                self._load_today_x, ck.running_mean(self._load_today_y, self.KW_SMOOTH))
+        if self._line_load_yest is not None:
+            self._line_load_yest.set_data(
+                self._load_yest_x, ck.running_mean(self._load_yest_y, self.KW_SMOOTH))
+        if self.ax_p is not None:
+            self.ax_p.relim()
+            self.ax_p.autoscale_view(scalex=False, scaley=True)
+
+    # ---- data hooks ----
+
+    def on_power(self, hour, ts, msm, *, is_yesterday) -> None:
+        try:
+            soc = float(msm['state_of_charge'])
+        except (KeyError, TypeError, ValueError):
+            soc = None
+        pv, load = self._compute_balance(msm)
+
+        if soc is not None and 0.0 <= soc <= 100.0:
+            (self._soc_yest_x if is_yesterday else self._soc_today_x).append(hour)
+            (self._soc_yest_y if is_yesterday else self._soc_today_y).append(soc)
+            self._redraw_soc()
+        changed_kw = False
+        if pv is not None:
+            (self._pv_yest_x if is_yesterday else self._pv_today_x).append(hour)
+            (self._pv_yest_y if is_yesterday else self._pv_today_y).append(pv)
+            changed_kw = True
+        if load is not None:
+            # Plot load as negative — sinks below zero.
+            (self._load_yest_x if is_yesterday else self._load_today_x).append(hour)
+            (self._load_yest_y if is_yesterday else self._load_today_y).append(-load)
+            changed_kw = True
+        if changed_kw:
+            self._redraw_kw()
+
+    def on_live_summary(self, msm) -> None:
+        try:
+            soc = float(msm['state_of_charge'])
+        except (KeyError, TypeError, ValueError):
+            soc = None
+        pv, load = self._compute_balance(msm)
+        if self._overlay_soc is not None and soc is not None:
+            self._overlay_soc.set_text(f"{soc:.0f} %")
+            self._overlay_soc.set_color(self.alert_color(msm) or ck.COLOR_BATTERY)
+        if self._overlay_kw is not None:
+            # Format: "Solar / -Load kW" — load shown negative for the
+            # source/sink convention.
+            load_neg = (-load) if load is not None else None
+            self._overlay_kw.set_text(
+                f"{self._fmt_kw(pv)} / {self._fmt_kw(load_neg)} kW")
+
+    def on_midnight_rollover(self) -> None:
+        self._soc_yest_x, self._soc_yest_y = self._soc_today_x, self._soc_today_y
+        self._pv_yest_x, self._pv_yest_y = self._pv_today_x, self._pv_today_y
+        self._load_yest_x, self._load_yest_y = self._load_today_x, self._load_today_y
+        self._soc_today_x, self._soc_today_y = [], []
+        self._pv_today_x, self._pv_today_y = [], []
+        self._load_today_x, self._load_today_y = [], []
+        self._redraw_soc()
+        self._redraw_kw()
 
 
 class _DomeWindAzPanel(_Panel):
@@ -636,6 +935,11 @@ class _FwhmPanel(_PerTelescopeScatterPanel):
     Mirrors halina's data extraction: ``raw.fwhm.fwhm_x``/``fwhm_y``
     averaged, multiplied by ``raw.header.SCALE`` (arcsec/px). Restricted
     to ``IMAGETYP == 'science'`` frames as halina does.
+
+    Has a live overlay that shows the most recent FWHM value regardless
+    of which telescope produced it; the overlay text colour is the
+    contributing telescope's ``style.color`` blended toward neutral
+    text grey for legibility.
     """
 
     needs_faststat = True
@@ -644,6 +948,21 @@ class _FwhmPanel(_PerTelescopeScatterPanel):
     y_max = 8.0
     marker = 'o'
     line_style = ''  # markers only — frames arrive irregularly
+
+    def __init__(self, main_window, telescopes: Sequence[str]) -> None:
+        super().__init__(main_window, telescopes)
+        self._latest_fwhm: Optional[float] = None
+        self._latest_tel: Optional[str] = None
+
+    def init_axes(self, ax) -> None:
+        super().init_axes(ax)
+        self._overlay = ck.big_overlay(ax)
+
+    def restamp_telescope_colors(self) -> None:
+        super().restamp_telescope_colors()
+        # Re-apply the blended colour to the overlay for whichever telescope
+        # produced the latest sample, in case nats_cfg arrived afterwards.
+        self._refresh_overlay()
 
     def on_faststat(self, tel, hour, raw) -> None:
         try:
@@ -655,7 +974,21 @@ class _FwhmPanel(_PerTelescopeScatterPanel):
             return
         if fwhm <= 0 or fwhm > 30 or scale <= 0:
             return
-        self._append(tel, hour, fwhm * scale)
+        arcsec = fwhm * scale
+        self._append(tel, hour, arcsec)
+        self._latest_fwhm = arcsec
+        self._latest_tel = tel
+        self._refresh_overlay()
+
+    def _refresh_overlay(self) -> None:
+        if self._overlay is None or self._latest_fwhm is None:
+            return
+        self._overlay.set_text(f"{self._latest_fwhm:.2f} \"")
+        if self._latest_tel is not None:
+            tel_color = ck.telescope_color(self.main_window, self._latest_tel)
+            # 30% blend toward neutral grey so the colour reads identifiably
+            # but doesn't clash with the dark theme on saturated values.
+            self._overlay.set_color(ck.blend_colors(tel_color, ck.FG_TEXT, 0.30))
 
 
 class _QualityPanel(_PerTelescopeScatterPanel):
@@ -765,28 +1098,60 @@ def _today_midnight_utc() -> datetime.datetime:
     return datetime.datetime(n.year, n.month, n.day, tzinfo=datetime.timezone.utc)
 
 
+# OCM is at -70°W → local noon = 16:00 UTC. Use that as the night boundary
+# for pipeline-derived panels (FWHM, Quality, Phot Zero) so they only show
+# the current observing night and reset cleanly at local noon each day.
+_OCM_LOCAL_NOON_UTC_HOUR = 16
+
+
+def _current_night_start_utc() -> datetime.datetime:
+    """Most recent OCM local-noon (16:00 UTC), as a tz-aware UTC datetime."""
+    now = datetime.datetime.now(datetime.timezone.utc)
+    local_noon = now.replace(hour=_OCM_LOCAL_NOON_UTC_HOUR,
+                             minute=0, second=0, microsecond=0)
+    if local_noon > now:
+        local_noon -= datetime.timedelta(days=1)
+    return local_noon
+
+
 # ----------------------------------------------------------------------------
 # Main page widget
 # ----------------------------------------------------------------------------
 
 class WeatherDataWidget(QWidget):
 
-    DEFAULT_CHARTS: Tuple[str, ...] = ('wind', 'humidity_pressure', 'temperature')
+    DEFAULT_CHARTS: Tuple[str, ...] = ('wind', 'temperature', 'humidity_pressure', 'power')
     KNOWN_CHARTS = frozenset({
-        'wind', 'humidity_pressure', 'temperature',
+        'wind', 'humidity_pressure', 'temperature', 'power',
         'dome_wind_az', 'fwhm', 'quality', 'phot_zero',
     })
 
     def __init__(self, main_window, subject: str = 'telemetry.weather.davis',
+                 power_subject: str = 'telemetry.power.data-manager',
                  vertical_screen: bool = False,
                  charts: Optional[Sequence[str]] = None,
                  dome_danger_zone_deg: float = 30.0,
+                 wind_warn_ms: float = ck.WIND_WARN_MS,
+                 wind_danger_ms: float = ck.WIND_DANGER_MS,
+                 humidity_warn_pct: float = 70.0,
+                 humidity_danger_pct: float = 75.0,
+                 temperature_danger_c: float = 0.0,
+                 soc_warn_pct: float = 30.0,
+                 soc_danger_pct: float = 15.0,
                  **kwargs) -> None:
         super().__init__()
         self.main_window = main_window
         self.weather_subject = subject
+        self.power_subject = power_subject
         self.vertical = bool(vertical_screen)
         self.dome_danger_zone_deg = float(dome_danger_zone_deg)
+        self.wind_warn_ms = float(wind_warn_ms)
+        self.wind_danger_ms = float(wind_danger_ms)
+        self.humidity_warn_pct = float(humidity_warn_pct)
+        self.humidity_danger_pct = float(humidity_danger_pct)
+        self.temperature_danger_c = float(temperature_danger_c)
+        self.soc_warn_pct = float(soc_warn_pct)
+        self.soc_danger_pct = float(soc_danger_pct)
         self.chart_keys = self._resolve_charts(charts)
         self.panels: List[_Panel] = self._build_panels()
         self._init_ui()
@@ -814,9 +1179,12 @@ class WeatherDataWidget(QWidget):
         panels: List[_Panel] = []
         for key in self.chart_keys:
             if key == 'wind':
-                panels.append(_WindPanel())
+                panels.append(_WindPanel(warn_ms=self.wind_warn_ms,
+                                         danger_ms=self.wind_danger_ms))
             elif key == 'humidity_pressure':
-                panels.append(_HumidityPressurePanel())
+                panels.append(_HumidityPressurePanel(
+                    warn_pct=self.humidity_warn_pct,
+                    danger_pct=self.humidity_danger_pct))
             elif key == 'temperature':
                 panels.append(_SimpleSeriesPanel(
                     measurement_key='temperature_C',
@@ -825,7 +1193,11 @@ class WeatherDataWidget(QWidget):
                     reject_above=60.0, reject_below=-30.0,
                     smooth_window=5,  # 5 min — temp can swing faster than humid/pres
                     overlay_unit='°C',
+                    danger_below=self.temperature_danger_c,
                 ))
+            elif key == 'power':
+                panels.append(_PowerPanel(soc_warn_pct=self.soc_warn_pct,
+                                          soc_danger_pct=self.soc_danger_pct))
             elif key == 'dome_wind_az' and telescopes:
                 panels.append(_DomeWindAzPanel(self.main_window, telescopes,
                                                self.dome_danger_zone_deg))
@@ -847,13 +1219,13 @@ class WeatherDataWidget(QWidget):
         # Compact single-line astronomical context. The wind/T/hum readout
         # that used to live on a sibling QLabel is now rendered as
         # translucent overlays directly on the matching chart panels.
-        label_font = QtGui.QFont('Arial', 14 if self.vertical else 13)
+        label_font = QtGui.QFont('Arial', 22 if self.vertical else 19)
+        label_font.setBold(True)
         self.label_ephem = QLabel('ephem')
         self.label_ephem.setStyleSheet(
-            "background-color: #2a2a2a; color: #e0e0e0; padding: 2px 8px; border-radius: 4px;"
+            "background-color: #2a2a2a; color: #e0e0e0; padding: 4px 10px; border-radius: 4px;"
         )
         self.label_ephem.setFont(label_font)
-        self.label_ephem.setMaximumHeight(28)
 
         self.figure = Figure(constrained_layout=False)
         ck.style_figure(self.figure)
@@ -883,14 +1255,26 @@ class WeatherDataWidget(QWidget):
     @asyncSlot()
     async def async_init(self):
         await create_task(self._color_resolver(), 'weather_color_resolver')
-        await create_task(self._weather_history_loop(), 'weather_history_reader')
-        try:
-            await self.main_window.run_reader(
-                clb=self._weather_status_callback,
-                subject=self.weather_subject, deliver_policy='last',
-            )
-        except Exception as e:
-            logger.warning(f"Failed to register weather status reader: {e}")
+        if any(p.needs_weather_history for p in self.panels):
+            await create_task(self._weather_history_loop(), 'weather_history_reader')
+        if any(p.needs_power_history for p in self.panels):
+            await create_task(self._power_history_loop(), 'weather_power_reader')
+        if any(p.live_subject_kind == 'weather' for p in self.panels):
+            try:
+                await self.main_window.run_reader(
+                    clb=self._weather_status_callback,
+                    subject=self.weather_subject, deliver_policy='last',
+                )
+            except Exception as e:
+                logger.warning(f"Failed to register weather status reader: {e}")
+        if any(p.live_subject_kind == 'power' for p in self.panels):
+            try:
+                await self.main_window.run_reader(
+                    clb=self._power_status_callback,
+                    subject=self.power_subject, deliver_policy='last',
+                )
+            except Exception as e:
+                logger.warning(f"Failed to register power status reader: {e}")
 
         telescopes = list(getattr(self.main_window, 'telescope_names', []))
         if any(p.needs_dome_state for p in self.panels) and telescopes:
@@ -943,19 +1327,55 @@ class WeatherDataWidget(QWidget):
             self.canvas.draw_idle()
             logger.info(f'Restamped telescope colours on {restamped} panel(s)')
 
+    async def _power_history_loop(self):
+        await self._dual_day_history_loop(
+            subject=self.power_subject,
+            hook=lambda p, hour, ts, msm, is_yesterday:
+                p.on_power(hour, ts, msm, is_yesterday=is_yesterday),
+        )
+
+    async def _dual_day_history_loop(self, subject: str, hook) -> None:
+        """Stream today + yesterday history for a 'measurements' subject.
+
+        Replays from yesterday-midnight via ``by_start_time``; rolls panels
+        over at local midnight. ``hook`` is called as
+        ``hook(panel, hour, ts, msm, is_yesterday)``.
+        """
+        msg = Messenger()
+        today_midnight = _today_midnight_utc()
+        yesterday_midnight = today_midnight - datetime.timedelta(days=1)
+        rdr = msg.get_reader(subject,
+                             deliver_policy='by_start_time',
+                             opt_start_time=yesterday_midnight)
+        logger.info(f"Subscribed to {subject} (history from {yesterday_midnight.isoformat()})")
+        async for data, meta in rdr:
+            try:
+                now = datetime.datetime.now(datetime.timezone.utc)
+                if now.date() > today_midnight.date():
+                    today_midnight = _today_midnight_utc()
+                    yesterday_midnight = today_midnight - datetime.timedelta(days=1)
+                    for p in self.panels:
+                        p.on_midnight_rollover()
+                ts = dt_ensure_datetime(data['ts'])
+                msm = data['measurements']
+                hour = ts.hour + ts.minute / 60.0 + ts.second / 3600.0
+                is_yesterday = ts < today_midnight
+                for p in self.panels:
+                    hook(p, hour, ts, msm, is_yesterday)
+                self.canvas.draw_idle()
+            except (LookupError, TypeError, ValueError):
+                continue
+
     async def _weather_history_loop(self):
         msg = Messenger()
         today_midnight = _today_midnight_utc()
         yesterday_midnight = today_midnight - datetime.timedelta(days=1)
-        rdr = msg.get_reader(self.weather_subject, deliver_policy='all')
-        logger.info(f"Subscribed to {self.weather_subject} (history)")
+        rdr = msg.get_reader(self.weather_subject,
+                             deliver_policy='by_start_time',
+                             opt_start_time=yesterday_midnight)
+        logger.info(f"Subscribed to {self.weather_subject} "
+                    f"(history from {yesterday_midnight.isoformat()})")
         async for data, meta in rdr:
-            try:
-                ts_meta = dt_from_array(meta['ts'])
-                if ts_meta is not None and ts_meta < yesterday_midnight:
-                    continue
-            except (LookupError, ValueError, TypeError):
-                pass
             try:
                 now = datetime.datetime.now(datetime.timezone.utc)
                 if now.date() > today_midnight.date():
@@ -976,19 +1396,22 @@ class WeatherDataWidget(QWidget):
     async def _weather_status_callback(self, data, meta) -> bool:
         try:
             msm = data['measurements']
-            wind = float(msm['wind_10min_ms'])
-            temp = float(msm['temperature_C'])
-            hum = int(msm['humidity'])
-        except (KeyError, TypeError, ValueError):
+        except (KeyError, TypeError):
             return True
-        if (ck.WIND_WARN_MS <= wind < ck.WIND_DANGER_MS) or hum > 70:
-            alert = '#f6ce46'
-        elif wind >= ck.WIND_DANGER_MS or hum > 75 or temp < 0:
-            alert = '#ea4d3d'
-        else:
-            alert = ck.FG_TEXT
         for p in self.panels:
-            p.on_live_summary(msm, alert)
+            if p.live_subject_kind == 'weather':
+                p.on_live_summary(msm)
+        self.canvas.draw_idle()
+        return True
+
+    async def _power_status_callback(self, data, meta) -> bool:
+        try:
+            msm = data['measurements']
+        except (KeyError, TypeError):
+            return True
+        for p in self.panels:
+            if p.live_subject_kind == 'power':
+                p.on_live_summary(msm)
         self.canvas.draw_idle()
         return True
 
@@ -1027,7 +1450,8 @@ class WeatherDataWidget(QWidget):
     async def _pipeline_faststat_loop(self, tel: str):
         try:
             r = get_reader(f'tic.status.{tel}.fits.pipeline.faststat',
-                           deliver_policy='all')
+                           deliver_policy='by_start_time',
+                           opt_start_time=_current_night_start_utc())
             async for data, meta in r:
                 raw = data.get('raw') if isinstance(data, dict) else None
                 if not raw:
@@ -1044,7 +1468,8 @@ class WeatherDataWidget(QWidget):
     async def _pipeline_zdf_loop(self, tel: str):
         try:
             r = get_reader(f'tic.status.{tel}.fits.pipeline.zdf',
-                           deliver_policy='all')
+                           deliver_policy='by_start_time',
+                           opt_start_time=_current_night_start_utc())
             async for data, meta in r:
                 content = data.get('zdf') if isinstance(data, dict) else None
                 if not content:
@@ -1061,7 +1486,8 @@ class WeatherDataWidget(QWidget):
     async def _zero_monitor_loop(self, tel: str):
         try:
             r = get_reader(f'tic.status.{tel}.zero_monitor.lc',
-                           deliver_policy='all')
+                           deliver_policy='by_start_time',
+                           opt_start_time=_current_night_start_utc())
             async for data, meta in r:
                 if not isinstance(data, dict):
                     continue
