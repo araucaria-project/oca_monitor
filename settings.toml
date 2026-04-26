@@ -59,6 +59,23 @@ source = "telescopes"  # page source - page is defined in oca_monitor/pages/exam
 #auto_interval = 10  # seconds, how long to show this page before auto switching to next page
 source = "weather"  # page source - page is defined in oca_monitor/pages/example.py
 vertical_screen = 0
+# charts: ordered subset of available panels, rendered as a squeezed
+# shared-X stack. ``wind`` is always included (forced first if missing).
+# Available keys:
+#   wind               — speed (today + yesterday + alert bands)
+#                        + windy.com-style direction arrows along the bottom
+#   humidity_pressure  — humidity (semi-transparent area, left axis)
+#                        + pressure (line, right axis)
+#   temperature        — today + yesterday line
+#   dome_wind_az       — per-telescope dome↔wind alignment, dotted when
+#                        dome closed; danger band <``dome_danger_zone_deg``
+#   fwhm               — per-telescope FWHM in arcsec (pipeline.faststat,
+#                        IMAGETYP=science only)
+#   quality            — per-telescope star-presence ratio (pipeline.zdf)
+#   phot_zero          — per-telescope photometric zero point
+#                        (zero_monitor.lc), filter colour on marker edge
+charts = ["wind", "dome_wind_az", "humidity_pressure", "temperature", "fwhm", "phot_zero"]
+dome_danger_zone_deg = 30
 
 [default.panels.12.Ephemeris]
 #auto_interval = 10  # seconds, how long to show this page before auto switching to next page

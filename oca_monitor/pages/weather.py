@@ -1,360 +1,1086 @@
-import asyncio
-import logging
-import datetime
-from typing import Any
+"""Weather/conditions dashboard page.
 
-import serverish
-from PyQt6.QtWidgets import QApplication, QWidget, QVBoxLayout, QHBoxLayout,QLabel
-from PyQt6.QtCore import QTimer
-from PyQt6 import QtCore, QtGui
+A configurable stack of squeezed time-series charts sharing a single X
+axis. Panel selection is driven by the ``charts`` page parameter from
+``settings.toml``; permanent panels (``wind``) are forced to be present.
+
+Defaults render three panels: wind (today + yesterday + alert bands +
+windy.com-style direction arrows along the bottom), humidity+pressure
+(twin-axis) and temperature. Optional panels add per-telescope
+dome/wind alignment and FWHM tracking, both colour-coded by telescope
+config from ``tic.config.observatory``.
+"""
+from __future__ import annotations
+
+import datetime
+import logging
+import math
+import time
+from typing import Any, Dict, List, Optional, Sequence, Tuple
+
+import ephem
+import numpy as np
+from PyQt6 import QtCore, QtGui  # imported before matplotlib so qt_compat picks PyQt6
+from PyQt6.QtWidgets import QHBoxLayout, QLabel, QVBoxLayout, QWidget
+from astropy.time import Time as AstropyTime
 from matplotlib.backends.backend_qt5agg import FigureCanvasQTAgg as FigureCanvas
 from matplotlib.figure import Figure
 from qasync import asyncSlot
 from serverish.base import dt_ensure_datetime, dt_from_array
-from serverish.base.task_manager import create_task_sync, create_task
-from serverish.messenger import Messenger
-import numpy as np
-import ephem
-import time
-from astropy.time import Time as czas_astro
-from oca_monitor.config import settings
+from serverish.base.task_manager import create_task
+from serverish.messenger import Messenger, get_reader
+
+from oca_monitor.widgets import chart_kit as ck
 
 logger = logging.getLogger(__name__.rsplit('.')[-1])
 
-def ephemeris(vertical = 0):
-    arm=ephem.Observer()
-    arm.pressure=730
-    #arm.horizon = '-0.5'
-    arm.lon='-70.201266'
-    arm.lat='-24.598616'
-    arm.elev=2800
-    arm.pressure=730
-    date = time.strftime('%Y%m%d',time.gmtime() )
-    ut = time.strftime('%Y/%m/%d %H:%M:%S',time.gmtime() )
-    t = czas_astro([ut.replace('/','-',2).replace(' ','T',1)])
-    lt = time.strftime('%H:%M:%S',time.localtime() )
-    arm.date = ut
-    sunset=str(arm.next_setting(ephem.Sun()))
-    sunrise=str(arm.next_rising(ephem.Sun()))
+
+# ----------------------------------------------------------------------------
+# Ephemeris helper (kept inline; used only for the header label)
+# ----------------------------------------------------------------------------
+
+def _ephemeris_text(vertical: bool = False) -> Tuple[str, float]:
+    obs = ephem.Observer()
+    obs.lon = '-70.201266'
+    obs.lat = '-24.598616'
+    obs.elev = 2800
+    obs.pressure = 730
+    ut = time.strftime('%Y/%m/%d %H:%M:%S', time.gmtime())
+    lt = time.strftime('%H:%M:%S', time.localtime())
+    obs.date = ut
     sun = ephem.Sun()
-    sun.compute(arm)
-    if str(sun.alt)[0] == '-':
-        sunalt = "{:.1f}".format(float(str(sun.alt).split(':')[0])-float(str(sun.alt).split(':')[1])/60.)
-    else:
-        sunalt = "{:.1f}".format(float(str(sun.alt).split(':')[0])+float(str(sun.alt).split(':')[1])/60.)
+    sun.compute(obs)
+    parts = str(sun.alt).split(':')
+    deg = float(parts[0])
+    minutes = float(parts[1]) / 60.0
+    sun_alt = deg + minutes if not str(sun.alt).startswith('-') else deg - minutes
+    sep = '\n' if vertical else '\t'
+    return f'LT: {lt}{sep}SUN ALT: {sun_alt:.1f}', sun_alt
 
-    if vertical:
-        text = 'LT: '+lt+'\nSUN ALT: '+str(sunalt)
-    else:
-        text = 'LT: '+lt+'\tSUN ALT: '+str(sunalt)
-    
-    return text,float(str(sun.alt).split(':')[0])
 
+# ----------------------------------------------------------------------------
+# Panels
+# ----------------------------------------------------------------------------
+
+class _Panel:
+    """Base class for one row of the squeezed chart stack."""
+
+    title: str = ''
+
+    needs_weather_history: bool = False
+    needs_faststat: bool = False
+    needs_zdf: bool = False
+    needs_zero_monitor: bool = False
+    needs_dome_state: bool = False
+    needs_mount_az: bool = False
+
+    def __init__(self) -> None:
+        self.ax = None  # type: Optional[Any]
+        self._overlay = None
+
+    def init_axes(self, ax) -> None:
+        self.ax = ax
+        ax.set_zorder(2)
+        ck.inline_title(ax, self.title)
+
+    # Live-value overlay — subclasses opt in by calling _add_overlay() in
+    # init_axes and overriding format_overlay().
+    def _add_overlay(self, ax, **kwargs) -> None:
+        self._overlay = ck.big_overlay(ax, **kwargs)
+
+    def format_overlay(self, msm: dict) -> Optional[str]:
+        return None
+
+    def on_live_summary(self, msm: dict, alert_color: Optional[str]) -> None:
+        if self._overlay is None:
+            return
+        try:
+            text = self.format_overlay(msm)
+        except (KeyError, TypeError, ValueError):
+            text = None
+        if text is None:
+            return
+        self._overlay.set_text(text)
+        if alert_color:
+            self._overlay.set_color(alert_color)
+
+    # Default no-ops; subclasses override.
+    def on_weather(self, hour: float, ts: datetime.datetime, msm: dict,
+                   *, is_yesterday: bool) -> None: ...
+
+    def on_midnight_rollover(self) -> None: ...
+
+    def on_faststat(self, tel: str, hour: float, raw: dict) -> None: ...
+
+    def on_zdf(self, tel: str, hour: float, content: dict) -> None: ...
+
+    def on_zero_monitor(self, tel: str, hour: float, data: dict) -> None: ...
+
+    def on_dome_state(self, tel: str, shutter_open: Optional[bool]) -> None: ...
+
+    def on_mount_az(self, tel: str, az_deg: float, hour: float) -> None: ...
+
+
+class _SimpleSeriesPanel(_Panel):
+    """Today + yesterday line panel — wind, temperature, humidity, etc."""
+
+    needs_weather_history = True
+
+    def __init__(self, *, measurement_key: str, y_label: str,
+                 today_color: str,
+                 y_min: Optional[float] = None, y_max: Optional[float] = None,
+                 reject_above: Optional[float] = None,
+                 reject_below: Optional[float] = None,
+                 zone_drawer=None,
+                 smooth_window: int = 1,
+                 overlay_unit: Optional[str] = None,
+                 overlay_format: str = '{:.1f}') -> None:
+        super().__init__()
+        self.measurement_key = measurement_key
+        self.title = y_label
+        self.today_color = today_color
+        self.y_min = y_min
+        self.y_max = y_max
+        self.reject_above = reject_above
+        self.reject_below = reject_below
+        self.zone_drawer = zone_drawer
+        self.smooth_window = max(1, int(smooth_window))
+        self.overlay_unit = overlay_unit
+        self.overlay_format = overlay_format
+        self._today_x: List[float] = []
+        self._today_y: List[float] = []
+        self._yesterday_x: List[float] = []
+        self._yesterday_y: List[float] = []
+        self._line_today = None
+        self._line_yesterday = None
+
+    def init_axes(self, ax) -> None:
+        super().init_axes(ax)
+        if self.zone_drawer is not None:
+            self.zone_drawer(ax)
+        # Yesterday: same colour, faded, thin line — better than dots when the
+        # underlying signal is slow-moving (humidity, pressure, temperature).
+        self._line_yesterday, = ax.plot([], [], '-', color=self.today_color,
+                                        alpha=ck.YESTERDAY_ALPHA, linewidth=1.0,
+                                        zorder=2, label='Yesterday')
+        self._line_today, = ax.plot([], [], '-', color=self.today_color,
+                                    linewidth=1.5, zorder=4, label='Today')
+        if self.y_min is not None or self.y_max is not None:
+            ax.set_ylim(self.y_min if self.y_min is not None else ax.get_ylim()[0],
+                        self.y_max if self.y_max is not None else ax.get_ylim()[1])
+        if self.overlay_unit is not None:
+            self._add_overlay(ax)
+
+    def format_overlay(self, msm):
+        if self.overlay_unit is None:
+            return None
+        v = float(msm[self.measurement_key])
+        return f"{self.overlay_format.format(v)} {self.overlay_unit}"
+
+    def _accepts(self, value: float) -> bool:
+        if self.reject_above is not None and value > self.reject_above:
+            return False
+        if self.reject_below is not None and value < self.reject_below:
+            return False
+        return True
+
+    def _redraw(self) -> None:
+        if self._line_today is not None:
+            self._line_today.set_data(
+                self._today_x, ck.running_mean(self._today_y, self.smooth_window))
+        if self._line_yesterday is not None:
+            self._line_yesterday.set_data(
+                self._yesterday_x,
+                ck.running_mean(self._yesterday_y, self.smooth_window))
+
+    def on_weather(self, hour, ts, msm, *, is_yesterday) -> None:
+        try:
+            value = float(msm[self.measurement_key])
+        except (KeyError, TypeError, ValueError):
+            return
+        if not self._accepts(value):
+            return
+        if is_yesterday:
+            self._yesterday_x.append(hour)
+            self._yesterday_y.append(value)
+        else:
+            self._today_x.append(hour)
+            self._today_y.append(value)
+        self._redraw()
+        self._autoscale_y()
+
+    def _autoscale_y(self) -> None:
+        ax = self.ax
+        if ax is None:
+            return
+        if self.y_min is None and self.y_max is None:
+            ax.relim()
+            ax.autoscale_view(scalex=False, scaley=True)
+
+    def on_midnight_rollover(self) -> None:
+        self._yesterday_x, self._yesterday_y = self._today_x, self._today_y
+        self._today_x, self._today_y = [], []
+        self._redraw()
+
+
+class _WindPanel(_SimpleSeriesPanel):
+    """Wind speed + direction-arrow strip along the bottom."""
+
+    def __init__(self) -> None:
+        super().__init__(
+            measurement_key='wind_10min_ms',
+            y_label='Wind  [m/s]',
+            today_color=ck.COLOR_TODAY,
+            y_min=0.0, y_max=None,
+            reject_above=ck.WIND_DANGER_MS * 3.0,
+            reject_below=0.0,
+            zone_drawer=ck.wind_zone_bands,
+        )
+        self._dir_x: List[float] = []
+        self._dir_d: List[float] = []
+        self._quiver = None
+
+    def init_axes(self, ax) -> None:
+        super().init_axes(ax)
+        ax.set_ylim(0, max(15.0, ck.WIND_DANGER_MS * 1.4))
+        self._add_overlay(ax)
+
+    def format_overlay(self, msm):
+        wind = float(msm['wind_10min_ms'])
+        wdir = int(msm['wind_dir_deg'])
+        return f"{wind:.1f} m/s   {wdir:>3d}°"
+
+    def on_weather(self, hour, ts, msm, *, is_yesterday) -> None:
+        super().on_weather(hour, ts, msm, is_yesterday=is_yesterday)
+        if is_yesterday:
+            return
+        try:
+            d = float(msm['wind_dir_deg'])
+        except (KeyError, TypeError, ValueError):
+            return
+        if not 0.0 <= d <= 360.0:
+            return
+        self._dir_x.append(hour)
+        self._dir_d.append(d)
+        # cap memory at ~1 day's worth even if the reader replays history.
+        if len(self._dir_x) > 4000:
+            self._dir_x = self._dir_x[-3000:]
+            self._dir_d = self._dir_d[-3000:]
+        self._refresh_arrows()
+
+    def _refresh_arrows(self) -> None:
+        ax = self.ax
+        if ax is None:
+            return
+        centers, means = ck.bin_directions(self._dir_x, self._dir_d, n_bins=12)
+        if not centers:
+            return
+        u, v = ck.compass_to_uv(means, flow_to=True)
+        # Hug the bottom of the panel — a narrow strip below the wind
+        # line, where they minimally obscure the speed reading.
+        y_lo, y_hi = ax.get_ylim()
+        y_arrow = y_lo + 0.04 * (y_hi - y_lo)
+        ys = np.full_like(u, y_arrow, dtype=float)
+        if self._quiver is not None:
+            try:
+                self._quiver.remove()
+            except (ValueError, AttributeError):
+                pass
+        # Bolder than the default quiver but translucent so they don't
+        # dominate when wind is near zero.
+        self._quiver = ax.quiver(
+            centers, ys, u, v,
+            angles='uv', scale_units='inches', scale=2.6,
+            width=0.010, headwidth=3.4, headlength=4.2, headaxislength=3.6,
+            color=ck.COLOR_WIND_ARROW, alpha=0.55, zorder=5, pivot='middle',
+            linewidth=0.4, edgecolor='#1a1a1a',
+        )
+
+    def on_midnight_rollover(self) -> None:
+        super().on_midnight_rollover()
+        self._dir_x, self._dir_d = [], []
+        if self._quiver is not None:
+            try:
+                self._quiver.remove()
+            except (ValueError, AttributeError):
+                pass
+            self._quiver = None
+
+
+class _HumidityPressurePanel(_Panel):
+    """Humidity (semi-transparent area, left axis) + pressure (line, right axis).
+
+    Both signals are slow-moving; we apply a centred running mean to clean
+    up reading noise before drawing. Yesterday is rendered as a faded line
+    in the same colour as today (no scatter dots) — the variant from the
+    earlier draft that the user preferred.
+    """
+
+    needs_weather_history = True
+
+    title = 'Humidity  [%]'
+    title_right = 'Pressure  [hPa]'
+
+    HUM_SMOOTH = 11      # ~11 minutes at 1 Hz Davis cadence
+    PRES_SMOOTH = 21     # ~20 minutes — pressure changes very slowly
+
+    def __init__(self) -> None:
+        super().__init__()
+        self.ax_p = None
+        self._h_today_x: List[float] = []
+        self._h_today_y: List[float] = []
+        self._h_yest_x: List[float] = []
+        self._h_yest_y: List[float] = []
+        self._p_today_x: List[float] = []
+        self._p_today_y: List[float] = []
+        self._p_yest_x: List[float] = []
+        self._p_yest_y: List[float] = []
+        self._line_h_today = None
+        self._line_h_yest = None
+        self._fill_h_today = None
+        self._line_p_today = None
+        self._line_p_yest = None
+
+    def init_axes(self, ax) -> None:
+        super().init_axes(ax)
+        ck.humidity_zone_bands(ax)
+        ax.set_ylim(0, 100)
+        ax.set_yticks([0, 25, 50, 75, 100])
+        # Humidity (left axis) — yesterday as faded line, today thin and clean.
+        self._line_h_yest, = ax.plot([], [], '-', color=ck.COLOR_HUMIDITY,
+                                     alpha=ck.YESTERDAY_ALPHA, linewidth=0.9,
+                                     zorder=2)
+        self._line_h_today, = ax.plot([], [], '-', color=ck.COLOR_HUMIDITY,
+                                      linewidth=1.3, zorder=4)
+        # Pressure twin axis — transparent face so humidity zones show through;
+        # tick labels pulled INSIDE the chart so they're not clipped at the
+        # right edge of the figure.
+        self.ax_p = ax.twinx()
+        self.ax_p.set_facecolor('none')
+        self.ax_p.grid(False)
+        self.ax_p.tick_params(axis='y', direction='in', length=4, pad=-4,
+                              labelsize=9, colors=ck.COLOR_PRESSURE)
+        for label in self.ax_p.get_yticklabels():
+            label.set_horizontalalignment('right')
+        for side in ('top', 'bottom', 'left'):
+            self.ax_p.spines[side].set_visible(False)
+        self.ax_p.spines['right'].set_color(ck.COLOR_PRESSURE)
+        self._line_p_yest, = self.ax_p.plot([], [], '-', color=ck.COLOR_PRESSURE,
+                                            alpha=ck.YESTERDAY_ALPHA,
+                                            linewidth=0.9, zorder=2)
+        self._line_p_today, = self.ax_p.plot([], [], '-', color=ck.COLOR_PRESSURE,
+                                             linewidth=1.3, zorder=4)
+        ck.inline_title(self.ax_p, self.title_right, side='right',
+                        color=ck.COLOR_PRESSURE)
+        # Live overlay split between the two metrics, both rendered in
+        # the parent axes so colour/alpha logic stays unified.
+        self._overlay_h = ck.big_overlay(ax, x=0.99, y=0.72, color=ck.COLOR_HUMIDITY)
+        self._overlay_p = ck.big_overlay(ax, x=0.99, y=0.32, color=ck.COLOR_PRESSURE)
+
+    def on_live_summary(self, msm, alert_color) -> None:
+        try:
+            hum = int(msm['humidity'])
+            pres = float(msm['pressure_Pa'])
+            if pres > 10000:
+                pres = pres / 100.0
+        except (KeyError, TypeError, ValueError):
+            return
+        if self._overlay_h is not None:
+            self._overlay_h.set_text(f"{hum} %")
+            if alert_color:
+                self._overlay_h.set_color(alert_color)
+        if self._overlay_p is not None:
+            self._overlay_p.set_text(f"{pres:.0f} hPa")
+
+    def _redraw_humidity_fill(self) -> None:
+        if self.ax is None:
+            return
+        if self._fill_h_today is not None:
+            try:
+                self._fill_h_today.remove()
+            except (ValueError, AttributeError):
+                pass
+        if self._h_today_x:
+            smoothed = ck.running_mean(self._h_today_y, self.HUM_SMOOTH)
+            self._fill_h_today = self.ax.fill_between(
+                self._h_today_x, 0, smoothed,
+                color=ck.COLOR_HUMIDITY, alpha=0.18, linewidth=0, zorder=3)
+
+    def _redraw_humidity(self) -> None:
+        if self._line_h_today is not None:
+            self._line_h_today.set_data(
+                self._h_today_x, ck.running_mean(self._h_today_y, self.HUM_SMOOTH))
+        if self._line_h_yest is not None:
+            self._line_h_yest.set_data(
+                self._h_yest_x, ck.running_mean(self._h_yest_y, self.HUM_SMOOTH))
+        self._redraw_humidity_fill()
+
+    def _redraw_pressure(self) -> None:
+        if self._line_p_today is not None:
+            self._line_p_today.set_data(
+                self._p_today_x, ck.running_mean(self._p_today_y, self.PRES_SMOOTH))
+        if self._line_p_yest is not None:
+            self._line_p_yest.set_data(
+                self._p_yest_x, ck.running_mean(self._p_yest_y, self.PRES_SMOOTH))
+        if self.ax_p is not None:
+            self.ax_p.relim()
+            self.ax_p.autoscale_view(scalex=False, scaley=True)
+
+    def on_weather(self, hour, ts, msm, *, is_yesterday) -> None:
+        try:
+            hum = float(msm['humidity'])
+        except (KeyError, TypeError, ValueError):
+            hum = None
+        try:
+            pres_pa = float(msm['pressure_Pa'])
+            pres = pres_pa / 100.0 if pres_pa > 10000 else pres_pa
+        except (KeyError, TypeError, ValueError):
+            pres = None
+
+        if hum is not None and 0.0 <= hum <= 100.0:
+            if is_yesterday:
+                self._h_yest_x.append(hour); self._h_yest_y.append(hum)
+            else:
+                self._h_today_x.append(hour); self._h_today_y.append(hum)
+            self._redraw_humidity()
+        if pres is not None and 600.0 < pres < 1100.0:
+            if is_yesterday:
+                self._p_yest_x.append(hour); self._p_yest_y.append(pres)
+            else:
+                self._p_today_x.append(hour); self._p_today_y.append(pres)
+            self._redraw_pressure()
+
+    def on_midnight_rollover(self) -> None:
+        self._h_yest_x, self._h_yest_y = self._h_today_x, self._h_today_y
+        self._p_yest_x, self._p_yest_y = self._p_today_x, self._p_today_y
+        self._h_today_x, self._h_today_y = [], []
+        self._p_today_x, self._p_today_y = [], []
+        self._redraw_humidity()
+        self._redraw_pressure()
+
+
+class _DomeWindAzPanel(_Panel):
+    """Per-telescope dome-vs-wind alignment angle, telescope-coloured.
+
+    Plots the smallest angular distance (0..180°) between the dome
+    azimuth (currently sourced from ``mount.azimuth`` as a proxy — OCM
+    has no separate dome.azimuth subject) and the wind direction. A
+    danger band along the bottom marks alignments below
+    ``danger_zone_deg`` (wind blowing close to the open dome face).
+    """
+
+    needs_weather_history = True
+    needs_dome_state = True
+    needs_mount_az = True
+
+    def __init__(self, main_window, telescopes: Sequence[str],
+                 danger_zone_deg: float = 30.0) -> None:
+        super().__init__()
+        self.main_window = main_window
+        self.telescopes = list(telescopes)
+        self.danger_zone_deg = float(danger_zone_deg)
+        self.title = f'Dome ↔ Wind alignment  [°  – danger <{int(self.danger_zone_deg)}°]'
+        self._latest_az: Dict[str, Optional[float]] = {t: None for t in self.telescopes}
+        self._latest_open: Dict[str, Optional[bool]] = {t: None for t in self.telescopes}
+        self._latest_wind_dir: Optional[float] = None
+        self._lines_open: Dict[str, Any] = {}
+        self._lines_closed: Dict[str, Any] = {}
+        self._series: Dict[str, Tuple[List[float], List[float], List[bool]]] = {
+            t: ([], [], []) for t in self.telescopes  # (hours, divergences, was_open)
+        }
+
+    def init_axes(self, ax) -> None:
+        super().init_axes(ax)
+        ax.set_ylim(0, 180)
+        ax.set_yticks([0, 30, 60, 90, 120, 150, 180])
+        ax.axhspan(0, self.danger_zone_deg, color=ck.COLOR_DOME_DANGER,
+                   alpha=0.18, linewidth=0, zorder=0)
+        for tel in self.telescopes:
+            color = ck.telescope_color(self.main_window, tel)
+            self._lines_open[tel], = ax.plot([], [], '-', color=color,
+                                             linewidth=1.6, zorder=4,
+                                             label=f'{tel} (open)')
+            self._lines_closed[tel], = ax.plot([], [], ':', color=color,
+                                               linewidth=1.4, alpha=0.7,
+                                               zorder=3, label=f'{tel} (closed)')
+
+    def _maybe_append(self, tel: str, hour: float) -> None:
+        az = self._latest_az.get(tel)
+        wd = self._latest_wind_dir
+        if az is None or wd is None:
+            return
+        diff = ck.circular_diff_deg(az, wd)
+        is_open = bool(self._latest_open.get(tel))
+        hours, diffs, opens = self._series[tel]
+        if hours and abs(hours[-1] - hour) < 1e-4:
+            hours[-1] = hour; diffs[-1] = diff; opens[-1] = is_open
+        else:
+            hours.append(hour); diffs.append(diff); opens.append(is_open)
+            if len(hours) > 5000:
+                del hours[:1000]; del diffs[:1000]; del opens[:1000]
+        self._refresh_lines(tel)
+
+    def _refresh_lines(self, tel: str) -> None:
+        hours, diffs, opens = self._series[tel]
+        # Split into segments by shutter state; mask out the off-state with NaN
+        # so set_data on a single Line2D draws only the matching state.
+        x_open: List[float] = []
+        y_open: List[float] = []
+        x_closed: List[float] = []
+        y_closed: List[float] = []
+        for h, d, is_open in zip(hours, diffs, opens):
+            if is_open:
+                x_open.append(h); y_open.append(d)
+                x_closed.append(h); y_closed.append(np.nan)
+            else:
+                x_closed.append(h); y_closed.append(d)
+                x_open.append(h); y_open.append(np.nan)
+        self._lines_open[tel].set_data(x_open, y_open)
+        self._lines_closed[tel].set_data(x_closed, y_closed)
+
+    def on_weather(self, hour, ts, msm, *, is_yesterday) -> None:
+        if is_yesterday:
+            return
+        try:
+            self._latest_wind_dir = float(msm['wind_dir_deg'])
+        except (KeyError, TypeError, ValueError):
+            return
+        for tel in self.telescopes:
+            self._maybe_append(tel, hour)
+
+    def on_dome_state(self, tel, shutter_open) -> None:
+        if tel not in self._latest_open:
+            return
+        self._latest_open[tel] = shutter_open
+        self._maybe_append(tel, _hour_now_utc())
+
+    def on_mount_az(self, tel, az_deg, hour) -> None:
+        if tel not in self._latest_az:
+            return
+        self._latest_az[tel] = float(az_deg) % 360.0
+        self._maybe_append(tel, hour)
+
+    def on_midnight_rollover(self) -> None:
+        for tel in self.telescopes:
+            self._series[tel] = ([], [], [])
+            self._refresh_lines(tel)
+
+
+class _PerTelescopeScatterPanel(_Panel):
+    """Common implementation for per-telescope time-series scatter panels.
+
+    Subclasses populate ``self._series[tel]`` with (hour, value) pairs via
+    one of the ``on_*`` hooks; this base handles axis setup, line creation
+    and autoscaling.
+    """
+
+    y_min: Optional[float] = 0.0
+    y_max: Optional[float] = None
+    marker: str = 'o'
+    line_style: str = '-'
+
+    def __init__(self, main_window, telescopes: Sequence[str]) -> None:
+        super().__init__()
+        self.main_window = main_window
+        self.telescopes = list(telescopes)
+        self._series: Dict[str, Tuple[List[float], List[float]]] = {
+            t: ([], []) for t in self.telescopes}
+        self._lines: Dict[str, Any] = {}
+
+    def init_axes(self, ax) -> None:
+        super().init_axes(ax)
+        if self.y_min is not None and self.y_max is not None:
+            ax.set_ylim(self.y_min, self.y_max)
+        for tel in self.telescopes:
+            color = ck.telescope_color(self.main_window, tel)
+            self._lines[tel], = ax.plot(
+                [], [], f'{self.marker}{self.line_style}', color=color,
+                markersize=2.6, linewidth=1.0, alpha=0.45,
+                markeredgewidth=0, zorder=4, label=tel)
+
+    def _append(self, tel: str, hour: float, value: float) -> None:
+        if tel not in self._series:
+            return
+        hours, vals = self._series[tel]
+        hours.append(hour); vals.append(value)
+        if len(hours) > 4000:
+            del hours[:1000]; del vals[:1000]
+        self._lines[tel].set_data(hours, vals)
+        if self.ax is not None and (self.y_min is None or self.y_max is None):
+            self.ax.relim()
+            self.ax.autoscale_view(scalex=False, scaley=True)
+
+    def on_midnight_rollover(self) -> None:
+        for tel in self.telescopes:
+            self._series[tel] = ([], [])
+            if tel in self._lines:
+                self._lines[tel].set_data([], [])
+
+
+class _FwhmPanel(_PerTelescopeScatterPanel):
+    """FWHM in arc-seconds, sourced from ``tic.status.<tel>.fits.pipeline.faststat``.
+
+    Mirrors halina's data extraction: ``raw.fwhm.fwhm_x``/``fwhm_y``
+    averaged, multiplied by ``raw.header.SCALE`` (arcsec/px). Restricted
+    to ``IMAGETYP == 'science'`` frames as halina does.
+    """
+
+    needs_faststat = True
+    title = 'FWHM  [arcsec]'
+    y_min = 0.0
+    y_max = 8.0
+    marker = 'o'
+    line_style = ''  # markers only — frames arrive irregularly
+
+    def on_faststat(self, tel, hour, raw) -> None:
+        try:
+            if raw['header'].get('IMAGETYP') != 'science':
+                return
+            fwhm = 0.5 * (float(raw['fwhm']['fwhm_x']) + float(raw['fwhm']['fwhm_y']))
+            scale = float(raw['header']['SCALE'])
+        except (KeyError, TypeError, ValueError):
+            return
+        if fwhm <= 0 or fwhm > 30 or scale <= 0:
+            return
+        self._append(tel, hour, fwhm * scale)
+
+
+class _QualityPanel(_PerTelescopeScatterPanel):
+    """Star-presence quality ratio, sourced from ``pipeline.zdf``.
+
+    Field path mirrors halina master:
+    ``zdf.stars_presence.ratio_no_bkg["1"]`` × 100.
+    """
+
+    needs_zdf = True
+    title = 'Quality  [%]'
+    y_min = 0.0
+    y_max = 100.0
+    marker = 'o'
+    line_style = ''
+
+    def on_zdf(self, tel, hour, content) -> None:
+        try:
+            ratio = float(content['stars_presence']['ratio_no_bkg']['1'])
+        except (KeyError, TypeError, ValueError):
+            return
+        self._append(tel, hour, ratio * 100.0)
+
+
+class _PhotZeroPanel(_Panel):
+    """Photometric zero point, sourced from ``tic.status.<tel>.zero_monitor.lc``.
+
+    Markers carry telescope colour as fill and filter colour as edge —
+    halina convention.
+    """
+
+    needs_zero_monitor = True
+    title = 'Photometric Zero  [mag]'
+
+    def __init__(self, main_window, telescopes: Sequence[str]) -> None:
+        super().__init__()
+        self.main_window = main_window
+        self.telescopes = list(telescopes)
+        self._series: Dict[str, Tuple[List[float], List[float], List[str]]] = {
+            t: ([], [], []) for t in self.telescopes
+        }
+        self._scatters: Dict[str, Any] = {}
+
+    def init_axes(self, ax) -> None:
+        super().init_axes(ax)
+        for tel in self.telescopes:
+            color = ck.telescope_color(self.main_window, tel)
+            self._scatters[tel] = ax.scatter([], [], s=10, c=color,
+                                             alpha=0.50, edgecolors='none',
+                                             linewidths=0, zorder=4, label=tel)
+
+    def on_zero_monitor(self, tel, hour, data) -> None:
+        if tel not in self._series:
+            return
+        try:
+            zp = float(data['zero_value'])
+        except (KeyError, TypeError, ValueError):
+            return
+        if not math.isfinite(zp):
+            return
+        flt = str(data.get('filter', '') or '')
+        hours, zps, fls = self._series[tel]
+        hours.append(hour); zps.append(zp); fls.append(flt)
+        if len(hours) > 4000:
+            del hours[:1000]; del zps[:1000]; del fls[:1000]
+        edge = [ck.PHOT_FILTER_COLORS.get(f, '#888888') for f in fls]
+        self._scatters[tel].set_offsets(np.column_stack((hours, zps)))
+        self._scatters[tel].set_edgecolors(edge)
+        self._rescale_y()
+
+    def _rescale_y(self) -> None:
+        if self.ax is None:
+            return
+        all_zps: List[float] = []
+        for hours, zps, _ in self._series.values():
+            all_zps.extend(zps)
+        if not all_zps:
+            return
+        lo, hi = min(all_zps), max(all_zps)
+        pad = max(0.2, 0.1 * (hi - lo))
+        self.ax.set_ylim(lo - pad, hi + pad)
+
+    def on_midnight_rollover(self) -> None:
+        for tel in self.telescopes:
+            self._series[tel] = ([], [], [])
+            if tel in self._scatters:
+                self._scatters[tel].set_offsets(np.zeros((0, 2)))
+
+
+# ----------------------------------------------------------------------------
+# Helpers
+# ----------------------------------------------------------------------------
+
+def _hour_now_utc() -> float:
+    n = datetime.datetime.now(datetime.timezone.utc)
+    return n.hour + n.minute / 60.0 + n.second / 3600.0
+
+
+def _today_midnight_utc() -> datetime.datetime:
+    n = datetime.datetime.now(datetime.timezone.utc)
+    return datetime.datetime(n.year, n.month, n.day, tzinfo=datetime.timezone.utc)
+
+
+# ----------------------------------------------------------------------------
+# Main page widget
+# ----------------------------------------------------------------------------
 
 class WeatherDataWidget(QWidget):
 
-    MAX_WIND = 35
-    MAX_TEMP = 40
-    MAX_HUM = 100
-    PRESSURE_RANGE = [650, 800]
+    DEFAULT_CHARTS: Tuple[str, ...] = ('wind', 'humidity_pressure', 'temperature')
+    KNOWN_CHARTS = frozenset({
+        'wind', 'humidity_pressure', 'temperature',
+        'dome_wind_az', 'fwhm', 'quality', 'phot_zero',
+    })
 
-    def __init__(self, main_window, subject='telemetry.weather.davis', vertical_screen = False, **kwargs):
+    def __init__(self, main_window, subject: str = 'telemetry.weather.davis',
+                 vertical_screen: bool = False,
+                 charts: Optional[Sequence[str]] = None,
+                 dome_danger_zone_deg: float = 30.0,
+                 **kwargs) -> None:
         super().__init__()
         self.main_window = main_window
         self.weather_subject = subject
         self.vertical = bool(vertical_screen)
-        self.initUI()
-        # async init
-        logger.info(f"WeatherDataWidget init setup done")
+        self.dome_danger_zone_deg = float(dome_danger_zone_deg)
+        self.chart_keys = self._resolve_charts(charts)
+        self.panels: List[_Panel] = self._build_panels()
+        self._init_ui()
+        QtCore.QTimer.singleShot(0, self.async_init)
+        logger.info(f"WeatherDataWidget init done — charts={self.chart_keys}")
+
+    # ---- chart selection ----------------------------------------------------
+
+    def _resolve_charts(self, requested: Optional[Sequence[str]]) -> List[str]:
+        if not requested:
+            return list(self.DEFAULT_CHARTS)
+        out: List[str] = []
+        for key in requested:
+            if key in self.KNOWN_CHARTS:
+                if key not in out:
+                    out.append(key)
+            else:
+                logger.warning(f"Unknown weather chart '{key}' — skipped.")
+        if 'wind' not in out:
+            out.insert(0, 'wind')  # wind is permanent
+        return out
+
+    def _build_panels(self) -> List[_Panel]:
+        telescopes = list(getattr(self.main_window, 'telescope_names', []))
+        panels: List[_Panel] = []
+        for key in self.chart_keys:
+            if key == 'wind':
+                panels.append(_WindPanel())
+            elif key == 'humidity_pressure':
+                panels.append(_HumidityPressurePanel())
+            elif key == 'temperature':
+                panels.append(_SimpleSeriesPanel(
+                    measurement_key='temperature_C',
+                    y_label='Temperature  [°C]',
+                    today_color=ck.COLOR_TEMPERATURE,
+                    reject_above=60.0, reject_below=-30.0,
+                    smooth_window=5,  # 5 min — temp can swing faster than humid/pres
+                    overlay_unit='°C',
+                ))
+            elif key == 'dome_wind_az' and telescopes:
+                panels.append(_DomeWindAzPanel(self.main_window, telescopes,
+                                               self.dome_danger_zone_deg))
+            elif key == 'fwhm' and telescopes:
+                panels.append(_FwhmPanel(self.main_window, telescopes))
+            elif key == 'quality' and telescopes:
+                panels.append(_QualityPanel(self.main_window, telescopes))
+            elif key == 'phot_zero' and telescopes:
+                panels.append(_PhotZeroPanel(self.main_window, telescopes))
+        return panels
+
+    # ---- UI -----------------------------------------------------------------
+
+    def _init_ui(self) -> None:
+        self.layout_root = QVBoxLayout(self)
+        self.layout_root.setContentsMargins(2, 2, 2, 2)
+        self.layout_root.setSpacing(2)
+
+        # Compact single-line astronomical context. The wind/T/hum readout
+        # that used to live on a sibling QLabel is now rendered as
+        # translucent overlays directly on the matching chart panels.
+        label_font = QtGui.QFont('Arial', 14 if self.vertical else 13)
+        self.label_ephem = QLabel('ephem')
+        self.label_ephem.setStyleSheet(
+            "background-color: #2a2a2a; color: #e0e0e0; padding: 2px 8px; border-radius: 4px;"
+        )
+        self.label_ephem.setFont(label_font)
+        self.label_ephem.setMaximumHeight(28)
+
+        self.figure = Figure(constrained_layout=False)
+        ck.style_figure(self.figure)
+        self.canvas = FigureCanvas(self.figure)
+
+        if self.vertical:
+            hbox = QHBoxLayout()
+            hbox.addWidget(self.label_ephem, 1)
+            hbox.addWidget(self.canvas, 9)
+            self.layout_root.addLayout(hbox)
+        else:
+            self.layout_root.addWidget(self.label_ephem)
+            self.layout_root.addWidget(self.canvas, 1)
+
+        # Build axes
+        axes = ck.make_stacked_axes(self.figure, len(self.panels))
+        for panel, ax in zip(self.panels, axes):
+            panel.init_axes(ax)
+        if axes:
+            ck.format_hour_xaxis(axes[-1])
+        self.canvas.draw_idle()
+
+        self._update_ephem()
+
+    # ---- async init ---------------------------------------------------------
 
     @asyncSlot()
     async def async_init(self):
-        # obs_config = await self.main_window.observatory_config()
-        await create_task(self.reader_loop(), "nats_wind reader")
+        await create_task(self._weather_history_loop(), 'weather_history_reader')
+        try:
+            await self.main_window.run_reader(
+                clb=self._weather_status_callback,
+                subject=self.weather_subject, deliver_policy='last',
+            )
+        except Exception as e:
+            logger.warning(f"Failed to register weather status reader: {e}")
 
-        await self.main_window.run_reader(
-            clb=self.reader_loop_2_clb,
-            subject=self.weather_subject,
-            deliver_policy='last'
-        )
+        telescopes = list(getattr(self.main_window, 'telescope_names', []))
+        if any(p.needs_dome_state for p in self.panels) and telescopes:
+            for tel in telescopes:
+                await create_task(self._dome_status_loop(tel), f'weather_dome_{tel}')
+        if any(p.needs_mount_az for p in self.panels) and telescopes:
+            for tel in telescopes:
+                await create_task(self._mount_az_loop(tel), f'weather_mount_az_{tel}')
+        if any(p.needs_faststat for p in self.panels) and telescopes:
+            for tel in telescopes:
+                await create_task(self._pipeline_faststat_loop(tel),
+                                  f'weather_faststat_{tel}')
+        if any(p.needs_zdf for p in self.panels) and telescopes:
+            for tel in telescopes:
+                await create_task(self._pipeline_zdf_loop(tel),
+                                  f'weather_zdf_{tel}')
+        if any(p.needs_zero_monitor for p in self.panels) and telescopes:
+            for tel in telescopes:
+                await create_task(self._zero_monitor_loop(tel),
+                                  f'weather_zerolc_{tel}')
 
-    def initUI(self,):
-        # Layout
+    # ---- readers ------------------------------------------------------------
 
-        self.layout = QVBoxLayout(self)
-        self.label_ephem = QLabel("ephem")
-        self.label_ephem.setStyleSheet("background-color : silver; color: black")
-        self.label_ephem.setFont(QtGui.QFont('Arial', 26))
-        self.label = QLabel("weather")
-        self.label.setStyleSheet("background-color : silver; color: black")
-        self.label.setFont(QtGui.QFont('Arial', 26))
-        # Matplotlib setup
-        self.figure = Figure(facecolor='lightgrey', constrained_layout=True)
-        self.canvas = FigureCanvas(self.figure)
-        if self.vertical:
-            #self.label.setFont(QtGui.QFont('Arial', 20))
-            self.ax_wind = self.figure.add_subplot(221)
-            self.ax_wind.set_xticklabels([])
-            self.ax_temp = self.figure.add_subplot(222)
-            self.ax_temp.set_xticklabels([])
-            self.ax_hum = self.figure.add_subplot(223)
-            self.ax_pres = self.figure.add_subplot(224)
-            self.figure.subplots_adjust(wspace=0.3, hspace=0.6)
-        else:
-            self.ax_wind = self.figure.add_subplot(411)
-            self.ax_wind.set_xticklabels([])
-            self.ax_temp = self.figure.add_subplot(412)
-            self.ax_temp.set_xticklabels([])
-            self.ax_hum = self.figure.add_subplot(413)
-            self.ax_hum.set_xticklabels([])
-            self.ax_pres = self.figure.add_subplot(414)
-            self.figure.subplots_adjust(wspace=0.3,hspace=0.6)
-
-        self.ax_wind.tick_params(axis='both', which='both', labelsize=13)
-        self.ax_temp.tick_params(axis='both', which='both', labelsize=13)
-        self.ax_hum.tick_params(axis='both', which='both', labelsize=13)
-        self.ax_pres.tick_params(axis='both', which='both', labelsize=13)
-        self.ax_wind.set_title("Wind [m/s]",fontdict={'fontsize': 14})
-        self.ax_temp.set_title("Temperature [C]",fontdict={'fontsize': 14})
-        self.ax_hum.set_title("Humidity [%]",fontdict={'fontsize': 14})
-        self.ax_pres.set_title("Pressure [hPa]",fontdict={'fontsize': 14})
-        # setting a limits
-        self.ax_wind.set_xlim([0, 24])
-        #self.ax_wind.set_ylim([0, 20])
-        self.ax_temp.set_xlim([0, 24])
-        self.ax_hum.set_xlim([0, 24])
-        #self.ax_hum.set_ylim([0, 90])
-        self.ax_pres.set_xlim([0, 24])
-        x = [0,1,2,3,4,5,6,7,8,9,10,11,12,13,14,15,16,17,18,19,20,21,22,23,24]
-        self.ax_wind.fill_between(x,11,14,color='orange',alpha=0.3)
-        self.ax_wind.fill_between(x,14,30,color='red',alpha=0.3)
-
-        self.ax_hum.fill_between(x,70,80,color='orange',alpha=0.3)
-        self.ax_hum.fill_between(x,80,100,color='red',alpha=0.3)
-
-        self.ln_yesterday_wind = self.ax_wind.plot([],[], '.', color='silver', alpha=0.1, label='Yesterday')[0]
-        self.ln_today_wind = self.ax_wind.plot([],[], '.-', color='blue', label='Today')[0]
-
-        self.ln_yesterday_temp = self.ax_temp.plot([],[], '.', color='silver', alpha=0.1, label='Yesterday')[0]
-        self.ln_today_temp = self.ax_temp.plot([],[], '.-', color='blue', label='Today')[0]
-
-        self.ln_yesterday_hum = self.ax_hum.plot([],[], '.', color='silver', alpha=0.1, label='Yesterday')[0]
-        self.ln_today_hum = self.ax_hum.plot([],[], '.-', color='blue', label='Today')[0]
-
-        self.ln_yesterday_pres = self.ax_pres.plot([],[], '.', color='silver', alpha=0.1, label='Yesterday')[0]
-        self.ln_today_pres = self.ax_pres.plot([],[], '.-', color='blue', label='Today')[0]
-        self.ax_wind.grid(which='major', axis='both')
-        self.ax_temp.grid(which='major', axis='both')
-        self.ax_hum.grid(which='major', axis='both')
-        self.ax_pres.grid(which='major', axis='both')
-        #self.figure.tight_layout()
-        if self.vertical:
-            hbox = QHBoxLayout(self)
-            vbox_labels = QVBoxLayout()
-            vbox_labels.addWidget(self.label_ephem,1)
-            vbox_labels.addWidget(self.label,2)
-            hbox.addLayout(vbox_labels,1)
-            hbox.addWidget(self.canvas,7)
-            self.layout.addLayout(hbox)
-        else:
-            self.layout.addWidget(self.label_ephem,1)
-            self.layout.addWidget(self.label,2)
-            self.layout.addWidget(self.canvas,10)
-
-        self.async_init()
-        self._update_ephem()
-        # logger.info(f"WeatherDataWidget UI setup done")
-
-    async def get_today_midnight(self) -> Any:
-        now = datetime.datetime.now(datetime.timezone.utc)
-        return datetime.datetime(year=now.year, month=now.month, day=now.day, tzinfo=datetime.timezone.utc)
-
-    async def reader_loop(self):
+    async def _weather_history_loop(self):
         msg = Messenger()
-
-        # We want the data from the midnight of yesterday
-        # today_midnight = datetime.datetime.combine(datetime.date.today(), datetime.time(0))
-
-        today_midnight = await self.get_today_midnight()
+        today_midnight = _today_midnight_utc()
         yesterday_midnight = today_midnight - datetime.timedelta(days=1)
-        logger.info(f"Start reader weather data chart: {yesterday_midnight}")
-        rdr = msg.get_reader(
-            self.weather_subject,
-            deliver_policy='all',
-            # opt_start_time=yesterday_midnight
-        )
-        logger.info(f"Subscribed to {self.weather_subject}")
+        rdr = msg.get_reader(self.weather_subject, deliver_policy='all')
+        logger.info(f"Subscribed to {self.weather_subject} (history)")
         async for data, meta in rdr:
             try:
-                ts = dt_from_array(meta['ts'])
-                if ts is not None and ts < yesterday_midnight:
+                ts_meta = dt_from_array(meta['ts'])
+                if ts_meta is not None and ts_meta < yesterday_midnight:
                     continue
             except (LookupError, ValueError, TypeError):
-                continue
+                pass
             try:
-                # if we crossed the midnight, we want to copy today's data to yesterday's and start today from scratch
                 now = datetime.datetime.now(datetime.timezone.utc)
                 if now.date() > today_midnight.date():
-                    logger.info("Crossed the midnight, resetting the data")
-                    # yesterday_midnight = today_midnight
-                    today_midnight = await self.get_today_midnight()
-                    self.ln_yesterday_wind.set_data(
-                        self.ln_today_wind.get_xdata(),
-                        self.ln_today_wind.get_ydata()
-                    )
-                    self.ln_today_wind.set_data([], [])
-
-                    self.ln_yesterday_temp.set_data(
-                        self.ln_today_temp.get_xdata(),
-                        self.ln_today_temp.get_ydata()
-                    )
-                    self.ln_today_temp.set_data([], [])
-
-                    self.ln_yesterday_hum.set_data(
-                        self.ln_today_hum.get_xdata(),
-                        self.ln_today_hum.get_ydata()
-                    )
-                    self.ln_today_hum.set_data([], [])
-
-                    self.ln_yesterday_pres.set_data(
-                        self.ln_today_pres.get_xdata(),
-                        self.ln_today_pres.get_ydata()
-                    )
-                    self.ln_today_pres.set_data([], [])
-
-                # handle current datapoint. it has measurement timestamp in data.ts, and the measurement in data.measurement
-                ts = dt_ensure_datetime(data['ts']) #.astimezone(datetime.timezone.utc)
-                measurement = data['measurements']
-                wind_speed10 = measurement['wind_10min_ms']
-                temp = measurement['temperature_C']
-                hum = measurement['humidity']
-                pres = measurement['pressure_Pa']
-
-                # depending on the date of the measurement, we want to add point to the yesterday or today data
-                hour = ts.hour + ts.minute / 60 + ts.second / 3600
-                if ts < today_midnight:
-                    # logger.info(f'Adding point to yesterday data {wind_speed10}')
-
-                    if wind_speed10 <= self.MAX_WIND:
-                        self.ln_yesterday_wind.set_data(
-                            list(self.ln_yesterday_wind.get_xdata()) + [hour],
-                            list(self.ln_yesterday_wind.get_ydata()) + [wind_speed10]
-                        )
-
-                    if temp < self.MAX_TEMP:
-                        self.ln_yesterday_temp.set_data(
-                            list(self.ln_yesterday_temp.get_xdata()) + [hour],
-                            list(self.ln_yesterday_temp.get_ydata()) + [temp]
-                        )
-
-                    if hum <= self.MAX_HUM:
-                        self.ln_yesterday_hum.set_data(
-                            list(self.ln_yesterday_hum.get_xdata()) + [hour],
-                            list(self.ln_yesterday_hum.get_ydata()) + [hum]
-                        )
-
-
-                    if self.PRESSURE_RANGE[0] < pres <= self.PRESSURE_RANGE[1]:
-                        self.ln_yesterday_pres.set_data(
-                                list(self.ln_yesterday_pres.get_xdata()) + [hour],
-                                list(self.ln_yesterday_pres.get_ydata()) + [pres]
-                            )
-                else:
-                    # logger.info(f'Adding point to today data {wind_speed10}')
-                    if wind_speed10 <= self.MAX_WIND:
-                        self.ln_today_wind.set_data(
-                            list(self.ln_today_wind.get_xdata()) + [hour],
-                            list(self.ln_today_wind.get_ydata()) + [wind_speed10]
-                        )
-
-                    if temp < self.MAX_TEMP:
-                        self.ln_today_temp.set_data(
-                            list(self.ln_today_temp.get_xdata()) + [hour],
-                            list(self.ln_today_temp.get_ydata()) + [temp]
-                        )
-
-                    if hum <= self.MAX_HUM:
-                        self.ln_today_hum.set_data(
-                            list(self.ln_today_hum.get_xdata()) + [hour],
-                            list(self.ln_today_hum.get_ydata()) + [hum]
-                        )
-
-                    if self.PRESSURE_RANGE[0] < pres <= self.PRESSURE_RANGE[1]:
-                        self.ln_today_pres.set_data(
-                            list(self.ln_today_pres.get_xdata()) + [hour],
-                            list(self.ln_today_pres.get_ydata()) + [pres]
-                        )
-                # lazy redraw
-
-                self.ax_wind.relim()
-                self.ax_wind.autoscale_view()
-
-                self.ax_temp.relim()
-                self.ax_temp.autoscale_view()
-
-                self.ax_hum.relim()
-                self.ax_hum.autoscale_view()
-
-                self.ax_pres.relim()
-                self.ax_pres.autoscale_view()
+                    today_midnight = _today_midnight_utc()
+                    yesterday_midnight = today_midnight - datetime.timedelta(days=1)
+                    for p in self.panels:
+                        p.on_midnight_rollover()
+                ts = dt_ensure_datetime(data['ts'])
+                msm = data['measurements']
+                hour = ts.hour + ts.minute / 60.0 + ts.second / 3600.0
+                is_yesterday = ts < today_midnight
+                for p in self.panels:
+                    p.on_weather(hour, ts, msm, is_yesterday=is_yesterday)
                 self.canvas.draw_idle()
             except (LookupError, TypeError, ValueError):
-                pass
+                continue
+
+    async def _weather_status_callback(self, data, meta) -> bool:
+        try:
+            msm = data['measurements']
+            wind = float(msm['wind_10min_ms'])
+            temp = float(msm['temperature_C'])
+            hum = int(msm['humidity'])
+        except (KeyError, TypeError, ValueError):
+            return True
+        if (ck.WIND_WARN_MS <= wind < ck.WIND_DANGER_MS) or hum > 70:
+            alert = '#f6ce46'
+        elif wind >= ck.WIND_DANGER_MS or hum > 75 or temp < 0:
+            alert = '#ea4d3d'
+        else:
+            alert = ck.FG_TEXT
+        for p in self.panels:
+            p.on_live_summary(msm, alert)
+        self.canvas.draw_idle()
+        return True
+
+    async def _dome_status_loop(self, tel: str):
+        try:
+            r = get_reader(f'tic.status.{tel}.dome.shutterstatus', deliver_policy='last')
+            async for data, meta in r:
+                try:
+                    val = data['measurements'][f'{tel}.dome.shutterstatus']
+                except (KeyError, TypeError):
+                    continue
+                # 0 = OPEN per pages/telescopes.py — anything else is "not open"
+                shutter_open = (val == 0) if val is not None else None
+                for p in self.panels:
+                    p.on_dome_state(tel, shutter_open)
+                self.canvas.draw_idle()
+        except Exception as e:
+            logger.warning(f"dome status reader [{tel}] failed: {e}")
+
+    async def _mount_az_loop(self, tel: str):
+        try:
+            r = get_reader(f'tic.telemetry.{tel}.mount.azimuth', deliver_policy='last')
+            async for data, meta in r:
+                try:
+                    msm = data['measurements']
+                    az = float(next(iter(msm.values())))
+                except (KeyError, TypeError, ValueError, StopIteration):
+                    continue
+                hour = _hour_now_utc()
+                for p in self.panels:
+                    p.on_mount_az(tel, az, hour)
+                self.canvas.draw_idle()
+        except Exception as e:
+            logger.warning(f"mount.azimuth reader [{tel}] failed: {e}")
+
+    async def _pipeline_faststat_loop(self, tel: str):
+        try:
+            r = get_reader(f'tic.status.{tel}.fits.pipeline.faststat',
+                           deliver_policy='all')
+            async for data, meta in r:
+                raw = data.get('raw') if isinstance(data, dict) else None
+                if not raw:
+                    continue
+                hour = (_hour_from_iso((raw.get('header') or {}).get('DATE-OBS'))
+                        or _hour_from_meta(meta)
+                        or _hour_now_utc())
+                for p in self.panels:
+                    p.on_faststat(tel, hour, raw)
+                self.canvas.draw_idle()
+        except Exception as e:
+            logger.warning(f"pipeline.faststat reader [{tel}] failed: {e}")
+
+    async def _pipeline_zdf_loop(self, tel: str):
+        try:
+            r = get_reader(f'tic.status.{tel}.fits.pipeline.zdf',
+                           deliver_policy='all')
+            async for data, meta in r:
+                content = data.get('zdf') if isinstance(data, dict) else None
+                if not content:
+                    continue
+                hour = (_hour_from_iso((content.get('header') or {}).get('DATE-OBS'))
+                        or _hour_from_meta(meta)
+                        or _hour_now_utc())
+                for p in self.panels:
+                    p.on_zdf(tel, hour, content)
+                self.canvas.draw_idle()
+        except Exception as e:
+            logger.warning(f"pipeline.zdf reader [{tel}] failed: {e}")
+
+    async def _zero_monitor_loop(self, tel: str):
+        try:
+            r = get_reader(f'tic.status.{tel}.zero_monitor.lc',
+                           deliver_policy='all')
+            async for data, meta in r:
+                if not isinstance(data, dict):
+                    continue
+                hour = (_hour_from_oca_jd(data.get('oca_jd'))
+                        or _hour_from_meta(meta)
+                        or _hour_now_utc())
+                for p in self.panels:
+                    p.on_zero_monitor(tel, hour, data)
+                self.canvas.draw_idle()
+        except Exception as e:
+            logger.warning(f"zero_monitor.lc reader [{tel}] failed: {e}")
+
+    # ---- ephemeris label ----------------------------------------------------
 
     def _update_ephem(self):
-        self.ephem_text,sunalt = ephemeris(self.vertical)
-        self.sunalt = float(sunalt)
-        if self.sunalt > -2.0:
-            self.label_ephem.setStyleSheet("background-color : coral; color: black")
-        elif self.sunalt <= -2.0 and self.sunalt > -18.0:
-            self.label_ephem.setStyleSheet("background-color : yellow; color: black")
-        elif self.sunalt <= -18.0:
-            self.label_ephem.setStyleSheet("background-color : lightgreen; color: black")
-        self.label_ephem.setText(self.ephem_text)
+        text, sun_alt = _ephemeris_text(self.vertical)
+        if sun_alt > -2.0:
+            colour = '#7a3a3a'
+        elif sun_alt > -18.0:
+            colour = '#7a6a20'
+        else:
+            colour = '#2a4a30'
+        self.label_ephem.setStyleSheet(
+            f"background-color: {colour}; color: #f0f0f0; "
+            "padding: 4px 8px; border-radius: 4px;"
+        )
+        self.label_ephem.setText(text)
         QtCore.QTimer.singleShot(1000, self._update_ephem)
 
-    async def reader_loop_2_clb(self, data, meta) -> bool:
-        try:
-            measurement = data['measurements']
-            wind = "{:.1f}".format(measurement['wind_10min_ms'])
-            temp = "{:.1f}".format(measurement['temperature_C'])
-            hum = int(measurement['humidity'])
-            pres = int(measurement['pressure_Pa'])
-            winddir = int(measurement['wind_dir_deg'])
 
-            # self.main_window.wind = self.wind
-            # self.main_window.temp = self.temp
-            # self.main_window.hum = self.hum
-            # self.main_window.winddir = self.winddir
-            # self.main_window.skytemp = '0'
-            if self.vertical:
-                warning = 'Wind:\t' + str(wind) + ' m/s\n' + 'Temp:\t' + str(temp) + ' C\n' + 'Hum:\t' + str(
-                    hum) + ' %\n' + 'Wdir:\t' + str(winddir) + ' deg'
-            else:
-                warning = '   Wind:\t\t' + str(wind) + ' m/s\n' + '   Temperature:\t' + str(
-                    temp) + ' C\n' + '   Humidity:\t' + str(hum) + ' %\n' + '   Wind dir:\t' + str(
-                    winddir) + ' deg'
-            if (11. <= float(wind) < 14.) or 75 >= float(hum) > 70.:
-                self.label.setStyleSheet("background-color : yellow; color: black")
-                # if self.main_window.sound_page:
-                #     pass
-                    # self.main_window.sound_page.play_weather_warning(True)
-            elif float(wind) >= 14. or float(hum) > 75. or float(temp) < 0.:
-                self.label.setStyleSheet("background-color : red; color: black")
-                # if self.main_window.sound_page:
-                #     pass
-                    # self.main_window.sound_page.play_weather_warning(False)
-                    # self.main_window.sound_page.play_weather_stop(True)
-            else:
-                # if self.main_window.sound_page:
-                #     self.main_window.sound_page.play_weather_warning(False)
-                #     self.main_window.sound_page.play_weather_stop(False)
-                self.label.setStyleSheet("background-color : lightgreen; color: black")
+def _hour_from_iso(iso: Optional[str]) -> Optional[float]:
+    if not iso:
+        return None
+    try:
+        dt = datetime.datetime.fromisoformat(iso)
+    except (TypeError, ValueError):
+        return None
+    return dt.hour + dt.minute / 60.0 + dt.second / 3600.0
 
-            self.label.setText(warning)
-        except (ValueError, TypeError, LookupError):
-            pass
-        return True
+
+def _hour_from_meta(meta) -> Optional[float]:
+    try:
+        ts = dt_from_array(meta['ts'])
+    except (LookupError, TypeError, ValueError):
+        return None
+    if ts is None:
+        return None
+    return ts.hour + ts.minute / 60.0 + ts.second / 3600.0
+
+
+def _hour_from_oca_jd(oca_jd) -> Optional[float]:
+    """Convert oca_jd (pyaraucaria-internal) → fractional UTC hour, if possible.
+
+    Uses pyaraucaria when available (matches halina's exact conversion); else
+    returns None and the caller falls back to ``meta.ts``.
+    """
+    if oca_jd is None:
+        return None
+    try:
+        from pyaraucaria.date import get_jd_from_oca_jd  # type: ignore
+    except ImportError:
+        return None
+    try:
+        jd = float(get_jd_from_oca_jd(oca_jd=oca_jd))
+        dt = AstropyTime(jd, format='jd', scale='utc').to_datetime()
+    except (ValueError, TypeError):
+        return None
+    return dt.hour + dt.minute / 60.0 + dt.second / 3600.0
 
 
 widget_class = WeatherDataWidget
