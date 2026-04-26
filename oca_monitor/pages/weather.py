@@ -504,6 +504,14 @@ class _DomeWindAzPanel(_Panel):
                                                linewidth=1.4, alpha=0.7,
                                                zorder=3, label=f'{tel} (closed)')
 
+    def restamp_telescope_colors(self) -> None:
+        for tel in self.telescopes:
+            color = ck.telescope_color(self.main_window, tel)
+            if tel in self._lines_open:
+                self._lines_open[tel].set_color(color)
+            if tel in self._lines_closed:
+                self._lines_closed[tel].set_color(color)
+
     def _maybe_append(self, tel: str, hour: float) -> None:
         az = self._latest_az.get(tel)
         wd = self._latest_wind_dir
@@ -597,6 +605,11 @@ class _PerTelescopeScatterPanel(_Panel):
                 [], [], f'{self.marker}{self.line_style}', color=color,
                 markersize=2.6, linewidth=1.0, alpha=0.45,
                 markeredgewidth=0, zorder=4, label=tel)
+
+    def restamp_telescope_colors(self) -> None:
+        for tel in self.telescopes:
+            if tel in self._lines:
+                self._lines[tel].set_color(ck.telescope_color(self.main_window, tel))
 
     def _append(self, tel: str, hour: float, value: float) -> None:
         if tel not in self._series:
@@ -693,6 +706,12 @@ class _PhotZeroPanel(_Panel):
             self._scatters[tel] = ax.scatter([], [], s=10, c=color,
                                              alpha=0.50, edgecolors='none',
                                              linewidths=0, zorder=4, label=tel)
+
+    def restamp_telescope_colors(self) -> None:
+        for tel in self.telescopes:
+            if tel in self._scatters:
+                self._scatters[tel].set_color(
+                    ck.telescope_color(self.main_window, tel))
 
     def on_zero_monitor(self, tel, hour, data) -> None:
         if tel not in self._series:
@@ -863,6 +882,7 @@ class WeatherDataWidget(QWidget):
 
     @asyncSlot()
     async def async_init(self):
+        await create_task(self._color_resolver(), 'weather_color_resolver')
         await create_task(self._weather_history_loop(), 'weather_history_reader')
         try:
             await self.main_window.run_reader(
@@ -893,6 +913,35 @@ class WeatherDataWidget(QWidget):
                                   f'weather_zerolc_{tel}')
 
     # ---- readers ------------------------------------------------------------
+
+    async def _color_resolver(self):
+        """One-shot watcher: re-stamp telescope colours once nats_cfg arrives.
+
+        Panels are constructed synchronously during MainWindow.__init__ —
+        before MainWindow.async_init has finished its single_read on
+        ``tic.config.observatory`` — so the first paint uses
+        chart_kit fallback colours. This task polls until the live config
+        is available, then re-applies the published ``style.color`` to
+        every per-telescope artist exactly once.
+        """
+        import asyncio
+        for _ in range(120):  # ~60 s of patience, then give up
+            cfg = getattr(self.main_window, 'nats_cfg', None) or {}
+            if cfg.get('config', {}).get('telescopes'):
+                break
+            await asyncio.sleep(0.5)
+        else:
+            logger.warning('nats_cfg never arrived — sticking with fallback colours')
+            return
+        restamped = 0
+        for p in self.panels:
+            fn = getattr(p, 'restamp_telescope_colors', None)
+            if callable(fn):
+                fn()
+                restamped += 1
+        if restamped:
+            self.canvas.draw_idle()
+            logger.info(f'Restamped telescope colours on {restamped} panel(s)')
 
     async def _weather_history_loop(self):
         msg = Messenger()

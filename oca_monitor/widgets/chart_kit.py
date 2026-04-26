@@ -237,14 +237,18 @@ def compass_to_uv(headings_deg: Sequence[float], *,
 
 # ---- Telescope colour lookup ----------------------------------------------
 
-# Distinct fallbacks if observatory config hasn't loaded yet.
+# Fallbacks used only until ``tic.config.observatory`` arrives. Mirror the
+# real ``style.color`` values published by the observatory config so the
+# initial paint is already correct; once nats_cfg loads, panels re-stamp
+# their lines with the live values via ``restamp_telescope_colors``.
 _FALLBACK_TELESCOPE_COLORS = {
-    'wk06': '#ffd166',
-    'zb08': '#06d6a0',
-    'jk15': '#118ab2',
-    'iris': '#ef476f',
-    'wg25': '#a78bfa',
-    'tmmt': '#fb923c',
+    'wk06': '#14AD4E',
+    'zb08': '#0082E8',
+    'jk15': '#67F4F5',
+    'wg25': '#FF8C00',
+    'iris': '#FF2F13',
+    'sim':  '#808080',
+    'dev':  '#FF00FF',
 }
 
 
