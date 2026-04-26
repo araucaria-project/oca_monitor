@@ -128,11 +128,16 @@ def big_overlay(ax: Axes, *, x: float = 0.99, y: float = 0.55,
                 ha: str = 'right', va: str = 'center',
                 fontsize: int = 30, alpha: float = 0.55,
                 color: Optional[str] = None):
-    """Create an empty translucent live-value overlay; returns the Text object."""
+    """Create an empty translucent live-value overlay; returns the Text object.
+
+    Drawn at a high z-order (12) so it sits on top of inline title pills
+    even when those pills live on a twin axis that is otherwise rendered
+    last.
+    """
     return ax.text(
         x, y, '', transform=ax.transAxes,
         ha=ha, va=va, fontsize=fontsize, fontweight='bold',
-        color=color or FG_TEXT, alpha=alpha, zorder=8,
+        color=color or FG_TEXT, alpha=alpha, zorder=12,
     )
 
 
@@ -145,6 +150,32 @@ def format_hour_xaxis(ax: Axes, *, x_min: float = 0.0, x_max: float = 24.0) -> N
                    pad=-14, labelsize=10, colors=FG_DIM)
     ax.tick_params(axis='x', which='minor', direction='in', length=3,
                    colors=FG_DIM)
+
+
+def decimate_xy(x, y, max_points: int = 1500):
+    """Bin (x, y) to at most ``max_points`` points by mean over equal-width index bins.
+
+    Cheap-O(N) downsample for matplotlib lines whose underlying series is
+    much denser than the rendering surface. Smoothing should happen
+    BEFORE this call — decimation only controls visual point density.
+    """
+    x = np.asarray(x, dtype=float)
+    y = np.asarray(y, dtype=float)
+    n = x.size
+    if n <= max_points or max_points <= 0:
+        return x, y
+    edges = np.linspace(0, n, max_points + 1, dtype=int)
+    out_x = np.empty(max_points)
+    out_y = np.empty(max_points)
+    for i in range(max_points):
+        lo, hi = edges[i], edges[i + 1]
+        if hi > lo:
+            out_x[i] = x[lo:hi].mean()
+            out_y[i] = y[lo:hi].mean()
+        else:
+            out_x[i] = x[lo]
+            out_y[i] = y[lo]
+    return out_x, out_y
 
 
 def running_mean(values, window: int = 11):

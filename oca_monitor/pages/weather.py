@@ -21,7 +21,7 @@ from typing import Any, Dict, List, Optional, Sequence, Tuple
 import ephem
 import numpy as np
 from PyQt6 import QtCore, QtGui  # imported before matplotlib so qt_compat picks PyQt6
-from PyQt6.QtWidgets import QHBoxLayout, QLabel, QVBoxLayout, QWidget
+from PyQt6.QtWidgets import QFrame, QHBoxLayout, QLabel, QVBoxLayout, QWidget
 from astropy.time import Time as AstropyTime
 from matplotlib.backends.backend_qt5agg import FigureCanvasQTAgg as FigureCanvas
 from matplotlib.figure import Figure
@@ -39,23 +39,24 @@ logger = logging.getLogger(__name__.rsplit('.')[-1])
 # Ephemeris helper (kept inline; used only for the header label)
 # ----------------------------------------------------------------------------
 
-def _ephemeris_text(vertical: bool = False) -> Tuple[str, float]:
+def _ephemeris_parts() -> Tuple[str, float, str]:
+    """Return ``(local_time_hms, sun_alt_deg, utc_hms)`` for the OCM site."""
     obs = ephem.Observer()
     obs.lon = '-70.201266'
     obs.lat = '-24.598616'
     obs.elev = 2800
     obs.pressure = 730
-    ut = time.strftime('%Y/%m/%d %H:%M:%S', time.gmtime())
+    ut_full = time.strftime('%Y/%m/%d %H:%M:%S', time.gmtime())
+    ut = time.strftime('%H:%M:%S', time.gmtime())
     lt = time.strftime('%H:%M:%S', time.localtime())
-    obs.date = ut
+    obs.date = ut_full
     sun = ephem.Sun()
     sun.compute(obs)
     parts = str(sun.alt).split(':')
     deg = float(parts[0])
     minutes = float(parts[1]) / 60.0
     sun_alt = deg + minutes if not str(sun.alt).startswith('-') else deg - minutes
-    sep = '\n' if vertical else '\t'
-    return f'LT: {lt}{sep}SUN ALT: {sun_alt:.1f}', sun_alt
+    return lt, sun_alt, ut
 
 
 # ----------------------------------------------------------------------------
@@ -84,11 +85,22 @@ class _Panel:
     def __init__(self) -> None:
         self.ax = None  # type: Optional[Any]
         self._overlay = None
+        self._dirty = False
 
     def init_axes(self, ax) -> None:
         self.ax = ax
         ax.set_zorder(2)
         ck.inline_title(ax, self.title)
+
+    def render(self) -> None:
+        """Pull data → smooth → set_data → autoscale.
+
+        Subclasses doing heavy per-sample work override this and only
+        flip ``self._dirty`` from their data hooks. The widget calls
+        ``render()`` on dirty panels at the throttled redraw rate, so
+        even a flood of NATS history replays costs O(N) per render
+        rather than O(N²) cumulative."""
+        pass
 
     # Live-value overlay — subclasses opt in by calling _add_overlay() in
     # init_axes and overriding format_overlay().
@@ -222,14 +234,21 @@ class _SimpleSeriesPanel(_Panel):
             return False
         return True
 
-    def _redraw(self) -> None:
-        if self._line_today is not None:
-            self._line_today.set_data(
-                self._today_x, ck.running_mean(self._today_y, self.smooth_window))
-        if self._line_yesterday is not None:
-            self._line_yesterday.set_data(
-                self._yesterday_x,
-                ck.running_mean(self._yesterday_y, self.smooth_window))
+    def render(self) -> None:
+        if not self._dirty:
+            return
+        max_pts = 400
+        if self._line_today is not None and self._today_x:
+            x, y = ck.decimate_xy(self._today_x, self._today_y, max_points=max_pts)
+            self._line_today.set_data(x, y)
+        if self._line_yesterday is not None and self._yesterday_x:
+            x, y = ck.decimate_xy(self._yesterday_x, self._yesterday_y,
+                                  max_points=max_pts)
+            self._line_yesterday.set_data(x, y)
+        if self.y_min is None and self.y_max is None and self.ax is not None:
+            self.ax.relim()
+            self.ax.autoscale_view(scalex=False, scaley=True)
+        self._dirty = False
 
     def on_weather(self, hour, ts, msm, *, is_yesterday) -> None:
         try:
@@ -244,21 +263,12 @@ class _SimpleSeriesPanel(_Panel):
         else:
             self._today_x.append(hour)
             self._today_y.append(value)
-        self._redraw()
-        self._autoscale_y()
-
-    def _autoscale_y(self) -> None:
-        ax = self.ax
-        if ax is None:
-            return
-        if self.y_min is None and self.y_max is None:
-            ax.relim()
-            ax.autoscale_view(scalex=False, scaley=True)
+        self._dirty = True
 
     def on_midnight_rollover(self) -> None:
         self._yesterday_x, self._yesterday_y = self._today_x, self._today_y
         self._today_x, self._today_y = [], []
-        self._redraw()
+        self._dirty = True
 
 
 class _WindPanel(_SimpleSeriesPanel):
@@ -313,27 +323,27 @@ class _WindPanel(_SimpleSeriesPanel):
         ax = self.ax
         if ax is None:
             return
-        centers, means = ck.bin_directions(self._dir_x, self._dir_d, n_bins=12)
+        centers, means = ck.bin_directions(self._dir_x, self._dir_d, n_bins=24)
         if not centers:
             return
         u, v = ck.compass_to_uv(means, flow_to=True)
-        # Hug the bottom of the panel — a narrow strip below the wind
-        # line, where they minimally obscure the speed reading.
+        # Slightly higher than the panel floor; short shaft + chunky head
+        # reads cleanly even on top of the wind speed line.
         y_lo, y_hi = ax.get_ylim()
-        y_arrow = y_lo + 0.04 * (y_hi - y_lo)
+        y_arrow = y_lo + 0.10 * (y_hi - y_lo)
         ys = np.full_like(u, y_arrow, dtype=float)
         if self._quiver is not None:
             try:
                 self._quiver.remove()
             except (ValueError, AttributeError):
                 pass
-        # Bolder than the default quiver but translucent so they don't
-        # dominate when wind is near zero.
+        # Narrow elongated triangle so the heading reads at a glance
+        # (headlength > headwidth ⇒ pointy, not isoceles-blunt).
         self._quiver = ax.quiver(
             centers, ys, u, v,
-            angles='uv', scale_units='inches', scale=2.6,
-            width=0.010, headwidth=3.4, headlength=4.2, headaxislength=3.6,
-            color=ck.COLOR_WIND_ARROW, alpha=0.55, zorder=5, pivot='middle',
+            angles='uv', scale_units='inches', scale=5.0,
+            width=0.0085, headwidth=3.2, headlength=5.5, headaxislength=4.8,
+            color=ck.COLOR_WIND_ARROW, alpha=0.65, zorder=5, pivot='middle',
             linewidth=0.4, edgecolor='#1a1a1a',
         )
 
@@ -371,6 +381,7 @@ class _HumidityPressurePanel(_Panel):
         super().__init__()
         self.warn_pct = float(warn_pct)
         self.danger_pct = float(danger_pct)
+        self.draw_max_points = 400
         self.ax_p = None
         self._h_today_x: List[float] = []
         self._h_today_y: List[float] = []
@@ -415,7 +426,8 @@ class _HumidityPressurePanel(_Panel):
                                             linewidth=0.9, zorder=2)
         self._line_p_today, = self.ax_p.plot([], [], '-', color=ck.COLOR_PRESSURE,
                                              linewidth=1.3, zorder=4)
-        ck.inline_title(self.ax_p, self.title_right, side='right',
+        # Right-hand title pill on parent axes so live overlays paint over it.
+        ck.inline_title(ax, self.title_right, side='right',
                         color=ck.COLOR_PRESSURE)
         # Live overlay split between the two metrics, both rendered in
         # the parent axes so colour/alpha logic stays unified.
@@ -448,39 +460,44 @@ class _HumidityPressurePanel(_Panel):
         if self._overlay_p is not None:
             self._overlay_p.set_text(f"{pres:.0f} hPa")
 
-    def _redraw_humidity_fill(self) -> None:
-        if self.ax is None:
+    def _bin(self, x, y, max_pts: int):
+        if not x:
+            return [], []
+        return ck.decimate_xy(x, y, max_points=max_pts)
+
+    def render(self) -> None:
+        if not self._dirty or self.ax is None:
             return
+        max_pts = self.draw_max_points
+        # Humidity (left axis)
+        if self._line_h_today is not None:
+            x, y = self._bin(self._h_today_x, self._h_today_y, max_pts)
+            self._line_h_today.set_data(x, y)
+        if self._line_h_yest is not None:
+            x, y = self._bin(self._h_yest_x, self._h_yest_y, max_pts)
+            self._line_h_yest.set_data(x, y)
+        # Humidity fill (recreated each render — fill_between has no set_data)
         if self._fill_h_today is not None:
             try:
                 self._fill_h_today.remove()
             except (ValueError, AttributeError):
                 pass
+            self._fill_h_today = None
         if self._h_today_x:
-            smoothed = ck.running_mean(self._h_today_y, self.HUM_SMOOTH)
+            x, y = self._bin(self._h_today_x, self._h_today_y, max_pts)
             self._fill_h_today = self.ax.fill_between(
-                self._h_today_x, 0, smoothed,
-                color=ck.COLOR_HUMIDITY, alpha=0.18, linewidth=0, zorder=3)
-
-    def _redraw_humidity(self) -> None:
-        if self._line_h_today is not None:
-            self._line_h_today.set_data(
-                self._h_today_x, ck.running_mean(self._h_today_y, self.HUM_SMOOTH))
-        if self._line_h_yest is not None:
-            self._line_h_yest.set_data(
-                self._h_yest_x, ck.running_mean(self._h_yest_y, self.HUM_SMOOTH))
-        self._redraw_humidity_fill()
-
-    def _redraw_pressure(self) -> None:
+                x, 0, y, color=ck.COLOR_HUMIDITY, alpha=0.18, linewidth=0, zorder=3)
+        # Pressure (right axis)
         if self._line_p_today is not None:
-            self._line_p_today.set_data(
-                self._p_today_x, ck.running_mean(self._p_today_y, self.PRES_SMOOTH))
+            x, y = self._bin(self._p_today_x, self._p_today_y, max_pts)
+            self._line_p_today.set_data(x, y)
         if self._line_p_yest is not None:
-            self._line_p_yest.set_data(
-                self._p_yest_x, ck.running_mean(self._p_yest_y, self.PRES_SMOOTH))
+            x, y = self._bin(self._p_yest_x, self._p_yest_y, max_pts)
+            self._line_p_yest.set_data(x, y)
         if self.ax_p is not None:
             self.ax_p.relim()
             self.ax_p.autoscale_view(scalex=False, scaley=True)
+        self._dirty = False
 
     def on_weather(self, hour, ts, msm, *, is_yesterday) -> None:
         try:
@@ -498,21 +515,20 @@ class _HumidityPressurePanel(_Panel):
                 self._h_yest_x.append(hour); self._h_yest_y.append(hum)
             else:
                 self._h_today_x.append(hour); self._h_today_y.append(hum)
-            self._redraw_humidity()
+            self._dirty = True
         if pres is not None and 600.0 < pres < 1100.0:
             if is_yesterday:
                 self._p_yest_x.append(hour); self._p_yest_y.append(pres)
             else:
                 self._p_today_x.append(hour); self._p_today_y.append(pres)
-            self._redraw_pressure()
+            self._dirty = True
 
     def on_midnight_rollover(self) -> None:
         self._h_yest_x, self._h_yest_y = self._h_today_x, self._h_today_y
         self._p_yest_x, self._p_yest_y = self._p_today_x, self._p_today_y
         self._h_today_x, self._h_today_y = [], []
         self._p_today_x, self._p_today_y = [], []
-        self._redraw_humidity()
-        self._redraw_pressure()
+        self._dirty = True
 
 
 class _PowerPanel(_Panel):
@@ -554,6 +570,7 @@ class _PowerPanel(_Panel):
         super().__init__()
         self.soc_warn_pct = float(soc_warn_pct)
         self.soc_danger_pct = float(soc_danger_pct)
+        self.draw_max_points = 400
         self.ax_p = None
         self._soc_today_x: List[float] = []
         self._soc_today_y: List[float] = []
@@ -615,7 +632,8 @@ class _PowerPanel(_Panel):
                                                linewidth=0.9, zorder=2)
         self._line_load_today, = self.ax_p.plot([], [], '-', color=ck.COLOR_LOAD,
                                                 linewidth=1.3, zorder=4)
-        ck.inline_title(self.ax_p, self.title_right, side='right',
+        # Right-hand title pill on parent axes (see _HumidityPressurePanel).
+        ck.inline_title(ax, self.title_right, side='right',
                         color=ck.COLOR_SOLAR)
         self._overlay_soc = ck.big_overlay(ax, x=0.99, y=0.72, color=ck.COLOR_BATTERY)
         self._overlay_kw = ck.big_overlay(ax, x=0.99, y=0.32, color=ck.COLOR_SOLAR)
@@ -665,45 +683,45 @@ class _PowerPanel(_Panel):
 
     # ---- redraws ----
 
-    def _redraw_soc_fill(self):
-        if self.ax is None:
+    def _bin(self, x, y):
+        if not x:
+            return [], []
+        return ck.decimate_xy(x, y, max_points=self.draw_max_points)
+
+    def render(self) -> None:
+        if not self._dirty or self.ax is None:
             return
+        # SOC line + fill
+        if self._line_soc_today is not None:
+            x, y = self._bin(self._soc_today_x, self._soc_today_y)
+            self._line_soc_today.set_data(x, y)
+        if self._line_soc_yest is not None:
+            x, y = self._bin(self._soc_yest_x, self._soc_yest_y)
+            self._line_soc_yest.set_data(x, y)
         if self._fill_soc_today is not None:
             try:
                 self._fill_soc_today.remove()
             except (ValueError, AttributeError):
                 pass
+            self._fill_soc_today = None
         if self._soc_today_x:
-            smoothed = ck.running_mean(self._soc_today_y, self.SOC_SMOOTH)
+            x, y = self._bin(self._soc_today_x, self._soc_today_y)
             self._fill_soc_today = self.ax.fill_between(
-                self._soc_today_x, 0, smoothed,
-                color=ck.COLOR_BATTERY, alpha=0.18, linewidth=0, zorder=3)
-
-    def _redraw_soc(self):
-        if self._line_soc_today is not None:
-            self._line_soc_today.set_data(
-                self._soc_today_x, ck.running_mean(self._soc_today_y, self.SOC_SMOOTH))
-        if self._line_soc_yest is not None:
-            self._line_soc_yest.set_data(
-                self._soc_yest_x, ck.running_mean(self._soc_yest_y, self.SOC_SMOOTH))
-        self._redraw_soc_fill()
-
-    def _redraw_kw(self):
-        if self._line_pv_today is not None:
-            self._line_pv_today.set_data(
-                self._pv_today_x, ck.running_mean(self._pv_today_y, self.KW_SMOOTH))
-        if self._line_pv_yest is not None:
-            self._line_pv_yest.set_data(
-                self._pv_yest_x, ck.running_mean(self._pv_yest_y, self.KW_SMOOTH))
-        if self._line_load_today is not None:
-            self._line_load_today.set_data(
-                self._load_today_x, ck.running_mean(self._load_today_y, self.KW_SMOOTH))
-        if self._line_load_yest is not None:
-            self._line_load_yest.set_data(
-                self._load_yest_x, ck.running_mean(self._load_yest_y, self.KW_SMOOTH))
+                x, 0, y, color=ck.COLOR_BATTERY, alpha=0.18, linewidth=0, zorder=3)
+        # Solar/Load lines
+        for line, x_list, y_list in (
+            (self._line_pv_today, self._pv_today_x, self._pv_today_y),
+            (self._line_pv_yest, self._pv_yest_x, self._pv_yest_y),
+            (self._line_load_today, self._load_today_x, self._load_today_y),
+            (self._line_load_yest, self._load_yest_x, self._load_yest_y),
+        ):
+            if line is not None:
+                x, y = self._bin(x_list, y_list)
+                line.set_data(x, y)
         if self.ax_p is not None:
             self.ax_p.relim()
             self.ax_p.autoscale_view(scalex=False, scaley=True)
+        self._dirty = False
 
     # ---- data hooks ----
 
@@ -717,19 +735,16 @@ class _PowerPanel(_Panel):
         if soc is not None and 0.0 <= soc <= 100.0:
             (self._soc_yest_x if is_yesterday else self._soc_today_x).append(hour)
             (self._soc_yest_y if is_yesterday else self._soc_today_y).append(soc)
-            self._redraw_soc()
-        changed_kw = False
+            self._dirty = True
         if pv is not None:
             (self._pv_yest_x if is_yesterday else self._pv_today_x).append(hour)
             (self._pv_yest_y if is_yesterday else self._pv_today_y).append(pv)
-            changed_kw = True
+            self._dirty = True
         if load is not None:
             # Plot load as negative — sinks below zero.
             (self._load_yest_x if is_yesterday else self._load_today_x).append(hour)
             (self._load_yest_y if is_yesterday else self._load_today_y).append(-load)
-            changed_kw = True
-        if changed_kw:
-            self._redraw_kw()
+            self._dirty = True
 
     def on_live_summary(self, msm) -> None:
         try:
@@ -754,8 +769,7 @@ class _PowerPanel(_Panel):
         self._soc_today_x, self._soc_today_y = [], []
         self._pv_today_x, self._pv_today_y = [], []
         self._load_today_x, self._load_today_y = [], []
-        self._redraw_soc()
-        self._redraw_kw()
+        self._dirty = True
 
 
 class _DomeWindAzPanel(_Panel):
@@ -1152,6 +1166,8 @@ class WeatherDataWidget(QWidget):
         self.temperature_danger_c = float(temperature_danger_c)
         self.soc_warn_pct = float(soc_warn_pct)
         self.soc_danger_pct = float(soc_danger_pct)
+        self._draw_pending = False
+        self._draw_interval_ms = 100
         self.chart_keys = self._resolve_charts(charts)
         self.panels: List[_Panel] = self._build_panels()
         self._init_ui()
@@ -1216,16 +1232,33 @@ class WeatherDataWidget(QWidget):
         self.layout_root.setContentsMargins(2, 2, 2, 2)
         self.layout_root.setSpacing(2)
 
-        # Compact single-line astronomical context. The wind/T/hum readout
-        # that used to live on a sibling QLabel is now rendered as
-        # translucent overlays directly on the matching chart panels.
+        # Astronomical context strip — three independent labels, justified
+        # left (LT) / centre (Sun alt) / right (UT). Background colour
+        # encodes sun-altitude phase (day / twilight / night).
         label_font = QtGui.QFont('Arial', 22 if self.vertical else 19)
         label_font.setBold(True)
-        self.label_ephem = QLabel('ephem')
+        self.label_ephem = QFrame()  # parent frame holds the alert colour
         self.label_ephem.setStyleSheet(
-            "background-color: #2a2a2a; color: #e0e0e0; padding: 4px 10px; border-radius: 4px;"
+            "QFrame { background-color: #2a2a2a; border-radius: 4px; }"
+            "QLabel { background-color: transparent; color: #e0e0e0; }"
         )
-        self.label_ephem.setFont(label_font)
+        self.label_lt = QLabel('LT'); self.label_lt.setFont(label_font)
+        self.label_sun = QLabel('Sun'); self.label_sun.setFont(label_font)
+        self.label_sun.setAlignment(QtCore.Qt.AlignmentFlag.AlignCenter)
+        self.label_ut = QLabel('UT'); self.label_ut.setFont(label_font)
+        if self.vertical:
+            ephem_layout = QVBoxLayout(self.label_ephem)
+            for lbl in (self.label_lt, self.label_sun, self.label_ut):
+                lbl.setAlignment(QtCore.Qt.AlignmentFlag.AlignCenter)
+                ephem_layout.addWidget(lbl)
+        else:
+            ephem_layout = QHBoxLayout(self.label_ephem)
+            ephem_layout.setContentsMargins(10, 4, 10, 4)
+            ephem_layout.addWidget(self.label_lt)
+            ephem_layout.addStretch(1)
+            ephem_layout.addWidget(self.label_sun)
+            ephem_layout.addStretch(1)
+            ephem_layout.addWidget(self.label_ut)
 
         self.figure = Figure(constrained_layout=False)
         ck.style_figure(self.figure)
@@ -1251,6 +1284,23 @@ class WeatherDataWidget(QWidget):
         self._update_ephem()
 
     # ---- async init ---------------------------------------------------------
+
+    def _schedule_draw(self) -> None:
+        """Coalesce canvas redraws so a flood of NATS messages doesn't
+        translate to a flood of repaints. Caps draws at ~10 Hz."""
+        if self._draw_pending:
+            return
+        self._draw_pending = True
+        QtCore.QTimer.singleShot(self._draw_interval_ms, self._do_draw)
+
+    def _do_draw(self) -> None:
+        self._draw_pending = False
+        for p in self.panels:
+            try:
+                p.render()
+            except Exception as e:
+                logger.warning(f"panel render failed for {type(p).__name__}: {e}")
+        self.canvas.draw_idle()
 
     @asyncSlot()
     async def async_init(self):
@@ -1324,7 +1374,7 @@ class WeatherDataWidget(QWidget):
                 fn()
                 restamped += 1
         if restamped:
-            self.canvas.draw_idle()
+            self._schedule_draw()
             logger.info(f'Restamped telescope colours on {restamped} panel(s)')
 
     async def _power_history_loop(self):
@@ -1362,7 +1412,7 @@ class WeatherDataWidget(QWidget):
                 is_yesterday = ts < today_midnight
                 for p in self.panels:
                     hook(p, hour, ts, msm, is_yesterday)
-                self.canvas.draw_idle()
+                self._schedule_draw()
             except (LookupError, TypeError, ValueError):
                 continue
 
@@ -1389,7 +1439,7 @@ class WeatherDataWidget(QWidget):
                 is_yesterday = ts < today_midnight
                 for p in self.panels:
                     p.on_weather(hour, ts, msm, is_yesterday=is_yesterday)
-                self.canvas.draw_idle()
+                self._schedule_draw()
             except (LookupError, TypeError, ValueError):
                 continue
 
@@ -1401,7 +1451,7 @@ class WeatherDataWidget(QWidget):
         for p in self.panels:
             if p.live_subject_kind == 'weather':
                 p.on_live_summary(msm)
-        self.canvas.draw_idle()
+        self._schedule_draw()
         return True
 
     async def _power_status_callback(self, data, meta) -> bool:
@@ -1412,7 +1462,7 @@ class WeatherDataWidget(QWidget):
         for p in self.panels:
             if p.live_subject_kind == 'power':
                 p.on_live_summary(msm)
-        self.canvas.draw_idle()
+        self._schedule_draw()
         return True
 
     async def _dome_status_loop(self, tel: str):
@@ -1427,7 +1477,7 @@ class WeatherDataWidget(QWidget):
                 shutter_open = (val == 0) if val is not None else None
                 for p in self.panels:
                     p.on_dome_state(tel, shutter_open)
-                self.canvas.draw_idle()
+                self._schedule_draw()
         except Exception as e:
             logger.warning(f"dome status reader [{tel}] failed: {e}")
 
@@ -1443,7 +1493,7 @@ class WeatherDataWidget(QWidget):
                 hour = _hour_now_utc()
                 for p in self.panels:
                     p.on_mount_az(tel, az, hour)
-                self.canvas.draw_idle()
+                self._schedule_draw()
         except Exception as e:
             logger.warning(f"mount.azimuth reader [{tel}] failed: {e}")
 
@@ -1461,7 +1511,7 @@ class WeatherDataWidget(QWidget):
                         or _hour_now_utc())
                 for p in self.panels:
                     p.on_faststat(tel, hour, raw)
-                self.canvas.draw_idle()
+                self._schedule_draw()
         except Exception as e:
             logger.warning(f"pipeline.faststat reader [{tel}] failed: {e}")
 
@@ -1479,7 +1529,7 @@ class WeatherDataWidget(QWidget):
                         or _hour_now_utc())
                 for p in self.panels:
                     p.on_zdf(tel, hour, content)
-                self.canvas.draw_idle()
+                self._schedule_draw()
         except Exception as e:
             logger.warning(f"pipeline.zdf reader [{tel}] failed: {e}")
 
@@ -1496,14 +1546,14 @@ class WeatherDataWidget(QWidget):
                         or _hour_now_utc())
                 for p in self.panels:
                     p.on_zero_monitor(tel, hour, data)
-                self.canvas.draw_idle()
+                self._schedule_draw()
         except Exception as e:
             logger.warning(f"zero_monitor.lc reader [{tel}] failed: {e}")
 
     # ---- ephemeris label ----------------------------------------------------
 
     def _update_ephem(self):
-        text, sun_alt = _ephemeris_text(self.vertical)
+        lt, sun_alt, ut = _ephemeris_parts()
         if sun_alt > -2.0:
             colour = '#7a3a3a'
         elif sun_alt > -18.0:
@@ -1511,10 +1561,12 @@ class WeatherDataWidget(QWidget):
         else:
             colour = '#2a4a30'
         self.label_ephem.setStyleSheet(
-            f"background-color: {colour}; color: #f0f0f0; "
-            "padding: 4px 8px; border-radius: 4px;"
+            f"QFrame {{ background-color: {colour}; border-radius: 4px; }}"
+            "QLabel { background-color: transparent; color: #f0f0f0; }"
         )
-        self.label_ephem.setText(text)
+        self.label_lt.setText(f"LT: {lt}")
+        self.label_sun.setText(f"Sun: {sun_alt:.1f}°")
+        self.label_ut.setText(f"UT: {ut}")
         QtCore.QTimer.singleShot(1000, self._update_ephem)
 
 
