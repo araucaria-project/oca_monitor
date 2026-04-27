@@ -52,6 +52,7 @@ COLOR_TEMPERATURE = '#ffb070'
 COLOR_BATTERY = '#7eea90'
 COLOR_SOLAR = '#fcb841'
 COLOR_LOAD = '#ff8866'
+COLOR_OK = '#22c55e'
 COLOR_DOME_DANGER = COLOR_DANGER
 
 
@@ -110,6 +111,55 @@ def make_stacked_axes(fig: Figure, n: int) -> List[Axes]:
     # only need a hair of breathing room.
     fig.subplots_adjust(left=0.06, right=0.985, top=0.985, bottom=0.025)
     return list(axes)
+
+
+def make_grid_axes(fig: Figure, n_rows: int, n_cols: int) -> List[Axes]:
+    """Grid of ``n_rows × n_cols`` axes; X shared within each column,
+    zero vertical gap, narrow horizontal gap between columns.
+
+    Returned in **row-major** order — panel-placement code typically
+    walks them column-major (top-to-bottom of col 0, then col 1) to keep
+    each column reading as its own squeezed stack.
+    """
+    fig.clear()
+    style_figure(fig)
+    if n_rows <= 0 or n_cols <= 0:
+        return []
+    raw = fig.subplots(n_rows, n_cols, sharex='col',
+                       gridspec_kw={'hspace': 0.0, 'wspace': 0.05})
+    # Normalize to 2-D list-of-lists
+    if n_rows == 1 and n_cols == 1:
+        grid = [[raw]]
+    elif n_rows == 1:
+        grid = [list(raw)]
+    elif n_cols == 1:
+        grid = [[ax] for ax in raw]
+    else:
+        grid = [list(row) for row in raw]
+    for row in grid:
+        for ax in row:
+            style_axes(ax)
+    # X labels off everywhere except the bottom row of each column.
+    for r in range(n_rows - 1):
+        for c in range(n_cols):
+            grid[r][c].tick_params(axis='x', which='both',
+                                   labelbottom=False, length=0)
+    # Prune Y ticks at the boundary so labels of stacked panels in the
+    # same column don't collide.
+    if n_rows > 1:
+        for r in range(n_rows):
+            if r == 0:
+                prune = 'lower'
+            elif r == n_rows - 1:
+                prune = 'upper'
+            else:
+                prune = 'both'
+            for c in range(n_cols):
+                grid[r][c].yaxis.set_major_locator(
+                    MaxNLocator(prune=prune, nbins='auto'))
+    fig.subplots_adjust(left=0.06, right=0.985, top=0.985,
+                        bottom=0.025, wspace=0.05, hspace=0.0)
+    return [grid[r][c] for r in range(n_rows) for c in range(n_cols)]
 
 
 def inline_title(ax: Axes, text: str, *, side: str = 'left',
@@ -176,6 +226,26 @@ def decimate_xy(x, y, max_points: int = 1500):
             out_x[i] = x[lo]
             out_y[i] = y[lo]
     return out_x, out_y
+
+
+def gaussian_filter1d(values, sigma: float = 3.0):
+    """Stand-alone 1-D Gaussian-kernel smoother (mirrors
+    ``scipy.ndimage.gaussian_filter1d`` so we can drop the scipy dep).
+
+    Reflects edges to keep the output length equal to the input.
+    """
+    a = np.asarray(values, dtype=float)
+    n = a.size
+    if sigma <= 0 or n == 0:
+        return a
+    radius = max(1, int(np.ceil(4.0 * sigma)))
+    if radius >= n:
+        radius = max(1, n - 1)
+    x = np.arange(-radius, radius + 1, dtype=float)
+    kernel = np.exp(-0.5 * (x / sigma) ** 2)
+    kernel /= kernel.sum()
+    padded = np.pad(a, radius, mode='edge')
+    return np.convolve(padded, kernel, mode='valid')[:n]
 
 
 def running_mean(values, window: int = 11):

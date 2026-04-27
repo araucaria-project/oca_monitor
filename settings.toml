@@ -85,14 +85,12 @@ charts = ["wind", "temperature", "humidity_pressure", "fwhm", "phot_zero", "powe
 #soc_danger_pct = 15
 #dome_danger_zone_deg = 30
 
-[default.panels.12.Ephemeris]
-#auto_interval = 10  # seconds, how long to show this page before auto switching to next page
-source = "ephemeris"  # page source - page is defined in oca_monitor/pages/example.py
-
-[default.panels.12.Conditions]
-#auto_interval = 10  # seconds, how long to show this page before auto switching to next page
-source = "conditions"  # page source - page is defined in oca_monitor/pages/example.py
-#vertical_screen = 0
+[default.panels.12.Site]
+source = "site_status"  # unified clocks + sun/moon events + water level
+# Optional overrides (defaults shown):
+#evening_events = [5, -1, -16, -18]
+#morning_events = [-18, -10, 0]
+#water_capacity_m3 = 12.0
 
 
 

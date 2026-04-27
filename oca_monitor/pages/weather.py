@@ -14,7 +14,7 @@ from __future__ import annotations
 
 import datetime
 import logging
-import math
+import math as _math
 import time
 from typing import Any, Dict, List, Optional, Sequence, Tuple
 
@@ -133,7 +133,15 @@ class _Panel:
     def on_power(self, hour: float, ts: datetime.datetime, msm: dict,
                  *, is_yesterday: bool) -> None: ...
 
-    def on_midnight_rollover(self) -> None: ...
+    def on_midnight_rollover(self) -> None:
+        """Today→yesterday at UTC midnight. Override on weather/power panels."""
+        ...
+
+    def on_session_reset(self) -> None:
+        """Wipe panel state for a new observing session. Override on
+        pipeline-driven panels (FWHM, Quality, PhotZero); the widget
+        invokes this at OCM sunset so each night starts fresh."""
+        ...
 
     def on_faststat(self, tel: str, hour: float, raw: dict) -> None: ...
 
@@ -620,8 +628,9 @@ class _PowerPanel(_Panel):
         for side in ('top', 'bottom', 'left'):
             self.ax_p.spines[side].set_visible(False)
         self.ax_p.spines['right'].set_color(ck.COLOR_SOLAR)
-        # zero reference line on the right axis
-        self.ax_p.axhline(0, color='#5a5a5a', linewidth=0.8, alpha=0.6, zorder=1)
+        # Both PV and Load are plotted positive — y_min anchored at 0
+        # so autoscale doesn't shift the baseline as data flows in.
+        self.ax_p.set_ylim(bottom=0)
         self._line_pv_yest, = self.ax_p.plot([], [], '-', color=ck.COLOR_SOLAR,
                                              alpha=ck.YESTERDAY_ALPHA,
                                              linewidth=0.9, zorder=2)
@@ -719,8 +728,19 @@ class _PowerPanel(_Panel):
                 x, y = self._bin(x_list, y_list)
                 line.set_data(x, y)
         if self.ax_p is not None:
-            self.ax_p.relim()
-            self.ax_p.autoscale_view(scalex=False, scaley=True)
+            # Compute the y range manually — ``set_ylim(bottom=0)`` in
+            # init_axes disables the autoscaler on this axis, so neither
+            # ``relim`` nor ``autoscale_view`` reliably re-bounds it as
+            # data flows in.
+            all_y: List[float] = []
+            for ys in (self._pv_today_y, self._pv_yest_y,
+                       self._load_today_y, self._load_yest_y):
+                all_y.extend(ys)
+            if all_y:
+                top = max(all_y)
+                if top <= 0:
+                    top = 100.0
+                self.ax_p.set_ylim(0, top * 1.10)
         self._dirty = False
 
     # ---- data hooks ----
@@ -741,9 +761,12 @@ class _PowerPanel(_Panel):
             (self._pv_yest_y if is_yesterday else self._pv_today_y).append(pv)
             self._dirty = True
         if load is not None:
-            # Plot load as negative — sinks below zero.
+            # Plot load as POSITIVE so it overlaps PV in the same region —
+            # the chart stays compact and "consumption above zero" reads
+            # naturally. The overlay text still negates the load value
+            # for the source/sink convention.
             (self._load_yest_x if is_yesterday else self._load_today_x).append(hour)
-            (self._load_yest_y if is_yesterday else self._load_today_y).append(-load)
+            (self._load_yest_y if is_yesterday else self._load_today_y).append(load)
             self._dirty = True
 
     def on_live_summary(self, msm) -> None:
@@ -936,7 +959,7 @@ class _PerTelescopeScatterPanel(_Panel):
             self.ax.relim()
             self.ax.autoscale_view(scalex=False, scaley=True)
 
-    def on_midnight_rollover(self) -> None:
+    def on_session_reset(self) -> None:
         for tel in self.telescopes:
             self._series[tel] = ([], [])
             if tel in self._lines:
@@ -959,7 +982,7 @@ class _FwhmPanel(_PerTelescopeScatterPanel):
     needs_faststat = True
     title = 'FWHM  [arcsec]'
     y_min = 0.0
-    y_max = 8.0
+    y_max = 3.0   # frames above 3" are exceptional — don't waste vertical space
     marker = 'o'
     line_style = ''  # markers only — frames arrive irregularly
 
@@ -1004,6 +1027,13 @@ class _FwhmPanel(_PerTelescopeScatterPanel):
             # but doesn't clash with the dark theme on saturated values.
             self._overlay.set_color(ck.blend_colors(tel_color, ck.FG_TEXT, 0.30))
 
+    def on_session_reset(self) -> None:
+        super().on_session_reset()
+        self._latest_fwhm = None
+        self._latest_tel = None
+        if self._overlay is not None:
+            self._overlay.set_text('')
+
 
 class _QualityPanel(_PerTelescopeScatterPanel):
     """Star-presence quality ratio, sourced from ``pipeline.zdf``.
@@ -1030,12 +1060,27 @@ class _QualityPanel(_PerTelescopeScatterPanel):
 class _PhotZeroPanel(_Panel):
     """Photometric zero point, sourced from ``tic.status.<tel>.zero_monitor.lc``.
 
-    Markers carry telescope colour as fill and filter colour as edge —
-    halina convention.
+    Each telescope's points are plotted as a translucent scatter (fill
+    by telescope colour, edge by filter colour). On top of that, a
+    bold gaussian-smoothed (sigma=3) curve combining points from ALL
+    telescopes gives the "site-wide photometric quality" trend; its
+    most-recent value is shown as a big translucent overlay coloured
+    against the alert-band thresholds.
+
+    Alert bands (zone shading on the panel background):
+      * value ≥ ``GREEN_THRESHOLD`` (-0.10): photometric quality OK
+      * ``YELLOW_THRESHOLD`` ≤ value < green: degraded
+      * value < ``YELLOW_THRESHOLD`` (-0.20): poor / non-photometric
     """
 
     needs_zero_monitor = True
     title = 'Photometric Zero  [mag]'
+
+    GREEN_THRESHOLD = -0.10
+    YELLOW_THRESHOLD = -0.20
+    SMOOTH_SIGMA = 3.0
+    Y_MAX = 0.05      # photometric-zero rarely exceeds this; lock the top
+    Y_MIN_FLOOR = -0.30  # initial lower limit; will autoscale further down
 
     def __init__(self, main_window, telescopes: Sequence[str]) -> None:
         super().__init__()
@@ -1045,20 +1090,44 @@ class _PhotZeroPanel(_Panel):
             t: ([], [], []) for t in self.telescopes
         }
         self._scatters: Dict[str, Any] = {}
+        self._line_smoothed = None
+        self._overlay_avg = None
 
     def init_axes(self, ax) -> None:
         super().init_axes(ax)
+        ax.set_ylim(self.Y_MIN_FLOOR, self.Y_MAX)
+        # Threshold zone bands — drawn behind data so colour shifts read
+        # as background quality state.
+        ax.axhspan(self.GREEN_THRESHOLD, 1.0,
+                   color=ck.COLOR_OK, alpha=0.10, linewidth=0, zorder=0)
+        ax.axhspan(self.YELLOW_THRESHOLD, self.GREEN_THRESHOLD,
+                   color=ck.COLOR_WARN, alpha=0.15, linewidth=0, zorder=0)
+        ax.axhspan(-100.0, self.YELLOW_THRESHOLD,
+                   color=ck.COLOR_DANGER, alpha=0.20, linewidth=0, zorder=0)
         for tel in self.telescopes:
             color = ck.telescope_color(self.main_window, tel)
             self._scatters[tel] = ax.scatter([], [], s=10, c=color,
                                              alpha=0.50, edgecolors='none',
                                              linewidths=0, zorder=4, label=tel)
+        # Combined smoothed trend across all telescopes — kept translucent
+        # so it reads as a "trend overlay" rather than competing visually
+        # with the per-telescope scatter.
+        self._line_smoothed, = ax.plot([], [], '-', color=ck.FG_TEXT,
+                                       linewidth=1.4, alpha=0.45, zorder=6)
+        self._overlay_avg = ck.big_overlay(ax)
 
     def restamp_telescope_colors(self) -> None:
         for tel in self.telescopes:
             if tel in self._scatters:
                 self._scatters[tel].set_color(
                     ck.telescope_color(self.main_window, tel))
+
+    def _color_for(self, value: float) -> str:
+        if value >= self.GREEN_THRESHOLD:
+            return ck.COLOR_OK
+        if value >= self.YELLOW_THRESHOLD:
+            return ck.COLOR_WARN
+        return ck.COLOR_DANGER
 
     def on_zero_monitor(self, tel, hour, data) -> None:
         if tel not in self._series:
@@ -1067,7 +1136,7 @@ class _PhotZeroPanel(_Panel):
             zp = float(data['zero_value'])
         except (KeyError, TypeError, ValueError):
             return
-        if not math.isfinite(zp):
+        if not _math.isfinite(zp):
             return
         flt = str(data.get('filter', '') or '')
         hours, zps, fls = self._series[tel]
@@ -1077,25 +1146,40 @@ class _PhotZeroPanel(_Panel):
         edge = [ck.PHOT_FILTER_COLORS.get(f, '#888888') for f in fls]
         self._scatters[tel].set_offsets(np.column_stack((hours, zps)))
         self._scatters[tel].set_edgecolors(edge)
-        self._rescale_y()
+        self._refresh_smoothed_and_scale()
 
-    def _rescale_y(self) -> None:
-        if self.ax is None:
+    def _refresh_smoothed_and_scale(self) -> None:
+        all_x: List[float] = []
+        all_y: List[float] = []
+        for tel, (xs, ys, _) in self._series.items():
+            all_x.extend(xs)
+            all_y.extend(ys)
+        if not all_x:
             return
-        all_zps: List[float] = []
-        for hours, zps, _ in self._series.values():
-            all_zps.extend(zps)
-        if not all_zps:
-            return
-        lo, hi = min(all_zps), max(all_zps)
-        pad = max(0.2, 0.1 * (hi - lo))
-        self.ax.set_ylim(lo - pad, hi + pad)
+        idx = np.argsort(np.asarray(all_x))
+        x_sorted = np.asarray(all_x, dtype=float)[idx]
+        y_sorted = np.asarray(all_y, dtype=float)[idx]
+        y_smooth = ck.gaussian_filter1d(y_sorted, sigma=self.SMOOTH_SIGMA)
+        if self._line_smoothed is not None:
+            self._line_smoothed.set_data(x_sorted, y_smooth)
+        if self._overlay_avg is not None and y_smooth.size:
+            latest = float(y_smooth[-1])
+            self._overlay_avg.set_text(f"{latest:+.3f} mag")
+            self._overlay_avg.set_color(self._color_for(latest))
+        if self.ax is not None:
+            data_min = float(np.min(y_sorted))
+            self.ax.set_ylim(min(data_min - 0.02, self.Y_MIN_FLOOR),
+                             self.Y_MAX)
 
-    def on_midnight_rollover(self) -> None:
+    def on_session_reset(self) -> None:
         for tel in self.telescopes:
             self._series[tel] = ([], [], [])
             if tel in self._scatters:
                 self._scatters[tel].set_offsets(np.zeros((0, 2)))
+        if self._line_smoothed is not None:
+            self._line_smoothed.set_data([], [])
+        if self._overlay_avg is not None:
+            self._overlay_avg.set_text('')
 
 
 # ----------------------------------------------------------------------------
@@ -1126,6 +1210,18 @@ def _current_night_start_utc() -> datetime.datetime:
     if local_noon > now:
         local_noon -= datetime.timedelta(days=1)
     return local_noon
+
+
+def _next_sunset_utc() -> datetime.datetime:
+    """Next OCM sunset event, as a UTC datetime."""
+    obs = ephem.Observer()
+    obs.lon = '-70.201266'
+    obs.lat = '-24.598616'
+    obs.elev = 2800
+    obs.pressure = 730
+    obs.date = time.strftime('%Y/%m/%d %H:%M:%S', time.gmtime())
+    return obs.next_setting(ephem.Sun()).datetime().replace(
+        tzinfo=datetime.timezone.utc)
 
 
 # ----------------------------------------------------------------------------
@@ -1268,22 +1364,50 @@ class WeatherDataWidget(QWidget):
             hbox = QHBoxLayout()
             hbox.addWidget(self.label_ephem, 1)
             hbox.addWidget(self.canvas, 9)
-            self.layout_root.addLayout(hbox)
+            # stretch=1 so the hbox (and thus the canvas) fills the panel
+            # row that ``MainWindow`` allocates via ``panel_rows`` —
+            # without this the row stretch is wasted because the widget
+            # only claims its content's minimum height.
+            self.layout_root.addLayout(hbox, 1)
         else:
             self.layout_root.addWidget(self.label_ephem)
             self.layout_root.addWidget(self.canvas, 1)
 
-        # Build axes
-        axes = ck.make_stacked_axes(self.figure, len(self.panels))
-        for panel, ax in zip(self.panels, axes):
-            panel.init_axes(ax)
-        if axes:
-            ck.format_hour_xaxis(axes[-1])
+        self._build_panel_axes()
         self.canvas.draw_idle()
 
         self._update_ephem()
 
     # ---- async init ---------------------------------------------------------
+
+    def _build_panel_axes(self) -> None:
+        """Lay out panels: vertical-screen → 2-column grid (column-major
+        stacks); horizontal → single column squeezed stack."""
+        n = len(self.panels)
+        if n == 0:
+            return
+        if self.vertical:
+            n_cols = 2
+            n_rows = max(1, _math.ceil(n / n_cols))
+            raw = ck.make_grid_axes(self.figure, n_rows, n_cols)
+            # Walk column-major so each column reads as its own
+            # top-to-bottom stack of related charts.
+            ordered = [raw[r * n_cols + c]
+                       for c in range(n_cols)
+                       for r in range(n_rows)]
+            for panel, ax in zip(self.panels, ordered):
+                panel.init_axes(ax)
+            # Format the hour x-axis on the bottom of each column.
+            for c in range(n_cols):
+                idx = c * n_rows + (n_rows - 1)
+                if idx < len(ordered):
+                    ck.format_hour_xaxis(ordered[idx])
+        else:
+            axes = ck.make_stacked_axes(self.figure, n)
+            for panel, ax in zip(self.panels, axes):
+                panel.init_axes(ax)
+            if axes:
+                ck.format_hour_xaxis(axes[-1])
 
     def _schedule_draw(self) -> None:
         """Coalesce canvas redraws so a flood of NATS messages doesn't
@@ -1301,6 +1425,40 @@ class WeatherDataWidget(QWidget):
             except Exception as e:
                 logger.warning(f"panel render failed for {type(p).__name__}: {e}")
         self.canvas.draw_idle()
+
+    def _schedule_next_sunset_reset(self) -> None:
+        """Arm a one-shot timer for the next OCM sunset, at which point
+        pipeline-driven panels (FWHM, Quality, PhotZero) wipe their
+        buffers so each observing night starts fresh."""
+        try:
+            sunset = _next_sunset_utc()
+        except Exception as e:
+            logger.warning(f"Failed to compute next sunset; reset disabled: {e}")
+            return
+        now = datetime.datetime.now(datetime.timezone.utc)
+        delay_s = max(60.0, (sunset - now).total_seconds())
+        delay_ms = min(int(delay_s * 1000), 2_147_000_000)  # QTimer takes int32 ms
+        logger.info(
+            f"Next sunset reset scheduled at {sunset.isoformat()} "
+            f"(in {delay_s/3600:.2f} h)")
+        QtCore.QTimer.singleShot(delay_ms, self._do_sunset_reset)
+
+    def _do_sunset_reset(self) -> None:
+        n = 0
+        for p in self.panels:
+            # Only panels driven by per-night pipeline streams.
+            if p.needs_faststat or p.needs_zdf or p.needs_zero_monitor:
+                try:
+                    p.on_session_reset()
+                    n += 1
+                except Exception as e:
+                    logger.warning(
+                        f"on_session_reset failed for {type(p).__name__}: {e}")
+        if n:
+            logger.info(f"Sunset reset: cleared {n} pipeline panel(s)")
+            self._schedule_draw()
+        # Re-arm for tomorrow.
+        self._schedule_next_sunset_reset()
 
     @asyncSlot()
     async def async_init(self):
@@ -1345,6 +1503,9 @@ class WeatherDataWidget(QWidget):
             for tel in telescopes:
                 await create_task(self._zero_monitor_loop(tel),
                                   f'weather_zerolc_{tel}')
+        if any(p.needs_faststat or p.needs_zdf or p.needs_zero_monitor
+               for p in self.panels):
+            self._schedule_next_sunset_reset()
 
     # ---- readers ------------------------------------------------------------
 
@@ -1377,19 +1538,38 @@ class WeatherDataWidget(QWidget):
             self._schedule_draw()
             logger.info(f'Restamped telescope colours on {restamped} panel(s)')
 
+    async def _weather_history_loop(self):
+        await self._dual_day_history_loop(
+            subject=self.weather_subject,
+            hook=lambda p, hour, ts, msm, is_yesterday:
+                p.on_weather(hour, ts, msm, is_yesterday=is_yesterday),
+            panel_filter=lambda p: p.needs_weather_history,
+        )
+
     async def _power_history_loop(self):
         await self._dual_day_history_loop(
             subject=self.power_subject,
             hook=lambda p, hour, ts, msm, is_yesterday:
                 p.on_power(hour, ts, msm, is_yesterday=is_yesterday),
+            panel_filter=lambda p: p.needs_power_history,
         )
 
-    async def _dual_day_history_loop(self, subject: str, hook) -> None:
-        """Stream today + yesterday history for a 'measurements' subject.
+    async def _dual_day_history_loop(self, subject: str, hook,
+                                     panel_filter) -> None:
+        """Stream today + yesterday history for a ``measurements`` subject.
 
-        Replays from yesterday-midnight via ``by_start_time``; rolls panels
-        over at local midnight. ``hook`` is called as
+        Replays from yesterday-midnight via ``by_start_time``; rolls
+        panels over at UTC midnight. ``hook`` is called as
         ``hook(panel, hour, ts, msm, is_yesterday)``.
+
+        Both data dispatch and the midnight rollover are filtered to
+        panels that opt into THIS subject's history (``panel_filter``).
+        That is critical: with two history loops (weather + power) both
+        observing the UTC midnight crossing, an unfiltered rollover
+        would fire twice, the second one wiping the just-saved
+        yesterday-data with the new (still-empty) today-data and
+        explaining the "no yesterday-shadow curves" symptom on
+        long-running deployments.
         """
         msg = Messenger()
         today_midnight = _today_midnight_utc()
@@ -1405,40 +1585,16 @@ class WeatherDataWidget(QWidget):
                     today_midnight = _today_midnight_utc()
                     yesterday_midnight = today_midnight - datetime.timedelta(days=1)
                     for p in self.panels:
-                        p.on_midnight_rollover()
+                        if panel_filter(p):
+                            p.on_midnight_rollover()
+                    logger.info(f"Midnight rollover triggered by {subject}")
                 ts = dt_ensure_datetime(data['ts'])
                 msm = data['measurements']
                 hour = ts.hour + ts.minute / 60.0 + ts.second / 3600.0
                 is_yesterday = ts < today_midnight
                 for p in self.panels:
-                    hook(p, hour, ts, msm, is_yesterday)
-                self._schedule_draw()
-            except (LookupError, TypeError, ValueError):
-                continue
-
-    async def _weather_history_loop(self):
-        msg = Messenger()
-        today_midnight = _today_midnight_utc()
-        yesterday_midnight = today_midnight - datetime.timedelta(days=1)
-        rdr = msg.get_reader(self.weather_subject,
-                             deliver_policy='by_start_time',
-                             opt_start_time=yesterday_midnight)
-        logger.info(f"Subscribed to {self.weather_subject} "
-                    f"(history from {yesterday_midnight.isoformat()})")
-        async for data, meta in rdr:
-            try:
-                now = datetime.datetime.now(datetime.timezone.utc)
-                if now.date() > today_midnight.date():
-                    today_midnight = _today_midnight_utc()
-                    yesterday_midnight = today_midnight - datetime.timedelta(days=1)
-                    for p in self.panels:
-                        p.on_midnight_rollover()
-                ts = dt_ensure_datetime(data['ts'])
-                msm = data['measurements']
-                hour = ts.hour + ts.minute / 60.0 + ts.second / 3600.0
-                is_yesterday = ts < today_midnight
-                for p in self.panels:
-                    p.on_weather(hour, ts, msm, is_yesterday=is_yesterday)
+                    if panel_filter(p):
+                        hook(p, hour, ts, msm, is_yesterday)
                 self._schedule_draw()
             except (LookupError, TypeError, ValueError):
                 continue
