@@ -67,6 +67,7 @@ class _Panel:
     """Base class for one row of the squeezed chart stack."""
 
     title: str = ''
+    title_side: str = 'left'   # ``'left'`` or ``'right'`` — pin the inline title pill
 
     needs_weather_history: bool = False
     needs_power_history: bool = False
@@ -90,7 +91,8 @@ class _Panel:
     def init_axes(self, ax) -> None:
         self.ax = ax
         ax.set_zorder(2)
-        ck.inline_title(ax, self.title)
+        if self.title:
+            ck.inline_title(ax, self.title, side=self.title_side)
 
     def render(self) -> None:
         """Pull data → smooth → set_data → autoscale.
@@ -981,7 +983,7 @@ class _FwhmPanel(_PerTelescopeScatterPanel):
 
     needs_faststat = True
     title = 'FWHM  [arcsec]'
-    y_min = 0.0
+    y_min = 0.5   # sub-arcsec is exceptional; tighten the floor so 1–3" reads clearly
     y_max = 3.0   # frames above 3" are exceptional — don't waste vertical space
     marker = 'o'
     line_style = ''  # markers only — frames arrive irregularly
@@ -991,9 +993,13 @@ class _FwhmPanel(_PerTelescopeScatterPanel):
         self._latest_fwhm: Optional[float] = None
         self._latest_tel: Optional[str] = None
 
+    title_side = 'right'   # title pinned where there's daytime gap, no data
+
     def init_axes(self, ax) -> None:
         super().init_axes(ax)
-        self._overlay = ck.big_overlay(ax)
+        # Overlay also moves to the LEFT so it doesn't collide with the
+        # right-side title pill.
+        self._overlay = ck.big_overlay(ax, x=0.01, y=0.55, ha='left')
 
     def restamp_telescope_colors(self) -> None:
         super().restamp_telescope_colors()
@@ -1075,6 +1081,7 @@ class _PhotZeroPanel(_Panel):
 
     needs_zero_monitor = True
     title = 'Photometric Zero  [mag]'
+    title_side = 'right'   # falls into the daytime gap, doesn't cover data
 
     GREEN_THRESHOLD = -0.10
     YELLOW_THRESHOLD = -0.20
@@ -1114,7 +1121,8 @@ class _PhotZeroPanel(_Panel):
         # with the per-telescope scatter.
         self._line_smoothed, = ax.plot([], [], '-', color=ck.FG_TEXT,
                                        linewidth=1.4, alpha=0.45, zorder=6)
-        self._overlay_avg = ck.big_overlay(ax)
+        # Overlay on the LEFT so it doesn't collide with the right-side title.
+        self._overlay_avg = ck.big_overlay(ax, x=0.01, y=0.55, ha='left')
 
     def restamp_telescope_colors(self) -> None:
         for tel in self.telescopes:
