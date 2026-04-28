@@ -997,9 +997,7 @@ class _FwhmPanel(_PerTelescopeScatterPanel):
 
     def init_axes(self, ax) -> None:
         super().init_axes(ax)
-        # Overlay also moves to the LEFT so it doesn't collide with the
-        # right-side title pill.
-        self._overlay = ck.big_overlay(ax, x=0.01, y=0.55, ha='left')
+        self._overlay = ck.big_overlay(ax)
 
     def restamp_telescope_colors(self) -> None:
         super().restamp_telescope_colors()
@@ -1074,20 +1072,20 @@ class _PhotZeroPanel(_Panel):
     against the alert-band thresholds.
 
     Alert bands (zone shading on the panel background):
-      * value ≥ ``GREEN_THRESHOLD`` (-0.10): photometric quality OK
+      * value ≥ ``GREEN_THRESHOLD`` (-0.05): photometric quality OK
       * ``YELLOW_THRESHOLD`` ≤ value < green: degraded
-      * value < ``YELLOW_THRESHOLD`` (-0.20): poor / non-photometric
+      * value < ``YELLOW_THRESHOLD`` (-0.10): poor / non-photometric
     """
 
     needs_zero_monitor = True
     title = 'Photometric Zero  [mag]'
     title_side = 'right'   # falls into the daytime gap, doesn't cover data
 
-    GREEN_THRESHOLD = -0.10
-    YELLOW_THRESHOLD = -0.20
+    GREEN_THRESHOLD = -0.05
+    YELLOW_THRESHOLD = -0.10
     SMOOTH_SIGMA = 3.0
-    Y_MAX = 0.05      # photometric-zero rarely exceeds this; lock the top
-    Y_MIN_FLOOR = -0.30  # initial lower limit; will autoscale further down
+    Y_MAX = 0.05    # fixed scale top
+    Y_MIN = -0.125  # fixed scale bottom — outliers clip rather than rescaling
 
     def __init__(self, main_window, telescopes: Sequence[str]) -> None:
         super().__init__()
@@ -1102,7 +1100,7 @@ class _PhotZeroPanel(_Panel):
 
     def init_axes(self, ax) -> None:
         super().init_axes(ax)
-        ax.set_ylim(self.Y_MIN_FLOOR, self.Y_MAX)
+        ax.set_ylim(self.Y_MIN, self.Y_MAX)
         # Threshold zone bands — drawn behind data so colour shifts read
         # as background quality state.
         ax.axhspan(self.GREEN_THRESHOLD, 1.0,
@@ -1121,8 +1119,7 @@ class _PhotZeroPanel(_Panel):
         # with the per-telescope scatter.
         self._line_smoothed, = ax.plot([], [], '-', color=ck.FG_TEXT,
                                        linewidth=1.4, alpha=0.45, zorder=6)
-        # Overlay on the LEFT so it doesn't collide with the right-side title.
-        self._overlay_avg = ck.big_overlay(ax, x=0.01, y=0.55, ha='left')
+        self._overlay_avg = ck.big_overlay(ax)
 
     def restamp_telescope_colors(self) -> None:
         for tel in self.telescopes:
@@ -1174,10 +1171,6 @@ class _PhotZeroPanel(_Panel):
             latest = float(y_smooth[-1])
             self._overlay_avg.set_text(f"{latest:+.3f} mag")
             self._overlay_avg.set_color(self._color_for(latest))
-        if self.ax is not None:
-            data_min = float(np.min(y_sorted))
-            self.ax.set_ylim(min(data_min - 0.02, self.Y_MIN_FLOOR),
-                             self.Y_MAX)
 
     def on_session_reset(self) -> None:
         for tel in self.telescopes:
