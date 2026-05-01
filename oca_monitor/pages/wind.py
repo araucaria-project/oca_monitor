@@ -11,33 +11,17 @@ from serverish.base import dt_ensure_datetime
 from serverish.base.task_manager import create_task_sync, create_task
 from serverish.messenger import Messenger
 import numpy as np
-import ephem
 import time
-from astropy.time import Time as czas_astro
+
+from oca_monitor.utils.ephem_ocm import sun_alt_deg
 
 logger = logging.getLogger(__name__.rsplit('.')[-1])
 
 def ephemeris():
-    arm=ephem.Observer()
-    arm.pressure=730
-    #arm.horizon = '-0.5'
-    arm.lon='-70.201266'
-    arm.lat='-24.598616'
-    arm.elev=2800
-    arm.pressure=730
-    date = time.strftime('%Y%m%d',time.gmtime() )
-    ut = time.strftime('%Y/%m/%d %H:%M:%S',time.gmtime() )
-    t = czas_astro([ut.replace('/','-',2).replace(' ','T',1)])
-    lt = time.strftime('%H:%M:%S',time.localtime() )
-    arm.date = ut
-    sunset=str(arm.next_setting(ephem.Sun()))
-    sunrise=str(arm.next_rising(ephem.Sun()))
-    sun = ephem.Sun()
-    sun.compute(arm)
-    
-    text = 'LT: '+lt+'\nSUN ALT: '+str(sun.alt).split(':')[0]
-    
-    return text,float(str(sun.alt).split(':')[0])
+    now = datetime.datetime.now(datetime.timezone.utc)
+    lt = time.strftime('%H:%M:%S', time.localtime())
+    alt = sun_alt_deg(now)
+    return f'LT: {lt}\nSUN ALT: {alt:.0f}', alt
 
 
 class WindDataWidget(QWidget):

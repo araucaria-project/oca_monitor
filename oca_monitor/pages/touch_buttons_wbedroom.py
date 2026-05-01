@@ -10,29 +10,21 @@ import oca_monitor.config as config
 from qasync import asyncSlot
 from PyQt6.QtCore import QTimer
 from serverish.base.task_manager import create_task
-import ephem
+import datetime
 import time
 
 from oca_monitor.controls.water_pump import WaterPump
 from oca_monitor.image_display import ImageDisplay
 from oca_monitor.utils import send_http
+from oca_monitor.utils.ephem_ocm import sun_alt_deg
 
 # please use logging like here, it will name the log record with the name of the module
 logger = logging.getLogger(__name__.rsplit('.')[-1])
 
 def ephemeris():
-    arm=ephem.Observer()
-    arm.pressure=730
-    arm.lon='-70.201266'
-    arm.lat='-24.598616'
-    arm.elev=2800
-    arm.pressure=730
-    #lt = time.strftime('%H:%M:%S %Y/%m/%d',time.localtime() )
-    lt = time.strftime('%H:%M:%S',time.localtime() )
-    sun = ephem.Sun()
-    sun.compute(arm)
-    #return str(lt).replace(' ','\n\n',1),str(sun.alt).split(':')[0]
-    return str(lt),str(sun.alt).split(':')[0]
+    lt = time.strftime('%H:%M:%S', time.localtime())
+    alt = sun_alt_deg(datetime.datetime.now(datetime.timezone.utc))
+    return lt, f'{alt:.0f}'
 
 
 class TouchButtonsWBedroom(QWidget):

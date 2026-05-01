@@ -11,43 +11,41 @@ from serverish.base import dt_ensure_datetime
 from serverish.base.task_manager import create_task_sync, create_task
 from serverish.messenger import Messenger, single_read, get_reader
 
-import ephem
+import datetime
 import time
 from astropy.time import Time as czas_astro
+
+from oca_monitor.utils.ephem_ocm import (
+    moon_state, next_sun_alt_event, sidereal_time_str, sun_alt_deg,
+)
+
 # please use logging like here, it will name the log record with the name of the module
 logger = logging.getLogger(__name__.rsplit('.')[-1])
 
 
 def ephemeris():
-    arm=ephem.Observer()
-    arm.pressure=730
-    #arm.horizon = '-0.5'
-    arm.lon='-70.201266'
-    arm.lat='-24.598616'
-    arm.elev=2800
-    arm.pressure=730
-    date = time.strftime('%Y%m%d',time.gmtime() )
-    ut = time.strftime('%Y/%m/%d %H:%M:%S',time.gmtime() )
-    t = czas_astro([ut.replace('/','-',2).replace(' ','T',1)])
-    jd = str(t.jd[0])[:12]
-    lt = time.strftime('%Y/%m/%d %H:%M:%S',time.localtime() )
-    arm.date = ut
-    sunset=str(arm.next_setting(ephem.Sun()))
-    sunrise=str(arm.next_rising(ephem.Sun()))
-    sun = ephem.Sun()
-    moon = ephem.Moon()
-    
-    sun.compute(arm)
-    moon.compute(arm)
-    moon_ph = moon.moon_phase
-    arm.horizon = '-18'
-    
-    lst = arm.sidereal_time()
-    if str(sun.alt)[0] == '-':
-        text = 'UT:\t'+ut+'\nSIDT:\t\t'+str(lst)+'\nJD:\t\t'+str("{:.2f}".format(float(jd)))+'\nSUNRISE(UT):\t'+sunrise[-8:]+'\nMOON PHASE[%]:\t'+str(int(float(moon_ph)*100))+'\nMOON ALT:\t\t'+str(moon.alt).split(':')[0]
+    now = datetime.datetime.now(datetime.timezone.utc)
+    ut = time.strftime('%Y/%m/%d %H:%M:%S', time.gmtime())
+    lt = time.strftime('%Y/%m/%d %H:%M:%S', time.localtime())
+    jd = czas_astro(now).jd
+    sun_alt = sun_alt_deg(now)
+    ms = moon_state(now)
+    moon_pct = int(ms['phase'] * 100)
+    moon_alt_int = int(round(ms['alt_deg']))
+    sidt = sidereal_time_str(now)
+    if sun_alt < 0:
+        rise = next_sun_alt_event(now, 0.0, 'rising')
+        rise_s = rise.strftime('%H:%M:%S') if rise else '—'
+        text = (f'UT:\t{ut}\nSIDT:\t\t{sidt}\nJD:\t\t{jd:.2f}'
+                f'\nSUNRISE(UT):\t{rise_s}\nMOON PHASE[%]:\t{moon_pct}'
+                f'\nMOON ALT:\t\t{moon_alt_int}')
     else:
-        text = 'UT:\t'+ut+'\nLT:\t\t'+lt+'\nSIDT:\t'+str(lst)+'\nJD:\t\t'+str("{:.2f}".format(float(jd)))+'\nSUNSET(UT):\t'+sunset[-8:]+'\nMOON PHASE[%]:\t'+str(int(float(moon_ph)*100))+'\nMOON ALT:\t\t'+str(moon.alt).split(':')[0]
-    return text,sun.alt
+        sset = next_sun_alt_event(now, 0.0, 'setting')
+        set_s = sset.strftime('%H:%M:%S') if sset else '—'
+        text = (f'UT:\t{ut}\nLT:\t\t{lt}\nSIDT:\t{sidt}\nJD:\t\t{jd:.2f}'
+                f'\nSUNSET(UT):\t{set_s}\nMOON PHASE[%]:\t{moon_pct}'
+                f'\nMOON ALT:\t\t{moon_alt_int}')
+    return text, sun_alt
         
 
 
