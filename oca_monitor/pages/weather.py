@@ -18,7 +18,6 @@ import math as _math
 import time
 from typing import Any, Dict, List, Optional, Sequence, Tuple
 
-import ephem
 import numpy as np
 from PyQt6 import QtCore, QtGui  # imported before matplotlib so qt_compat picks PyQt6
 from PyQt6.QtWidgets import QFrame, QHBoxLayout, QLabel, QVBoxLayout, QWidget
@@ -30,6 +29,7 @@ from serverish.base import dt_ensure_datetime, dt_from_array
 from serverish.base.task_manager import create_task
 from serverish.messenger import Messenger, get_reader
 
+from oca_monitor.utils.ephem_ocm import next_sun_alt_event, sun_alt_deg
 from oca_monitor.widgets import chart_kit as ck
 
 logger = logging.getLogger(__name__.rsplit('.')[-1])
@@ -41,22 +41,12 @@ logger = logging.getLogger(__name__.rsplit('.')[-1])
 
 def _ephemeris_parts() -> Tuple[str, float, str]:
     """Return ``(local_time_hms, sun_alt_deg, utc_hms)`` for the OCM site."""
-    obs = ephem.Observer()
-    obs.lon = '-70.201266'
-    obs.lat = '-24.598616'
-    obs.elev = 2800
-    obs.pressure = 730
-    ut_full = time.strftime('%Y/%m/%d %H:%M:%S', time.gmtime())
-    ut = time.strftime('%H:%M:%S', time.gmtime())
-    lt = time.strftime('%H:%M:%S', time.localtime())
-    obs.date = ut_full
-    sun = ephem.Sun()
-    sun.compute(obs)
-    parts = str(sun.alt).split(':')
-    deg = float(parts[0])
-    minutes = float(parts[1]) / 60.0
-    sun_alt = deg + minutes if not str(sun.alt).startswith('-') else deg - minutes
-    return lt, sun_alt, ut
+    now_utc = datetime.datetime.now(datetime.timezone.utc)
+    return (
+        time.strftime('%H:%M:%S', time.localtime()),
+        sun_alt_deg(now_utc),
+        now_utc.strftime('%H:%M:%S'),
+    )
 
 
 # ----------------------------------------------------------------------------
@@ -1215,14 +1205,13 @@ def _current_night_start_utc() -> datetime.datetime:
 
 def _next_sunset_utc() -> datetime.datetime:
     """Next OCM sunset event, as a UTC datetime."""
-    obs = ephem.Observer()
-    obs.lon = '-70.201266'
-    obs.lat = '-24.598616'
-    obs.elev = 2800
-    obs.pressure = 730
-    obs.date = time.strftime('%Y/%m/%d %H:%M:%S', time.gmtime())
-    return obs.next_setting(ephem.Sun()).datetime().replace(
-        tzinfo=datetime.timezone.utc)
+    now = datetime.datetime.now(datetime.timezone.utc)
+    t = next_sun_alt_event(now, 0.0, 'setting')
+    if t is None:
+        # Degenerate geometry (never reached at OCM); push to "tomorrow"
+        # as a safe fallback so any caller-side scheduler still ticks.
+        return now + datetime.timedelta(days=1)
+    return t
 
 
 # ----------------------------------------------------------------------------

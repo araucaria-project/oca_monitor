@@ -1,6 +1,6 @@
 [tool.poetry]
 name = "oca_monitor"
-version = "0.4.18" # Also change the version in oca_monitor_bases.py
+version = "0.4.19" # Also change the version in oca_monitor_bases.py
 description = "Flexible GUI for displaying telescopes and other OCM systems status"
 license = "MIT"
 authors = ["pwielgorski"]
@@ -19,7 +19,6 @@ python = "^3.10, <3.14"
 pyqt6 = {version="*"}
 opencv-python = "*"
 astropy = "*"
-ephem = "^4.2.1"
 matplotlib = "*"
 requests = "^2.33.1"
 serverish = {version="^2.0.1", extras=["messenger"]}
@@ -31,6 +30,7 @@ numpy = [
   { version = "^2.4.4", python = ">=3.11" },
   { version = "^1.26", python = ">=3.10,<3.11" }
 ]
+pyaraucaria = "^2.11.2"
 
 
 [tool.poetry.extras]

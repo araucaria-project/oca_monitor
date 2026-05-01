@@ -17,55 +17,23 @@ from __future__ import annotations
 
 import datetime
 import logging
-import math
 from typing import List, Optional, Sequence, Tuple
 from zoneinfo import ZoneInfo
 
-import ephem
 from PyQt6 import QtCore, QtGui
 from PyQt6.QtWidgets import (
     QFrame, QGridLayout, QHBoxLayout, QLabel, QSizePolicy, QVBoxLayout, QWidget
 )
 from qasync import asyncSlot
 
+from oca_monitor.utils.ephem_ocm import (
+    moon_state, next_moon_event, next_sun_alt_event, sidereal_time_str,
+)
+
 logger = logging.getLogger(__name__.rsplit('.')[-1])
 
 
 _WARSAW = ZoneInfo('Europe/Warsaw')
-
-_OCM_LON = '-70.201266'
-_OCM_LAT = '-24.598616'
-_OCM_ELEV = 2800
-_OCM_PRESSURE = 730
-
-
-def _ocm_observer(now_utc: datetime.datetime) -> ephem.Observer:
-    obs = ephem.Observer()
-    obs.lon = _OCM_LON
-    obs.lat = _OCM_LAT
-    obs.elev = _OCM_ELEV
-    obs.pressure = _OCM_PRESSURE
-    obs.date = now_utc.strftime('%Y/%m/%d %H:%M:%S')
-    return obs
-
-
-def _ephem_to_utc(t: 'ephem.Date') -> datetime.datetime:
-    return t.datetime().replace(tzinfo=datetime.timezone.utc)
-
-
-def _next_sun_alt_event(now_utc: datetime.datetime, alt_deg: float,
-                        kind: str) -> Optional[datetime.datetime]:
-    """``kind`` ∈ {'setting','rising'}; returns the next time the sun's
-    centre crosses ``alt_deg`` going down/up at OCM, or ``None`` if the
-    geometry is degenerate (sun never reaches that altitude)."""
-    obs = _ocm_observer(now_utc)
-    obs.horizon = str(alt_deg)
-    sun = ephem.Sun()
-    try:
-        t = obs.next_setting(sun) if kind == 'setting' else obs.next_rising(sun)
-    except (ephem.AlwaysUpError, ephem.NeverUpError):
-        return None
-    return _ephem_to_utc(t)
 
 
 def _format_countdown(delta: datetime.timedelta) -> str:
@@ -126,7 +94,9 @@ class SiteStatusWidget(QWidget):
                  evening_events: Optional[Sequence[float]] = None,
                  morning_events: Optional[Sequence[float]] = None,
                  water_subject: str = 'telemetry.water.level',
-                 water_capacity_m3: float = 12.0,
+                 water_capacity_m3: float = 15.0,
+                 water_warn_pct: float = 20.0,
+                 water_danger_pct: float = 10.0,
                  **kwargs) -> None:
         super().__init__()
         self.main_window = main_window
@@ -134,6 +104,8 @@ class SiteStatusWidget(QWidget):
         self.morning_events = list(morning_events or self.DEFAULT_MORNING_EVENTS)
         self.water_subject = water_subject
         self.water_capacity_m3 = float(water_capacity_m3)
+        self.water_warn_pct = float(water_warn_pct)
+        self.water_danger_pct = float(water_danger_pct)
         self.water_level_m3: Optional[float] = None
         self._init_ui()
         QtCore.QTimer.singleShot(0, self.async_init)
@@ -253,9 +225,15 @@ class SiteStatusWidget(QWidget):
             return
         if self.water_capacity_m3 > 0:
             pct = 100.0 * self.water_level_m3 / self.water_capacity_m3
+            if pct <= self.water_danger_pct:
+                pct_color = '#ff4d4d'  # red
+            elif pct <= self.water_warn_pct:
+                pct_color = '#ffaa33'  # orange
+            else:
+                pct_color = '#808080'  # gray (normal)
             self.lbl_water.setText(
                 f'💧 {self.water_level_m3:.1f} m³  '
-                f'<span style="color:#808080">{pct:.0f}%</span>')
+                f'<span style="color:{pct_color}">{pct:.0f}%</span>')
         else:
             self.lbl_water.setText(f"💧 {self.water_level_m3:.1f} m³")
 
@@ -271,53 +249,39 @@ class SiteStatusWidget(QWidget):
         self.lbl_lt.setText(now_local.strftime('%H:%M:%S'))
         self.lbl_cet.setText(now_warsaw.strftime('%H:%M:%S'))
         try:
-            obs = _ocm_observer(now)
-            sidt = str(obs.sidereal_time())
-            # ephem returns 'HH:MM:SS.ssssss' — trim fractional
-            self.lbl_sidt.setText(sidt.split('.')[0])
+            self.lbl_sidt.setText(sidereal_time_str(now))
         except Exception as e:
             logger.debug(f"sidereal_time failed: {e}")
 
         # Sun: next sunrise OR sunset (whichever is sooner)
-        try:
-            obs = _ocm_observer(now); obs.horizon = '0'
-            sun = ephem.Sun()
-            t_set = _ephem_to_utc(obs.next_setting(sun))
-            obs = _ocm_observer(now); obs.horizon = '0'
-            t_rise = _ephem_to_utc(obs.next_rising(sun))
-            if t_set < t_rise:
-                self.lbl_sun_next.setText(
-                    f"☀ ↓ {t_set.strftime('%H:%M')} UT  ({_format_countdown(t_set - now)})")
-            else:
-                self.lbl_sun_next.setText(
-                    f"☀ ↑ {t_rise.strftime('%H:%M')} UT  ({_format_countdown(t_rise - now)})")
-        except (ephem.AlwaysUpError, ephem.NeverUpError):
+        t_set = next_sun_alt_event(now, 0.0, 'setting')
+        t_rise = next_sun_alt_event(now, 0.0, 'rising')
+        if t_set is not None and (t_rise is None or t_set < t_rise):
+            self.lbl_sun_next.setText(
+                f"☀ ↓ {t_set.strftime('%H:%M')} UT  ({_format_countdown(t_set - now)})")
+        elif t_rise is not None:
+            self.lbl_sun_next.setText(
+                f"☀ ↑ {t_rise.strftime('%H:%M')} UT  ({_format_countdown(t_rise - now)})")
+        else:
             self.lbl_sun_next.setText("☀ —")
 
         # Moon: alt, phase, next event
         try:
-            obs = _ocm_observer(now)
-            moon = ephem.Moon()
-            moon.compute(obs)
-            moon_alt_deg = float(moon.alt) * 180.0 / math.pi
-            moon_phase_pct = float(moon.moon_phase) * 100.0
-            try:
-                next_full = ephem.next_full_moon(obs.date)
-                next_new = ephem.next_new_moon(obs.date)
-                waxing = float(next_full) < float(next_new)
-            except Exception:
-                waxing = True
-            emoji = _moon_emoji(moon_phase_pct, waxing)
+            ms = moon_state(now)
+            moon_alt_deg = ms['alt_deg']
+            moon_phase_pct = ms['phase'] * 100.0
+            emoji = _moon_emoji(moon_phase_pct, ms['waxing'])
             self.lbl_moon_state.setText(
                 f"☽ {moon_alt_deg:+.0f}°   {emoji}  {moon_phase_pct:.0f}%")
-            obs = _ocm_observer(now); obs.horizon = '0'
-            if moon_alt_deg > 0:
-                t = _ephem_to_utc(obs.next_setting(moon))
-                self.lbl_moon_next.setText(f"   moonset {t.strftime('%H:%M')} UT")
+            kind = 'setting' if moon_alt_deg > 0 else 'rising'
+            t = next_moon_event(now, kind)
+            if t is not None:
+                label = 'moonset' if kind == 'setting' else 'moonrise'
+                self.lbl_moon_next.setText(f"   {label} {t.strftime('%H:%M')} UT")
             else:
-                t = _ephem_to_utc(obs.next_rising(moon))
-                self.lbl_moon_next.setText(f"   moonrise {t.strftime('%H:%M')} UT")
-        except (ephem.AlwaysUpError, ephem.NeverUpError):
+                self.lbl_moon_next.setText("")
+        except Exception as e:
+            logger.debug(f"moon update failed: {e}")
             self.lbl_moon_next.setText("")
 
         # Water level (text refresh — value comes from NATS callback)
@@ -329,11 +293,11 @@ class SiteStatusWidget(QWidget):
     def _update_event_timers(self, now: datetime.datetime) -> None:
         events: List[Tuple[float, str, datetime.datetime]] = []
         for alt in self.evening_events:
-            t = _next_sun_alt_event(now, alt, 'setting')
+            t = next_sun_alt_event(now, alt, 'setting')
             if t is not None:
                 events.append((alt, 'setting', t))
         for alt in self.morning_events:
-            t = _next_sun_alt_event(now, alt, 'rising')
+            t = next_sun_alt_event(now, alt, 'rising')
             if t is not None:
                 events.append((alt, 'rising', t))
         events.sort(key=lambda e: e[2])
