@@ -270,6 +270,117 @@ def running_mean(values, window: int = 11):
     return np.convolve(padded, kernel, mode='valid')[:n]
 
 
+# ---- Time-binned series ----------------------------------------------------
+#
+# Time-domain binning + smoothing pipeline. Panels that plot
+# hour-of-day telemetry append samples to a TimeBinSeries (O(1)) and
+# at render time materialize per-bin (mean, min, max) and smooth with
+# ``time_smooth_bins`` whose sigma is expressed in minutes. The result
+# is shape-stable: more samples fill in empty bins rather than
+# reshaping the curve, and smoothness is independent of telemetry
+# rate.
+
+BIN_WIDTH_S = 60.0   # default 60-second bins on a 24-hour axis
+DAY_HOURS = 24.0
+
+
+class TimeBinSeries:
+    """Fixed-grid time-binned series on a 24-hour axis.
+
+    Anchor: the bin index is computed purely from ``hour_of_day``,
+    so a TimeBinSeries instance is implicitly tied to ONE calendar
+    day (today OR yesterday — the panel keeps two of them).
+
+    Each bin tracks ``(count, sum, min, max)``. ``mean``/``mn``/``mx``
+    properties materialize numpy arrays with NaN where ``count == 0``,
+    so a gap in the telemetry shows as a gap in the chart instead of
+    being filled by extrapolation or interpolation.
+    """
+
+    def __init__(self, bin_width_s: float = BIN_WIDTH_S):
+        self.bin_width_s = float(bin_width_s)
+        self.n = int(round(DAY_HOURS * 3600.0 / self.bin_width_s))
+        self._sum = np.zeros(self.n, dtype=np.float64)
+        self._cnt = np.zeros(self.n, dtype=np.int32)
+        self._min = np.full(self.n, np.inf, dtype=np.float64)
+        self._max = np.full(self.n, -np.inf, dtype=np.float64)
+
+    def append(self, hour_of_day: float, value: float) -> None:
+        if not np.isfinite(value):
+            return
+        if not (0.0 <= hour_of_day < DAY_HOURS):
+            return
+        idx = int(hour_of_day * 3600.0 / self.bin_width_s)
+        if idx >= self.n:
+            idx = self.n - 1
+        self._sum[idx] += value
+        self._cnt[idx] += 1
+        if value < self._min[idx]:
+            self._min[idx] = value
+        if value > self._max[idx]:
+            self._max[idx] = value
+
+    def reset(self) -> None:
+        self._sum.fill(0.0)
+        self._cnt.fill(0)
+        self._min.fill(np.inf)
+        self._max.fill(-np.inf)
+
+    def has_data(self) -> bool:
+        return bool(self._cnt.any())
+
+    @property
+    def centres(self) -> np.ndarray:
+        """Bin-centre x-positions in hour-of-day."""
+        return (np.arange(self.n) + 0.5) * self.bin_width_s / 3600.0
+
+    @property
+    def mean(self) -> np.ndarray:
+        out = np.full(self.n, np.nan, dtype=np.float64)
+        mask = self._cnt > 0
+        np.divide(self._sum, self._cnt, out=out, where=mask)
+        return out
+
+    @property
+    def mn(self) -> np.ndarray:
+        return np.where(self._cnt > 0, self._min, np.nan)
+
+    @property
+    def mx(self) -> np.ndarray:
+        return np.where(self._cnt > 0, self._max, np.nan)
+
+
+def time_smooth_bins(values, sigma_minutes: float,
+                     bin_width_s: float = BIN_WIDTH_S):
+    """Gaussian-smooth a binned series along the TIME axis.
+
+    σ is in minutes (physical) so the smoothness is independent of bin
+    width and telemetry density. NaN bins (empty) are mask-aware: the
+    kernel divides by the convolved validity mask, so a gap surfaces
+    as NaN in the output rather than getting filled by extrapolation.
+    """
+    a = np.asarray(values, dtype=np.float64)
+    n = a.size
+    if n == 0 or sigma_minutes <= 0:
+        return a.copy()
+    sigma_bins = max(0.5, sigma_minutes * 60.0 / bin_width_s)
+    radius = int(np.ceil(sigma_bins * 3.0))
+    if radius < 1:
+        return a.copy()
+    if radius >= n:
+        radius = n - 1
+    k = np.arange(-radius, radius + 1, dtype=np.float64)
+    kernel = np.exp(-0.5 * (k / sigma_bins) ** 2)
+    kernel /= kernel.sum()
+    valid = np.isfinite(a).astype(np.float64)
+    filled = np.where(np.isfinite(a), a, 0.0)
+    num = np.convolve(filled, kernel, mode='same')
+    den = np.convolve(valid, kernel, mode='same')
+    out = np.full(n, np.nan, dtype=np.float64)
+    np.divide(num, den, out=out, where=den > 1e-9)
+    return out
+
+
 # ---- Zone bands ------------------------------------------------------------
 
 def wind_zone_bands(ax: Axes, *, top: float = 35.0) -> None:

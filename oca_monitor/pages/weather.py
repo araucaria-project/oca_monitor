@@ -153,13 +153,20 @@ class _SimpleSeriesPanel(_Panel):
 
     live_subject_kind = 'weather'
 
+    # Smoothing σ (minutes, time-domain) and envelope toggles. Subclasses
+    # / factory callers override via constructor kwargs.
+    DEFAULT_SIGMA_MIN = 3.0
+
     def __init__(self, *, measurement_key: str, y_label: str,
                  today_color: str,
                  y_min: Optional[float] = None, y_max: Optional[float] = None,
                  reject_above: Optional[float] = None,
                  reject_below: Optional[float] = None,
                  zone_drawer=None,
-                 smooth_window: int = 1,
+                 sigma_minutes: Optional[float] = None,
+                 show_envelope_today: bool = True,
+                 show_envelope_yesterday: bool = False,
+                 envelope_alpha: float = 0.18,
                  overlay_unit: Optional[str] = None,
                  overlay_format: str = '{:.1f}',
                  warn_above: Optional[float] = None,
@@ -175,19 +182,26 @@ class _SimpleSeriesPanel(_Panel):
         self.reject_above = reject_above
         self.reject_below = reject_below
         self.zone_drawer = zone_drawer
-        self.smooth_window = max(1, int(smooth_window))
+        self.sigma_minutes = float(
+            sigma_minutes if sigma_minutes is not None else self.DEFAULT_SIGMA_MIN)
+        self.show_envelope_today = bool(show_envelope_today)
+        self.show_envelope_yesterday = bool(show_envelope_yesterday)
+        self.envelope_alpha = float(envelope_alpha)
         self.overlay_unit = overlay_unit
         self.overlay_format = overlay_format
         self.warn_above = warn_above
         self.danger_above = danger_above
         self.warn_below = warn_below
         self.danger_below = danger_below
-        self._today_x: List[float] = []
-        self._today_y: List[float] = []
-        self._yesterday_x: List[float] = []
-        self._yesterday_y: List[float] = []
+        # Time-binned storage — replaces the old per-sample lists. One
+        # bin series for today, one for yesterday; midnight rollover
+        # swaps them.
+        self._bin_today = ck.TimeBinSeries()
+        self._bin_yesterday = ck.TimeBinSeries()
         self._line_today = None
         self._line_yesterday = None
+        self._fill_today = None
+        self._fill_yesterday = None
 
     def alert_color(self, msm):
         try:
@@ -235,20 +249,47 @@ class _SimpleSeriesPanel(_Panel):
         return True
 
     def render(self) -> None:
-        if not self._dirty:
+        if not self._dirty or self.ax is None:
             return
-        max_pts = 400
-        if self._line_today is not None and self._today_x:
-            x, y = ck.decimate_xy(self._today_x, self._today_y, max_points=max_pts)
-            self._line_today.set_data(x, y)
-        if self._line_yesterday is not None and self._yesterday_x:
-            x, y = ck.decimate_xy(self._yesterday_x, self._yesterday_y,
-                                  max_points=max_pts)
-            self._line_yesterday.set_data(x, y)
-        if self.y_min is None and self.y_max is None and self.ax is not None:
+        self._render_one(self._bin_today, self._line_today,
+                         is_yesterday=False)
+        self._render_one(self._bin_yesterday, self._line_yesterday,
+                         is_yesterday=True)
+        if self.y_min is None and self.y_max is None:
             self.ax.relim()
             self.ax.autoscale_view(scalex=False, scaley=True)
         self._dirty = False
+
+    def _render_one(self, bins: 'ck.TimeBinSeries', line, *,
+                    is_yesterday: bool) -> None:
+        """Bin → time-domain smooth → set_data on the line, plus
+        optional min/max envelope as a fill_between recreated each render."""
+        if line is None or not bins.has_data():
+            return
+        xs = bins.centres
+        ys = ck.time_smooth_bins(bins.mean, sigma_minutes=self.sigma_minutes,
+                                 bin_width_s=bins.bin_width_s)
+        line.set_data(xs, ys)
+        envelope_on = (
+            self.show_envelope_yesterday if is_yesterday
+            else self.show_envelope_today)
+        attr = '_fill_yesterday' if is_yesterday else '_fill_today'
+        old = getattr(self, attr)
+        if old is not None:
+            try:
+                old.remove()
+            except (ValueError, AttributeError):
+                pass
+            setattr(self, attr, None)
+        if envelope_on:
+            lo = ck.time_smooth_bins(bins.mn, sigma_minutes=self.sigma_minutes,
+                                     bin_width_s=bins.bin_width_s)
+            hi = ck.time_smooth_bins(bins.mx, sigma_minutes=self.sigma_minutes,
+                                     bin_width_s=bins.bin_width_s)
+            alpha = (self.envelope_alpha * 0.6) if is_yesterday else self.envelope_alpha
+            setattr(self, attr,
+                    self.ax.fill_between(xs, lo, hi, color=self.today_color,
+                                         alpha=alpha, linewidth=0, zorder=2))
 
     def on_weather(self, hour, ts, msm, *, is_yesterday) -> None:
         try:
@@ -257,17 +298,13 @@ class _SimpleSeriesPanel(_Panel):
             return
         if not self._accepts(value):
             return
-        if is_yesterday:
-            self._yesterday_x.append(hour)
-            self._yesterday_y.append(value)
-        else:
-            self._today_x.append(hour)
-            self._today_y.append(value)
+        target = self._bin_yesterday if is_yesterday else self._bin_today
+        target.append(hour, value)
         self._dirty = True
 
     def on_midnight_rollover(self) -> None:
-        self._yesterday_x, self._yesterday_y = self._today_x, self._today_y
-        self._today_x, self._today_y = [], []
+        # Yesterday inherits today's bins wholesale; today resets.
+        self._bin_today, self._bin_yesterday = ck.TimeBinSeries(), self._bin_today
         self._dirty = True
 
 
@@ -284,6 +321,7 @@ class _WindPanel(_SimpleSeriesPanel):
             reject_above=danger_ms * 3.0,
             reject_below=0.0,
             zone_drawer=ck.wind_zone_bands,
+            sigma_minutes=1.0,   # wind: keep gusts; only smooth out reading noise
             warn_above=warn_ms,
             danger_above=danger_ms,
         )
@@ -373,29 +411,30 @@ class _HumidityPressurePanel(_Panel):
     title = 'Humidity  [%]'
     title_right = 'Pressure  [hPa]'
 
-    HUM_SMOOTH = 11      # ~11 minutes at 1 Hz Davis cadence
-    PRES_SMOOTH = 21     # ~20 minutes — pressure changes very slowly
+    SIGMA_HUM_MIN = 5.0     # humidity drifts on minutes-scale
+    SIGMA_PRES_MIN = 10.0   # pressure changes very slowly
+    SHOW_ENVELOPE_HUM = True
+    SHOW_ENVELOPE_PRES = True
 
     def __init__(self, *, warn_pct: float = 70.0,
                  danger_pct: float = 75.0) -> None:
         super().__init__()
         self.warn_pct = float(warn_pct)
         self.danger_pct = float(danger_pct)
-        self.draw_max_points = 400
         self.ax_p = None
-        self._h_today_x: List[float] = []
-        self._h_today_y: List[float] = []
-        self._h_yest_x: List[float] = []
-        self._h_yest_y: List[float] = []
-        self._p_today_x: List[float] = []
-        self._p_today_y: List[float] = []
-        self._p_yest_x: List[float] = []
-        self._p_yest_y: List[float] = []
+        # Time-binned storage. Humidity and pressure each get their own
+        # today + yesterday bin series.
+        self._h_today = ck.TimeBinSeries()
+        self._h_yest = ck.TimeBinSeries()
+        self._p_today = ck.TimeBinSeries()
+        self._p_yest = ck.TimeBinSeries()
         self._line_h_today = None
         self._line_h_yest = None
         self._fill_h_today = None
+        self._fill_h_envelope = None
         self._line_p_today = None
         self._line_p_yest = None
+        self._fill_p_envelope = None
 
     def init_axes(self, ax) -> None:
         super().init_axes(ax)
@@ -460,44 +499,87 @@ class _HumidityPressurePanel(_Panel):
         if self._overlay_p is not None:
             self._overlay_p.set_text(f"{pres:.0f} hPa")
 
-    def _bin(self, x, y, max_pts: int):
-        if not x:
-            return [], []
-        return ck.decimate_xy(x, y, max_points=max_pts)
-
     def render(self) -> None:
         if not self._dirty or self.ax is None:
             return
-        max_pts = self.draw_max_points
-        # Humidity (left axis)
-        if self._line_h_today is not None:
-            x, y = self._bin(self._h_today_x, self._h_today_y, max_pts)
-            self._line_h_today.set_data(x, y)
-        if self._line_h_yest is not None:
-            x, y = self._bin(self._h_yest_x, self._h_yest_y, max_pts)
-            self._line_h_yest.set_data(x, y)
-        # Humidity fill (recreated each render — fill_between has no set_data)
-        if self._fill_h_today is not None:
+        # ---- Humidity (left axis) ----
+        self._render_today_hum()
+        self._render_yest_hum()
+        # ---- Pressure (twin axis) ----
+        self._render_today_pres()
+        self._render_yest_pres()
+        self._dirty = False
+
+    @staticmethod
+    def _remove(artist):
+        if artist is not None:
             try:
-                self._fill_h_today.remove()
+                artist.remove()
             except (ValueError, AttributeError):
                 pass
-            self._fill_h_today = None
-        if self._h_today_x:
-            x, y = self._bin(self._h_today_x, self._h_today_y, max_pts)
-            self._fill_h_today = self.ax.fill_between(
-                x, 0, y, color=ck.COLOR_HUMIDITY, alpha=0.18, linewidth=0, zorder=3)
-        # Pressure (right axis)
-        if self._line_p_today is not None:
-            x, y = self._bin(self._p_today_x, self._p_today_y, max_pts)
-            self._line_p_today.set_data(x, y)
-        if self._line_p_yest is not None:
-            x, y = self._bin(self._p_yest_x, self._p_yest_y, max_pts)
-            self._line_p_yest.set_data(x, y)
-        if self.ax_p is not None:
-            self.ax_p.relim()
-            self.ax_p.autoscale_view(scalex=False, scaley=True)
-        self._dirty = False
+
+    def _render_today_hum(self) -> None:
+        bins = self._h_today
+        if not bins.has_data():
+            return
+        xs = bins.centres
+        ys = ck.time_smooth_bins(bins.mean, sigma_minutes=self.SIGMA_HUM_MIN,
+                                 bin_width_s=bins.bin_width_s)
+        if self._line_h_today is not None:
+            self._line_h_today.set_data(xs, ys)
+        # Filled-area-from-zero for humidity (visual identity for this panel)
+        self._remove(self._fill_h_today)
+        self._fill_h_today = self.ax.fill_between(
+            xs, 0, ys, color=ck.COLOR_HUMIDITY, alpha=0.18,
+            linewidth=0, zorder=3)
+        # Min/max variability envelope (toggleable)
+        self._remove(self._fill_h_envelope)
+        self._fill_h_envelope = None
+        if self.SHOW_ENVELOPE_HUM:
+            lo = ck.time_smooth_bins(bins.mn, sigma_minutes=self.SIGMA_HUM_MIN,
+                                     bin_width_s=bins.bin_width_s)
+            hi = ck.time_smooth_bins(bins.mx, sigma_minutes=self.SIGMA_HUM_MIN,
+                                     bin_width_s=bins.bin_width_s)
+            self._fill_h_envelope = self.ax.fill_between(
+                xs, lo, hi, color=ck.COLOR_HUMIDITY, alpha=0.10,
+                linewidth=0, zorder=2)
+
+    def _render_yest_hum(self) -> None:
+        bins = self._h_yest
+        if self._line_h_yest is None or not bins.has_data():
+            return
+        xs = bins.centres
+        ys = ck.time_smooth_bins(bins.mean, sigma_minutes=self.SIGMA_HUM_MIN,
+                                 bin_width_s=bins.bin_width_s)
+        self._line_h_yest.set_data(xs, ys)
+
+    def _render_today_pres(self) -> None:
+        bins = self._p_today
+        if self._line_p_today is None or self.ax_p is None or not bins.has_data():
+            return
+        xs = bins.centres
+        ys = ck.time_smooth_bins(bins.mean, sigma_minutes=self.SIGMA_PRES_MIN,
+                                 bin_width_s=bins.bin_width_s)
+        self._line_p_today.set_data(xs, ys)
+        self._remove(self._fill_p_envelope)
+        self._fill_p_envelope = None
+        if self.SHOW_ENVELOPE_PRES:
+            lo = ck.time_smooth_bins(bins.mn, sigma_minutes=self.SIGMA_PRES_MIN,
+                                     bin_width_s=bins.bin_width_s)
+            hi = ck.time_smooth_bins(bins.mx, sigma_minutes=self.SIGMA_PRES_MIN,
+                                     bin_width_s=bins.bin_width_s)
+            self._fill_p_envelope = self.ax_p.fill_between(
+                xs, lo, hi, color=ck.COLOR_PRESSURE, alpha=0.10,
+                linewidth=0, zorder=2)
+
+    def _render_yest_pres(self) -> None:
+        bins = self._p_yest
+        if self._line_p_yest is None or not bins.has_data():
+            return
+        xs = bins.centres
+        ys = ck.time_smooth_bins(bins.mean, sigma_minutes=self.SIGMA_PRES_MIN,
+                                 bin_width_s=bins.bin_width_s)
+        self._line_p_yest.set_data(xs, ys)
 
     def on_weather(self, hour, ts, msm, *, is_yesterday) -> None:
         try:
@@ -511,23 +593,15 @@ class _HumidityPressurePanel(_Panel):
             pres = None
 
         if hum is not None and 0.0 <= hum <= 100.0:
-            if is_yesterday:
-                self._h_yest_x.append(hour); self._h_yest_y.append(hum)
-            else:
-                self._h_today_x.append(hour); self._h_today_y.append(hum)
+            (self._h_yest if is_yesterday else self._h_today).append(hour, hum)
             self._dirty = True
         if pres is not None and 600.0 < pres < 1100.0:
-            if is_yesterday:
-                self._p_yest_x.append(hour); self._p_yest_y.append(pres)
-            else:
-                self._p_today_x.append(hour); self._p_today_y.append(pres)
+            (self._p_yest if is_yesterday else self._p_today).append(hour, pres)
             self._dirty = True
 
     def on_midnight_rollover(self) -> None:
-        self._h_yest_x, self._h_yest_y = self._h_today_x, self._h_today_y
-        self._p_yest_x, self._p_yest_y = self._p_today_x, self._p_today_y
-        self._h_today_x, self._h_today_y = [], []
-        self._p_today_x, self._p_today_y = [], []
+        self._h_today, self._h_yest = ck.TimeBinSeries(), self._h_today
+        self._p_today, self._p_yest = ck.TimeBinSeries(), self._p_today
         self._dirty = True
 
 
@@ -554,10 +628,16 @@ class _PowerPanel(_Panel):
     title = 'Battery  [%]'
     title_right = 'Solar / Load  [W]'
 
-    # ``telemetry.power.data-manager`` ticks at ~5 s/sample (~12/min); window
-    # sized so the chart breathes at minutes-scale, not flickers per sample.
-    SOC_SMOOTH = 60   # ~5 min
-    KW_SMOOTH = 60    # ~5 min
+    # Time-domain smoothing (minutes). Power telemetry ticks at ~5 s; we
+    # bin to 60 s and smooth in time so the curve shape doesn't depend
+    # on sample density.
+    SIGMA_KW_MIN = 3.0
+    SIGMA_SOC_MIN = 3.0
+    # Per-series envelope toggles. SoC envelope is mostly flat (slow,
+    # quasi-monotone), so it just clutters the area fill — off by default.
+    SHOW_ENVELOPE_PV = True
+    SHOW_ENVELOPE_LOAD = True
+    SHOW_ENVELOPE_SOC = False
 
     # ``pv_power`` / battery flow sanity bounds; anything outside is treated
     # as a sentinel/garbage reading and dropped.
@@ -570,27 +650,24 @@ class _PowerPanel(_Panel):
         super().__init__()
         self.soc_warn_pct = float(soc_warn_pct)
         self.soc_danger_pct = float(soc_danger_pct)
-        self.draw_max_points = 400
         self.ax_p = None
-        self._soc_today_x: List[float] = []
-        self._soc_today_y: List[float] = []
-        self._soc_yest_x: List[float] = []
-        self._soc_yest_y: List[float] = []
-        self._pv_today_x: List[float] = []
-        self._pv_today_y: List[float] = []
-        self._pv_yest_x: List[float] = []
-        self._pv_yest_y: List[float] = []
-        self._load_today_x: List[float] = []
-        self._load_today_y: List[float] = []
-        self._load_yest_x: List[float] = []
-        self._load_yest_y: List[float] = []
+        # Time-binned storage — three metrics × today/yesterday.
+        self._soc_today = ck.TimeBinSeries()
+        self._soc_yest = ck.TimeBinSeries()
+        self._pv_today = ck.TimeBinSeries()
+        self._pv_yest = ck.TimeBinSeries()
+        self._load_today = ck.TimeBinSeries()
+        self._load_yest = ck.TimeBinSeries()
         self._line_soc_today = None
         self._line_soc_yest = None
-        self._fill_soc_today = None
+        self._fill_soc_today = None      # area-from-zero (SoC visual)
+        self._fill_soc_envelope = None   # min/max envelope (off by default)
         self._line_pv_today = None
         self._line_pv_yest = None
+        self._fill_pv_envelope = None
         self._line_load_today = None
         self._line_load_yest = None
+        self._fill_load_envelope = None
         self._overlay_soc = None
         self._overlay_kw = None
 
@@ -684,56 +761,93 @@ class _PowerPanel(_Panel):
 
     # ---- redraws ----
 
-    def _bin(self, x, y):
-        if not x:
-            return [], []
-        return ck.decimate_xy(x, y, max_points=self.draw_max_points)
+    @staticmethod
+    def _remove(artist):
+        if artist is not None:
+            try:
+                artist.remove()
+            except (ValueError, AttributeError):
+                pass
+
+    def _smoothed(self, bins: 'ck.TimeBinSeries', sigma_min: float):
+        """Return ``(xs, mean, mn, mx)`` smoothed in time."""
+        xs = bins.centres
+        mean = ck.time_smooth_bins(bins.mean, sigma_minutes=sigma_min,
+                                   bin_width_s=bins.bin_width_s)
+        mn = ck.time_smooth_bins(bins.mn, sigma_minutes=sigma_min,
+                                 bin_width_s=bins.bin_width_s)
+        mx = ck.time_smooth_bins(bins.mx, sigma_minutes=sigma_min,
+                                 bin_width_s=bins.bin_width_s)
+        return xs, mean, mn, mx
 
     def render(self) -> None:
         if not self._dirty or self.ax is None:
             return
-        # SOC line + fill
-        if self._line_soc_today is not None:
-            x, y = self._bin(self._soc_today_x, self._soc_today_y)
-            self._line_soc_today.set_data(x, y)
-        if self._line_soc_yest is not None:
-            x, y = self._bin(self._soc_yest_x, self._soc_yest_y)
-            self._line_soc_yest.set_data(x, y)
-        if self._fill_soc_today is not None:
-            try:
-                self._fill_soc_today.remove()
-            except (ValueError, AttributeError):
-                pass
-            self._fill_soc_today = None
-        if self._soc_today_x:
-            x, y = self._bin(self._soc_today_x, self._soc_today_y)
+        # ---- SoC (left axis) ----
+        if self._soc_today.has_data():
+            xs, mean, mn, mx = self._smoothed(self._soc_today, self.SIGMA_SOC_MIN)
+            if self._line_soc_today is not None:
+                self._line_soc_today.set_data(xs, mean)
+            self._remove(self._fill_soc_today)
             self._fill_soc_today = self.ax.fill_between(
-                x, 0, y, color=ck.COLOR_BATTERY, alpha=0.18, linewidth=0, zorder=3)
-        # Solar/Load lines
-        for line, x_list, y_list in (
-            (self._line_pv_today, self._pv_today_x, self._pv_today_y),
-            (self._line_pv_yest, self._pv_yest_x, self._pv_yest_y),
-            (self._line_load_today, self._load_today_x, self._load_today_y),
-            (self._line_load_yest, self._load_yest_x, self._load_yest_y),
-        ):
-            if line is not None:
-                x, y = self._bin(x_list, y_list)
-                line.set_data(x, y)
+                xs, 0, mean, color=ck.COLOR_BATTERY, alpha=0.18,
+                linewidth=0, zorder=3)
+            self._remove(self._fill_soc_envelope)
+            self._fill_soc_envelope = None
+            if self.SHOW_ENVELOPE_SOC:
+                self._fill_soc_envelope = self.ax.fill_between(
+                    xs, mn, mx, color=ck.COLOR_BATTERY, alpha=0.10,
+                    linewidth=0, zorder=2)
+        if self._soc_yest.has_data() and self._line_soc_yest is not None:
+            xs, mean, _, _ = self._smoothed(self._soc_yest, self.SIGMA_SOC_MIN)
+            self._line_soc_yest.set_data(xs, mean)
+        # ---- PV / Load (right twin axis) ----
+        self._render_kw_today(self._pv_today, self._line_pv_today,
+                              ck.COLOR_SOLAR, self.SHOW_ENVELOPE_PV,
+                              '_fill_pv_envelope')
+        self._render_kw_today(self._load_today, self._line_load_today,
+                              ck.COLOR_LOAD, self.SHOW_ENVELOPE_LOAD,
+                              '_fill_load_envelope')
+        if self._pv_yest.has_data() and self._line_pv_yest is not None:
+            xs, mean, _, _ = self._smoothed(self._pv_yest, self.SIGMA_KW_MIN)
+            self._line_pv_yest.set_data(xs, mean)
+        if self._load_yest.has_data() and self._line_load_yest is not None:
+            xs, mean, _, _ = self._smoothed(self._load_yest, self.SIGMA_KW_MIN)
+            self._line_load_yest.set_data(xs, mean)
+        # Manual right-axis y-bound: set_ylim(bottom=0) in init_axes
+        # pinned the bottom but the autoscaler is disabled, so we
+        # compute the top from the smoothed values (ignoring NaN) of
+        # all four PV/Load series.
         if self.ax_p is not None:
-            # Compute the y range manually — ``set_ylim(bottom=0)`` in
-            # init_axes disables the autoscaler on this axis, so neither
-            # ``relim`` nor ``autoscale_view`` reliably re-bounds it as
-            # data flows in.
-            all_y: List[float] = []
-            for ys in (self._pv_today_y, self._pv_yest_y,
-                       self._load_today_y, self._load_yest_y):
-                all_y.extend(ys)
-            if all_y:
-                top = max(all_y)
-                if top <= 0:
-                    top = 100.0
-                self.ax_p.set_ylim(0, top * 1.10)
+            top = 0.0
+            for bins, sigma in ((self._pv_today, self.SIGMA_KW_MIN),
+                                (self._pv_yest, self.SIGMA_KW_MIN),
+                                (self._load_today, self.SIGMA_KW_MIN),
+                                (self._load_yest, self.SIGMA_KW_MIN)):
+                if bins.has_data():
+                    smoothed = ck.time_smooth_bins(
+                        bins.mx, sigma_minutes=sigma,
+                        bin_width_s=bins.bin_width_s)
+                    finite = smoothed[np.isfinite(smoothed)]
+                    if finite.size:
+                        top = max(top, float(finite.max()))
+            if top <= 0:
+                top = 100.0
+            self.ax_p.set_ylim(0, top * 1.10)
         self._dirty = False
+
+    def _render_kw_today(self, bins, line, color, show_envelope, attr):
+        if not bins.has_data() or line is None or self.ax_p is None:
+            return
+        xs, mean, mn, mx = self._smoothed(bins, self.SIGMA_KW_MIN)
+        line.set_data(xs, mean)
+        self._remove(getattr(self, attr))
+        setattr(self, attr, None)
+        if show_envelope:
+            setattr(self, attr,
+                    self.ax_p.fill_between(xs, mn, mx, color=color,
+                                           alpha=0.12, linewidth=0,
+                                           zorder=2))
 
     # ---- data hooks ----
 
@@ -745,20 +859,15 @@ class _PowerPanel(_Panel):
         pv, load = self._compute_balance(msm)
 
         if soc is not None and 0.0 <= soc <= 100.0:
-            (self._soc_yest_x if is_yesterday else self._soc_today_x).append(hour)
-            (self._soc_yest_y if is_yesterday else self._soc_today_y).append(soc)
+            (self._soc_yest if is_yesterday else self._soc_today).append(hour, soc)
             self._dirty = True
         if pv is not None:
-            (self._pv_yest_x if is_yesterday else self._pv_today_x).append(hour)
-            (self._pv_yest_y if is_yesterday else self._pv_today_y).append(pv)
+            (self._pv_yest if is_yesterday else self._pv_today).append(hour, pv)
             self._dirty = True
         if load is not None:
-            # Plot load as POSITIVE so it overlaps PV in the same region —
-            # the chart stays compact and "consumption above zero" reads
-            # naturally. The overlay text still negates the load value
-            # for the source/sink convention.
-            (self._load_yest_x if is_yesterday else self._load_today_x).append(hour)
-            (self._load_yest_y if is_yesterday else self._load_today_y).append(load)
+            # Plot load POSITIVE on the same axis as PV — overlay text
+            # still negates load for source/sink reading.
+            (self._load_yest if is_yesterday else self._load_today).append(hour, load)
             self._dirty = True
 
     def on_live_summary(self, msm) -> None:
@@ -778,12 +887,9 @@ class _PowerPanel(_Panel):
                 f"{self._fmt_kw(pv)} / {self._fmt_kw(load_neg)} kW")
 
     def on_midnight_rollover(self) -> None:
-        self._soc_yest_x, self._soc_yest_y = self._soc_today_x, self._soc_today_y
-        self._pv_yest_x, self._pv_yest_y = self._pv_today_x, self._pv_today_y
-        self._load_yest_x, self._load_yest_y = self._load_today_x, self._load_today_y
-        self._soc_today_x, self._soc_today_y = [], []
-        self._pv_today_x, self._pv_today_y = [], []
-        self._load_today_x, self._load_today_y = [], []
+        self._soc_today, self._soc_yest = ck.TimeBinSeries(), self._soc_today
+        self._pv_today, self._pv_yest = ck.TimeBinSeries(), self._pv_today
+        self._load_today, self._load_yest = ck.TimeBinSeries(), self._load_today
         self._dirty = True
 
 
@@ -1293,7 +1399,7 @@ class WeatherDataWidget(QWidget):
                     y_label='Temperature  [°C]',
                     today_color=ck.COLOR_TEMPERATURE,
                     reject_above=60.0, reject_below=-30.0,
-                    smooth_window=5,  # 5 min — temp can swing faster than humid/pres
+                    sigma_minutes=5.0,  # temp swings faster than humid/pres
                     overlay_unit='°C',
                     danger_below=self.temperature_danger_c,
                 ))
