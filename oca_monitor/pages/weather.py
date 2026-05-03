@@ -160,6 +160,8 @@ class _SimpleSeriesPanel(_Panel):
     def __init__(self, *, measurement_key: str, y_label: str,
                  today_color: str,
                  y_min: Optional[float] = None, y_max: Optional[float] = None,
+                 y_min_initial: Optional[float] = None,
+                 y_max_initial: Optional[float] = None,
                  reject_above: Optional[float] = None,
                  reject_below: Optional[float] = None,
                  zone_drawer=None,
@@ -179,6 +181,11 @@ class _SimpleSeriesPanel(_Panel):
         self.today_color = today_color
         self.y_min = y_min
         self.y_max = y_max
+        # Sticky bounds: autoscale may grow the range past these, but never
+        # shrink below them. Lets a fresh chart start at a sensible scale
+        # instead of zooming into reading noise around the first sample.
+        self.y_min_initial = y_min_initial
+        self.y_max_initial = y_max_initial
         self.reject_above = reject_above
         self.reject_below = reject_below
         self.zone_drawer = zone_drawer
@@ -232,6 +239,11 @@ class _SimpleSeriesPanel(_Panel):
         if self.y_min is not None or self.y_max is not None:
             ax.set_ylim(self.y_min if self.y_min is not None else ax.get_ylim()[0],
                         self.y_max if self.y_max is not None else ax.get_ylim()[1])
+        elif self.y_min_initial is not None or self.y_max_initial is not None:
+            cur_lo, cur_hi = ax.get_ylim()
+            ax.set_ylim(
+                self.y_min_initial if self.y_min_initial is not None else cur_lo,
+                self.y_max_initial if self.y_max_initial is not None else cur_hi)
         if self.overlay_unit is not None:
             self._add_overlay(ax)
 
@@ -258,6 +270,14 @@ class _SimpleSeriesPanel(_Panel):
         if self.y_min is None and self.y_max is None:
             self.ax.relim()
             self.ax.autoscale_view(scalex=False, scaley=True)
+            if self.y_min_initial is not None or self.y_max_initial is not None:
+                cur_lo, cur_hi = self.ax.get_ylim()
+                new_lo = (cur_lo if self.y_min_initial is None
+                          else min(cur_lo, self.y_min_initial))
+                new_hi = (cur_hi if self.y_max_initial is None
+                          else max(cur_hi, self.y_max_initial))
+                if (new_lo, new_hi) != (cur_lo, cur_hi):
+                    self.ax.set_ylim(new_lo, new_hi)
         self._dirty = False
 
     def _render_one(self, bins: 'ck.TimeBinSeries', line, *,
@@ -415,6 +435,12 @@ class _HumidityPressurePanel(_Panel):
     SIGMA_PRES_MIN = 10.0   # pressure changes very slowly
     SHOW_ENVELOPE_HUM = True
     SHOW_ENVELOPE_PRES = True
+    # OCM at 2800 m sits at ~720 hPa; weather rarely takes it outside this
+    # band. Sticky bounds keep the right axis sane on a fresh chart instead
+    # of letting matplotlib autoscale onto a 0.1 hPa span around the first
+    # sample. Real excursions still grow the range.
+    PRES_INITIAL_LO = 715.0
+    PRES_INITIAL_HI = 730.0
 
     def __init__(self, *, warn_pct: float = 70.0,
                  danger_pct: float = 75.0) -> None:
@@ -465,6 +491,7 @@ class _HumidityPressurePanel(_Panel):
                                             linewidth=0.9, zorder=2)
         self._line_p_today, = self.ax_p.plot([], [], '-', color=ck.COLOR_PRESSURE,
                                              linewidth=1.3, zorder=4)
+        self.ax_p.set_ylim(self.PRES_INITIAL_LO, self.PRES_INITIAL_HI)
         # Right-hand title pill on parent axes so live overlays paint over it.
         ck.inline_title(ax, self.title_right, side='right',
                         color=ck.COLOR_PRESSURE)
@@ -508,7 +535,34 @@ class _HumidityPressurePanel(_Panel):
         # ---- Pressure (twin axis) ----
         self._render_today_pres()
         self._render_yest_pres()
+        self._update_pres_ylim()
         self._dirty = False
+
+    def _update_pres_ylim(self) -> None:
+        """Keep pressure y-range = sticky-bounds ∪ data-extent.
+
+        Initial bounds (PRES_INITIAL_LO/HI) are always honoured so a fresh
+        chart never zooms onto a 0.1-hPa-wide span around the first sample;
+        unusually low/high pressure expands the range further but never
+        shrinks it.
+        """
+        if self.ax_p is None:
+            return
+        lo = self.PRES_INITIAL_LO
+        hi = self.PRES_INITIAL_HI
+        for bins in (self._p_today, self._p_yest):
+            if not bins.has_data():
+                continue
+            arr = ck.time_smooth_bins(bins.mean,
+                                      sigma_minutes=self.SIGMA_PRES_MIN,
+                                      bin_width_s=bins.bin_width_s)
+            finite = arr[np.isfinite(arr)]
+            if finite.size:
+                lo = min(lo, float(finite.min()) - 1.0)
+                hi = max(hi, float(finite.max()) + 1.0)
+        cur_lo, cur_hi = self.ax_p.get_ylim()
+        if (lo, hi) != (cur_lo, cur_hi):
+            self.ax_p.set_ylim(lo, hi)
 
     @staticmethod
     def _remove(artist):
@@ -1402,6 +1456,10 @@ class WeatherDataWidget(QWidget):
                     sigma_minutes=5.0,  # temp swings faster than humid/pres
                     overlay_unit='°C',
                     danger_below=self.temperature_danger_c,
+                    # OCM at 2800 m: deep-winter night ≈ -5 °C, summer day ≈ +25 °C.
+                    # Sticky bounds so a freshly opened chart shows the full
+                    # day-night swing instead of zooming into the first sample.
+                    y_min_initial=-5.0, y_max_initial=25.0,
                 ))
             elif key == 'power':
                 panels.append(_PowerPanel(soc_warn_pct=self.soc_warn_pct,
@@ -1514,13 +1572,29 @@ class WeatherDataWidget(QWidget):
         QtCore.QTimer.singleShot(self._draw_interval_ms, self._do_draw)
 
     def _do_draw(self) -> None:
+        import time as _time
         self._draw_pending = False
+        # Hydration tracing: per-panel render time + canvas draw. Keep
+        # the threshold tight (≥10 ms total or ≥5 ms in a single panel)
+        # so creeping render cost during history replay is visible
+        # before it dominates the budget.
+        t0 = _time.perf_counter()
+        per_panel = []
         for p in self.panels:
+            t1 = _time.perf_counter()
             try:
                 p.render()
             except Exception as e:
                 logger.warning(f"panel render failed for {type(p).__name__}: {e}")
+            dt = (_time.perf_counter() - t1) * 1000.0
+            if dt > 5.0:
+                per_panel.append((type(p).__name__, dt))
         self.canvas.draw_idle()
+        total_ms = (_time.perf_counter() - t0) * 1000.0
+        if total_ms > 10.0 or per_panel:
+            details = ", ".join(f"{name}={dt:.0f}ms" for name, dt in per_panel)
+            logger.info(f"[render] {total_ms:.0f}ms total" +
+                        (f" ({details})" if details else ""))
 
     def _schedule_next_sunset_reset(self) -> None:
         """Arm a one-shot timer for the next OCM sunset, at which point
@@ -1667,6 +1741,7 @@ class WeatherDataWidget(QWidget):
         explaining the "no yesterday-shadow curves" symptom on
         long-running deployments.
         """
+        import time as _time
         msg = Messenger()
         today_midnight = _today_midnight_utc()
         yesterday_midnight = today_midnight - datetime.timedelta(days=1)
@@ -1674,7 +1749,25 @@ class WeatherDataWidget(QWidget):
                              deliver_policy='by_start_time',
                              opt_start_time=yesterday_midnight)
         logger.info(f"Subscribed to {subject} (history from {yesterday_midnight.isoformat()})")
+        # Hydration tracing — split per-message cost into three buckets
+        # so we can see which one dominates:
+        #   * t_wait  — time stuck in `async for` waiting for the next
+        #               message (NATS replay throughput).
+        #   * t_hook  — time in the panel hook (binning + balance maths).
+        #   * t_other — parse + bookkeeping overhead.
+        t_start = _time.perf_counter()
+        n_msgs = 0
+        n_yest = 0
+        n_today = 0
+        last_log_n = 0
+        last_log_t = t_start
+        sum_wait = 0.0
+        sum_hook = 0.0
+        caught_up = False
+        t_loop_top = _time.perf_counter()
         async for data, meta in rdr:
+            t_msg_arrived = _time.perf_counter()
+            sum_wait += t_msg_arrived - t_loop_top
             try:
                 now = datetime.datetime.now(datetime.timezone.utc)
                 if now.date() > today_midnight.date():
@@ -1688,12 +1781,38 @@ class WeatherDataWidget(QWidget):
                 msm = data['measurements']
                 hour = ts.hour + ts.minute / 60.0 + ts.second / 3600.0
                 is_yesterday = ts < today_midnight
+                t_hook_start = _time.perf_counter()
                 for p in self.panels:
                     if panel_filter(p):
                         hook(p, hour, ts, msm, is_yesterday)
+                sum_hook += _time.perf_counter() - t_hook_start
                 self._schedule_draw()
+                n_msgs += 1
+                if is_yesterday:
+                    n_yest += 1
+                else:
+                    n_today += 1
+                if not caught_up and (now - ts).total_seconds() < 30.0:
+                    elapsed = _time.perf_counter() - t_start
+                    other = max(0.0, elapsed - sum_wait - sum_hook)
+                    logger.info(
+                        f"[hydration] {subject} caught up after {n_msgs} msgs "
+                        f"({n_yest} yesterday + {n_today} today) in {elapsed:.1f}s "
+                        f"— wait={sum_wait:.1f}s hook={sum_hook:.1f}s other={other:.1f}s")
+                    caught_up = True
+                if n_msgs - last_log_n >= 250:
+                    now_perf = _time.perf_counter()
+                    rate = (n_msgs - last_log_n) / (now_perf - last_log_t)
+                    logger.info(
+                        f"[hydration] {subject} {n_msgs} msgs "
+                        f"({n_yest}y/{n_today}t), last ts={ts.isoformat()}, "
+                        f"recent rate={rate:.0f} msg/s, "
+                        f"cum wait={sum_wait:.1f}s hook={sum_hook:.2f}s")
+                    last_log_n = n_msgs
+                    last_log_t = now_perf
             except (LookupError, TypeError, ValueError):
                 continue
+            t_loop_top = _time.perf_counter()
 
     async def _weather_status_callback(self, data, meta) -> bool:
         try:

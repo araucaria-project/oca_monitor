@@ -30,7 +30,7 @@ numpy = [
   { version = "^2.4.4", python = ">=3.11" },
   { version = "^1.26", python = ">=3.10,<3.11" }
 ]
-pyaraucaria = "^2.11.2"
+pyaraucaria = "^2.13.0"
 
 
 [tool.poetry.extras]

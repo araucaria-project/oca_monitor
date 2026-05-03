@@ -7,8 +7,9 @@ the controlroom layout. Single panel with three themed groups:
   (configurable list of altitudes for evening / morning). Big Monaco
   countdown for the imminent one, smaller line for the one after.
 * **TIME** — UT / LT / CET-CEST (Warsaw) / SIDT clocks at OCM longitude.
-* **SUN / MOON / WATER** — next sun rise-or-set, moon altitude + phase
-  emoji + next moon event, plus the OCM water-tank level.
+* **SUN / MOON / WATER** — next sunset and sunrise (closer one bright,
+  the other dimmed), moon altitude + phase emoji, next moonset and
+  moonrise in the same paired format, plus the OCM water-tank level.
 
 Async path is only the water-level NATS subscription; everything else
 ticks once per second from a ``QTimer``.
@@ -51,15 +52,64 @@ def _format_countdown(delta: datetime.timedelta) -> str:
     return f"{d}d{h:02d}h"
 
 
-def _moon_emoji(phase_pct: float, waxing: bool) -> str:
-    p = max(0.0, min(100.0, phase_pct))
-    if p < 3:
-        return '🌑'
-    if p > 97:
-        return '🌕'
-    if waxing:
-        return '🌒' if p < 25 else '🌓' if p < 45 else '🌔' if p < 75 else '🌕'
-    return '🌘' if p < 25 else '🌗' if p < 45 else '🌖' if p < 75 else '🌕'
+_BRIGHT_COLOR = '#e8e8e8'   # imminent event
+_DIM_COLOR = '#7a7a7a'      # the one after
+_LABEL_COLOR = '#7a7a7a'    # gray "alt" / "phase" tags before bright values
+
+
+def _decide_bright(t_set: Optional[datetime.datetime],
+                   t_rise: Optional[datetime.datetime]) -> str:
+    """Return ``'set'`` or ``'rise'`` — whichever event is sooner.
+
+    With one of them ``None`` the other wins by default. With both
+    ``None`` we still return ``'set'`` (the renderer handles that
+    side specifically; the value is harmless).
+    """
+    if t_set is None and t_rise is None:
+        return 'set'
+    if t_set is not None and (t_rise is None or t_set <= t_rise):
+        return 'set'
+    return 'rise'
+
+
+def _event_line(arrow: str, t: Optional[datetime.datetime],
+                is_bright: bool) -> str:
+    """Single-line HTML for one rise-or-set event. ``↓ HH:MM UT`` only —
+    the parenthetical countdown is gone (the prominent NEXT EVENTS
+    panel already provides that signal)."""
+    color = _BRIGHT_COLOR if is_bright else _DIM_COLOR
+    if t is None:
+        return f'<span style="color:{color}">{arrow} —</span>'
+    return (
+        f'<span style="color:{color}">'
+        f'{arrow} {t.strftime("%H:%M")} UT'
+        f'</span>'
+    )
+
+
+def _format_utc_offset(td: Optional[datetime.timedelta]) -> str:
+    """``timedelta`` → compact ``±Nh`` (or ``±NhMM`` if not whole-hour)
+    suitable for the TIME panel's offset column."""
+    if td is None:
+        return ''
+    secs = int(td.total_seconds())
+    if secs == 0:
+        return '+0h'
+    sign = '+' if secs > 0 else '-'
+    secs = abs(secs)
+    h, m = divmod(secs // 60, 60)
+    return f'{sign}{h}h' if m == 0 else f'{sign}{h}h{m:02d}'
+
+
+def _moon_alt_phase(alt_deg: float, phase_pct: float) -> str:
+    """``alt`` + ``phase`` line: gray tags, bright values, no emoji."""
+    return (
+        f'<span style="color:{_LABEL_COLOR}">alt</span> '
+        f'<span style="color:{_BRIGHT_COLOR}">{alt_deg:+.0f}°</span>'
+        f'&nbsp;&nbsp;&nbsp;'
+        f'<span style="color:{_LABEL_COLOR}">phase</span> '
+        f'<span style="color:{_BRIGHT_COLOR}">{phase_pct:.0f}%</span>'
+    )
 
 
 class _Group(QFrame):
@@ -139,15 +189,29 @@ class SiteStatusWidget(QWidget):
         self.lbl_event_now_when = QLabel("")
         self.lbl_event_now_when.setStyleSheet("color: #888888;")
         self.lbl_event_now_when.setFont(QtGui.QFont('Arial', 9))
-        self.lbl_event_next = QLabel("")
-        self.lbl_event_next.setStyleSheet("color: #c0c0c0;")
-        self.lbl_event_next.setFont(QtGui.QFont('Arial', 15, QtGui.QFont.Weight.Bold))
+        # Second event mirrors the main event's label/timer/when triple
+        # but at smaller size and uniformly dimmed grey, so it reads as
+        # a subordinate "after this one" footer at the bottom of the
+        # column instead of a wide single line stretching the panel.
+        self.lbl_event_next_label = QLabel("")
+        self.lbl_event_next_label.setStyleSheet("color: #7a7a7a;")
+        self.lbl_event_next_label.setFont(
+            QtGui.QFont('Arial', 10, QtGui.QFont.Weight.Bold))
+        self.lbl_event_next_timer = QLabel("")
+        self.lbl_event_next_timer.setStyleSheet("color: #888888;")
+        self.lbl_event_next_timer.setFont(
+            QtGui.QFont('Monaco', 18, QtGui.QFont.Weight.Bold))
+        self.lbl_event_next_when = QLabel("")
+        self.lbl_event_next_when.setStyleSheet("color: #6e6e6e;")
+        self.lbl_event_next_when.setFont(QtGui.QFont('Arial', 8))
         self.box_events.layout.addWidget(self.lbl_event_now_label)
         self.box_events.layout.addWidget(self.lbl_event_now_timer)
         self.box_events.layout.addWidget(self.lbl_event_now_when)
         self.box_events.layout.addStretch(1)
-        self.box_events.layout.addWidget(self.lbl_event_next)
-        root.addWidget(self.box_events, 5)
+        self.box_events.layout.addWidget(self.lbl_event_next_label)
+        self.box_events.layout.addWidget(self.lbl_event_next_timer)
+        self.box_events.layout.addWidget(self.lbl_event_next_when)
+        root.addWidget(self.box_events, 1)
 
         # ---- Group B: TIME ------------------------------------------------
         self.box_clocks = _Group('TIME')
@@ -158,46 +222,103 @@ class SiteStatusWidget(QWidget):
         self.lbl_lt = QLabel("--:--:--")
         self.lbl_cet = QLabel("--:--:--")
         self.lbl_sidt = QLabel("--:--:--")
+        # UTC-offset suffixes for LT and WAW (e.g. "-4h", "+2h"). Same
+        # colour as the time itself, tag-sized font — a quick visual
+        # for "how far is this clock from UT". Updated each tick so
+        # DST transitions reflect automatically.
+        self.lbl_lt_off = QLabel("")
+        self.lbl_cet_off = QLabel("")
         clock_font = QtGui.QFont('Monaco', 17, QtGui.QFont.Weight.Bold)
         tag_font = QtGui.QFont('Arial', 11, QtGui.QFont.Weight.Bold)
+        off_font = QtGui.QFont('Arial', 11, QtGui.QFont.Weight.Bold)
         for lbl in (self.lbl_ut, self.lbl_lt, self.lbl_cet, self.lbl_sidt):
             lbl.setFont(clock_font)
-        for r, (k, v, color) in enumerate([
-            ('UT',   self.lbl_ut,   '#e0e0e0'),
-            ('LT',   self.lbl_lt,   '#a8e0ff'),
-            ('WAW',  self.lbl_cet,  '#7eea90'),
-            ('SIDT', self.lbl_sidt, '#fcb841'),
-        ]):
+        rows = [
+            ('UT',   self.lbl_ut,   '#e0e0e0', None),
+            ('LT',   self.lbl_lt,   '#a8e0ff', self.lbl_lt_off),
+            ('WAW',  self.lbl_cet,  '#7eea90', self.lbl_cet_off),
+            ('SIDT', self.lbl_sidt, '#fcb841', None),
+        ]
+        for r, (k, v, color, off) in enumerate(rows):
             tag = QLabel(k)
             tag.setStyleSheet("color: #6e6e6e;")
             tag.setFont(tag_font)
             v.setStyleSheet(f"color: {color};")
             clocks_grid.addWidget(tag, r, 0)
             clocks_grid.addWidget(v, r, 1)
+            if off is not None:
+                off.setStyleSheet(f"color: {color};")
+                off.setFont(off_font)
+                clocks_grid.addWidget(off, r, 2)
         clocks_wrap = QWidget()
         clocks_wrap.setLayout(clocks_grid)
         self.box_clocks.layout.addWidget(clocks_wrap)
         self.box_clocks.layout.addStretch(1)
-        root.addWidget(self.box_clocks, 4)
 
-        # ---- Group C: SUN / MOON / WATER ----------------------------------
-        self.box_astro = _Group('SUN · MOON · WATER')
-        self.lbl_sun_next = QLabel("☀ —")
-        self.lbl_sun_next.setFont(QtGui.QFont('Arial', 12))
-        self.lbl_moon_state = QLabel("☽ —")
-        self.lbl_moon_state.setFont(QtGui.QFont('Arial', 13, QtGui.QFont.Weight.Bold))
-        self.lbl_moon_next = QLabel("")
-        self.lbl_moon_next.setStyleSheet("color: #888888;")
-        self.lbl_moon_next.setFont(QtGui.QFont('Arial', 10))
-        self.lbl_water = QLabel("💧 —")
+        # WATER — lives at the bottom of column 2 (under TIME). Kept
+        # at its natural compact size; the clocks above absorb any
+        # spare vertical space.
+        self.box_water = _Group('WATER')
+        self.lbl_water = QLabel("—")
         self.lbl_water.setStyleSheet("color: #6ed0a8;")
-        self.lbl_water.setFont(QtGui.QFont('Arial', 12, QtGui.QFont.Weight.Bold))
-        self.box_astro.layout.addWidget(self.lbl_sun_next)
-        self.box_astro.layout.addWidget(self.lbl_moon_state)
-        self.box_astro.layout.addWidget(self.lbl_moon_next)
-        self.box_astro.layout.addStretch(1)
-        self.box_astro.layout.addWidget(self.lbl_water)
-        root.addWidget(self.box_astro, 4)
+        self.lbl_water.setFont(QtGui.QFont('Arial', 14, QtGui.QFont.Weight.Bold))
+        self.lbl_water.setTextFormat(QtCore.Qt.TextFormat.RichText)
+        self.box_water.layout.addWidget(self.lbl_water)
+
+        clocks_col = QWidget()
+        clocks_col_layout = QVBoxLayout(clocks_col)
+        clocks_col_layout.setContentsMargins(0, 0, 0, 0)
+        clocks_col_layout.setSpacing(4)
+        clocks_col_layout.addWidget(self.box_clocks, 1)  # eats spare height
+        clocks_col_layout.addWidget(self.box_water, 0)   # natural size
+        root.addWidget(clocks_col, 1)
+
+        # ---- Column 3: SUN + MOON --------------------------------------
+        # Two boxed sub-panels filling the full column height. Stretch
+        # factors mirror the content row counts (sun=2 rows, moon=3
+        # rows, ignoring captions) so each box's pixels-per-row stays
+        # roughly equal. Inside each box, content rows are padded with
+        # stretches so they distribute evenly down the available space
+        # instead of clumping under the caption.
+        astro_col = QWidget()
+        astro_layout = QVBoxLayout(astro_col)
+        astro_layout.setContentsMargins(0, 0, 0, 0)
+        astro_layout.setSpacing(4)
+        astro_event_font = QtGui.QFont('Arial', 14, QtGui.QFont.Weight.Bold)
+        # SUN — title + ↓ set + ↑ rise.
+        self.box_sun = _Group('SUN')
+        self.lbl_sun_set = QLabel("↓ —")
+        self.lbl_sun_set.setFont(astro_event_font)
+        self.lbl_sun_set.setTextFormat(QtCore.Qt.TextFormat.RichText)
+        self.lbl_sun_rise = QLabel("↑ —")
+        self.lbl_sun_rise.setFont(astro_event_font)
+        self.lbl_sun_rise.setTextFormat(QtCore.Qt.TextFormat.RichText)
+        self.box_sun.layout.addStretch(1)
+        self.box_sun.layout.addWidget(self.lbl_sun_set)
+        self.box_sun.layout.addStretch(1)
+        self.box_sun.layout.addWidget(self.lbl_sun_rise)
+        self.box_sun.layout.addStretch(1)
+        astro_layout.addWidget(self.box_sun, 2)
+        # MOON — title + alt/phase + ↓ set + ↑ rise.
+        self.box_moon = _Group('MOON')
+        self.lbl_moon_state = QLabel("alt —  phase —")
+        self.lbl_moon_state.setFont(astro_event_font)
+        self.lbl_moon_state.setTextFormat(QtCore.Qt.TextFormat.RichText)
+        self.lbl_moon_set = QLabel("↓ —")
+        self.lbl_moon_set.setFont(astro_event_font)
+        self.lbl_moon_set.setTextFormat(QtCore.Qt.TextFormat.RichText)
+        self.lbl_moon_rise = QLabel("↑ —")
+        self.lbl_moon_rise.setFont(astro_event_font)
+        self.lbl_moon_rise.setTextFormat(QtCore.Qt.TextFormat.RichText)
+        self.box_moon.layout.addStretch(1)
+        self.box_moon.layout.addWidget(self.lbl_moon_state)
+        self.box_moon.layout.addStretch(1)
+        self.box_moon.layout.addWidget(self.lbl_moon_set)
+        self.box_moon.layout.addStretch(1)
+        self.box_moon.layout.addWidget(self.lbl_moon_rise)
+        self.box_moon.layout.addStretch(1)
+        astro_layout.addWidget(self.box_moon, 3)
+        root.addWidget(astro_col, 1)
 
     # ---- async (water only) -------------------------------------------------
 
@@ -221,7 +342,7 @@ class SiteStatusWidget(QWidget):
 
     def _update_water_label(self) -> None:
         if self.water_level_m3 is None:
-            self.lbl_water.setText("💧 —")
+            self.lbl_water.setText("—")
             return
         if self.water_capacity_m3 > 0:
             pct = 100.0 * self.water_level_m3 / self.water_capacity_m3
@@ -232,57 +353,61 @@ class SiteStatusWidget(QWidget):
             else:
                 pct_color = '#808080'  # gray (normal)
             self.lbl_water.setText(
-                f'💧 {self.water_level_m3:.1f} m³  '
+                f'{self.water_level_m3:.1f} m³  '
                 f'<span style="color:{pct_color}">{pct:.0f}%</span>')
         else:
-            self.lbl_water.setText(f"💧 {self.water_level_m3:.1f} m³")
+            self.lbl_water.setText(f"{self.water_level_m3:.1f} m³")
 
     # ---- 1 Hz tick ----------------------------------------------------------
 
     def _tick(self) -> None:
         now = datetime.datetime.now(datetime.timezone.utc)
-        now_local = datetime.datetime.now()
+        # tz-aware local datetime so we can read .utcoffset() for the
+        # LT offset suffix; format as HH:MM:SS for display.
+        now_local = datetime.datetime.now().astimezone()
         now_warsaw = datetime.datetime.now(_WARSAW)
 
         # Clocks
         self.lbl_ut.setText(now.strftime('%H:%M:%S'))
         self.lbl_lt.setText(now_local.strftime('%H:%M:%S'))
         self.lbl_cet.setText(now_warsaw.strftime('%H:%M:%S'))
+        # UTC offsets — recomputed each tick so DST transitions appear
+        # without a restart. Cheap (timedelta arithmetic + format).
+        self.lbl_lt_off.setText(_format_utc_offset(now_local.utcoffset()))
+        self.lbl_cet_off.setText(_format_utc_offset(now_warsaw.utcoffset()))
         try:
             self.lbl_sidt.setText(sidereal_time_str(now))
         except Exception as e:
             logger.debug(f"sidereal_time failed: {e}")
 
-        # Sun: next sunrise OR sunset (whichever is sooner)
+        # Sun: show both next sunset (↓) and next sunrise (↑) — closer
+        # one bright, the other dim. No countdowns next to the times;
+        # NEXT EVENTS already provides that signal at much higher
+        # prominence.
         t_set = next_sun_alt_event(now, 0.0, 'setting')
         t_rise = next_sun_alt_event(now, 0.0, 'rising')
-        if t_set is not None and (t_rise is None or t_set < t_rise):
-            self.lbl_sun_next.setText(
-                f"☀ ↓ {t_set.strftime('%H:%M')} UT  ({_format_countdown(t_set - now)})")
-        elif t_rise is not None:
-            self.lbl_sun_next.setText(
-                f"☀ ↑ {t_rise.strftime('%H:%M')} UT  ({_format_countdown(t_rise - now)})")
-        else:
-            self.lbl_sun_next.setText("☀ —")
+        bright = _decide_bright(t_set, t_rise)
+        self.lbl_sun_set.setText(_event_line('↓', t_set, bright == 'set'))
+        self.lbl_sun_rise.setText(_event_line('↑', t_rise, bright == 'rise'))
 
-        # Moon: alt, phase, next event
+        # Moon: alt + phase on the top line (gray tags, bright values,
+        # no emoji), then the same paired set/rise format as the sun.
         try:
             ms = moon_state(now)
-            moon_alt_deg = ms['alt_deg']
-            moon_phase_pct = ms['phase'] * 100.0
-            emoji = _moon_emoji(moon_phase_pct, ms['waxing'])
             self.lbl_moon_state.setText(
-                f"☽ {moon_alt_deg:+.0f}°   {emoji}  {moon_phase_pct:.0f}%")
-            kind = 'setting' if moon_alt_deg > 0 else 'rising'
-            t = next_moon_event(now, kind)
-            if t is not None:
-                label = 'moonset' if kind == 'setting' else 'moonrise'
-                self.lbl_moon_next.setText(f"   {label} {t.strftime('%H:%M')} UT")
-            else:
-                self.lbl_moon_next.setText("")
+                _moon_alt_phase(ms['alt_deg'], ms['phase'] * 100.0))
+            t_moonset = next_moon_event(now, 'setting')
+            t_moonrise = next_moon_event(now, 'rising')
+            mbright = _decide_bright(t_moonset, t_moonrise)
+            self.lbl_moon_set.setText(
+                _event_line('↓', t_moonset, mbright == 'set'))
+            self.lbl_moon_rise.setText(
+                _event_line('↑', t_moonrise, mbright == 'rise'))
         except Exception as e:
             logger.debug(f"moon update failed: {e}")
-            self.lbl_moon_next.setText("")
+            self.lbl_moon_state.setText("alt —  phase —")
+            self.lbl_moon_set.setText(_event_line('↓', None, True))
+            self.lbl_moon_rise.setText(_event_line('↑', None, False))
 
         # Water level (text refresh — value comes from NATS callback)
         self._update_water_label()
@@ -305,7 +430,9 @@ class SiteStatusWidget(QWidget):
             self.lbl_event_now_label.setText("—")
             self.lbl_event_now_timer.setText("—")
             self.lbl_event_now_when.setText("")
-            self.lbl_event_next.setText("")
+            self.lbl_event_next_label.setText("")
+            self.lbl_event_next_timer.setText("")
+            self.lbl_event_next_when.setText("")
             return
         ev_now = events[0]
         cd = ev_now[2] - now
@@ -318,13 +445,18 @@ class SiteStatusWidget(QWidget):
         self.lbl_event_now_label.setText(f"Sun  {arrow}  {ev_now[0]:+.0f}°")
         self.lbl_event_now_timer.setText(_format_countdown(cd))
         self.lbl_event_now_when.setText(f"at {ev_now[2].strftime('%H:%M:%S')} UT")
+        # Second event: same label/timer/when triple, smaller, all dim.
         if len(events) > 1:
             ev2 = events[1]
             arrow2 = '↓' if ev2[1] == 'setting' else '↑'
-            self.lbl_event_next.setText(
-                f"next: Sun {arrow2} {ev2[0]:+.0f}°   in {_format_countdown(ev2[2] - now)}")
+            self.lbl_event_next_label.setText(f"Sun  {arrow2}  {ev2[0]:+.0f}°")
+            self.lbl_event_next_timer.setText(_format_countdown(ev2[2] - now))
+            self.lbl_event_next_when.setText(
+                f"at {ev2[2].strftime('%H:%M:%S')} UT")
         else:
-            self.lbl_event_next.setText("")
+            self.lbl_event_next_label.setText("")
+            self.lbl_event_next_timer.setText("")
+            self.lbl_event_next_when.setText("")
 
 
 widget_class = SiteStatusWidget
