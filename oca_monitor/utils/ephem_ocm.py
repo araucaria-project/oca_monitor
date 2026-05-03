@@ -9,11 +9,23 @@ Policy: every routine here goes through pyaraucaria. If we ever need
 to change the underlying algorithm, the change happens in pyaraucaria
 — not here, and not in toi. Direct ``astroplan`` /
 ``astropy.coordinates`` imports are intentionally absent.
+
+Performance note: pyaraucaria's spline-based event finder builds a
+24 h AltAz grid per call (~200 ms on a typical workstation). UI pages
+call ``next_sun_alt_event`` ≈10 times per tick (multiple twilight
+altitudes × rise/set), at 1 Hz, so naive use blocks the qasync event
+loop for >2 s every second — long enough to time out concurrent NATS
+JetStream API requests during startup. We therefore cache results
+with a short TTL: rise/set times shift by minutes per day, so a 60 s
+cache is invisible to the UI; ``moon_state`` (alt/phase, drifts ~15°/h)
+is cached for 5 s. Cache entries automatically invalidate when the
+event passes ``now``.
 """
 from __future__ import annotations
 
 import datetime
-from typing import Optional
+import time as _time
+from typing import Optional, Tuple, Dict
 
 import astropy.units as u
 from astropy.coordinates import EarthLocation
@@ -74,16 +86,38 @@ def sun_alt_deg(now_utc: Optional[datetime.datetime] = None) -> float:
     return float(_sun().get_ephemeris(t)[0]['alt'])
 
 
+# TTL caches (see module docstring). Keys hold (perf_clock_at_compute,
+# event_datetime_or_None). Entries are invalidated either by age or by
+# the event passing ``now``.
+_SUN_EVENT_TTL_S = 60.0
+_MOON_EVENT_TTL_S = 60.0
+_MOON_STATE_TTL_S = 5.0
+_sun_event_cache: Dict[Tuple[float, str], Tuple[float, Optional[datetime.datetime]]] = {}
+_moon_event_cache: Dict[str, Tuple[float, Optional[datetime.datetime]]] = {}
+_moon_state_cache: Optional[Tuple[float, dict]] = None
+
+
 def next_sun_alt_event(now_utc: datetime.datetime, alt_deg: float,
                        kind: str) -> Optional[datetime.datetime]:
     """Next time the sun's centre crosses ``alt_deg`` going down
     (``kind='setting'``) or up (``kind='rising'``) at OCM.
 
     Returns a timezone-aware UTC ``datetime``, or ``None`` if the sun
-    never reaches that altitude within the 24 h search window.
+    never reaches that altitude within the 24 h search window. Result
+    is cached for ``_SUN_EVENT_TTL_S`` seconds and auto-invalidated
+    once the event passes ``now_utc`` — the UI can poll this at 1 Hz
+    without re-running the spline finder each call.
     """
-    return _sun().get_next_event_by_altitude(
+    key = (float(alt_deg), kind)
+    cached = _sun_event_cache.get(key)
+    if cached is not None:
+        ts, dt = cached
+        if (_time.monotonic() - ts) < _SUN_EVENT_TTL_S and (dt is None or dt > now_utc):
+            return dt
+    dt = _sun().get_next_event_by_altitude(
         alt_deg, kind, start_time=Time(now_utc))
+    _sun_event_cache[key] = (_time.monotonic(), dt)
+    return dt
 
 
 def next_sunset_utc(now_utc: datetime.datetime,
@@ -103,16 +137,24 @@ def moon_state(now_utc: Optional[datetime.datetime] = None) -> dict:
     the alt and phase are guaranteed self-consistent (same instant,
     same astropy/astroplan path). Waxing direction is derived from a
     1-hour-later phase sample — cheap, monotone between new/full
-    extrema.
+    extrema. Cached for ``_MOON_STATE_TTL_S`` s — moon altitude
+    drifts ~15°/h so a 5 s cache is invisible to the UI.
     """
+    global _moon_state_cache
+    if _moon_state_cache is not None:
+        ts, state = _moon_state_cache
+        if (_time.monotonic() - ts) < _MOON_STATE_TTL_S:
+            return state
     t = Time(now_utc) if now_utc is not None else Time.now()
     eph_now = _moon().get_ephemeris(t)[0]
     eph_later = _moon().get_ephemeris(t + 1 * u.hour)[0]
-    return {
+    state = {
         'alt_deg': float(eph_now['alt']),
         'phase': float(eph_now['phase']),  # 0..1
         'waxing': float(eph_later['phase']) > float(eph_now['phase']),
     }
+    _moon_state_cache = (_time.monotonic(), state)
+    return state
 
 
 def next_moon_event(now_utc: datetime.datetime,
@@ -122,9 +164,18 @@ def next_moon_event(now_utc: datetime.datetime,
     Returns a timezone-aware UTC ``datetime`` of the first crossing of
     the visible horizon (0°) after ``now_utc`` in the requested
     direction, or ``None`` if no such crossing occurs in the next 24 h.
+    Cached for ``_MOON_EVENT_TTL_S`` s, auto-invalidated when the event
+    passes.
     """
-    return _moon().get_next_event_by_altitude(
+    cached = _moon_event_cache.get(kind)
+    if cached is not None:
+        ts, dt = cached
+        if (_time.monotonic() - ts) < _MOON_EVENT_TTL_S and (dt is None or dt > now_utc):
+            return dt
+    dt = _moon().get_next_event_by_altitude(
         0.0, kind, start_time=Time(now_utc))
+    _moon_event_cache[kind] = (_time.monotonic(), dt)
+    return dt
 
 
 # ---------------------------------------------------------------------------
