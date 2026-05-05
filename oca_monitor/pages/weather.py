@@ -1236,6 +1236,15 @@ class _PhotZeroPanel(_Panel):
     SMOOTH_SIGMA = 3.0
     Y_MAX = 0.05    # fixed scale top
     Y_MIN = -0.125  # fixed scale bottom — outliers clip rather than rescaling
+    # Maximum hour-of-day gap between consecutive samples that still counts
+    # as "the same segment" of the trend curve. Anything wider gets a NaN
+    # break so the line doesn't connect islands of points across hours of
+    # silence (e.g. yesterday-late-night points spanning to current night).
+    MAX_SEGMENT_GAP_HOURS = 0.5
+    # Minimum samples in a segment before we apply Gaussian smoothing.
+    # Singletons / pairs draw as raw markers via the per-tel scatter
+    # already; the trend line just doesn't extend through them.
+    MIN_SEGMENT_POINTS = 4
 
     def __init__(self, main_window, telescopes: Sequence[str]) -> None:
         super().__init__()
@@ -1306,21 +1315,55 @@ class _PhotZeroPanel(_Panel):
     def _refresh_smoothed_and_scale(self) -> None:
         all_x: List[float] = []
         all_y: List[float] = []
-        for tel, (xs, ys, _) in self._series.items():
+        for _tel, (xs, ys, _) in self._series.items():
             all_x.extend(xs)
             all_y.extend(ys)
         if not all_x:
+            if self._line_smoothed is not None:
+                self._line_smoothed.set_data([], [])
             return
         idx = np.argsort(np.asarray(all_x))
         x_sorted = np.asarray(all_x, dtype=float)[idx]
         y_sorted = np.asarray(all_y, dtype=float)[idx]
-        y_smooth = ck.gaussian_filter1d(y_sorted, sigma=self.SMOOTH_SIGMA)
+
+        # Split into segments at gaps wider than MAX_SEGMENT_GAP_HOURS so
+        # the trend never connects across hours of silence. Smooth each
+        # segment independently with sigma=SMOOTH_SIGMA, then concatenate
+        # with NaN separators (matplotlib breaks the line at NaN).
+        if x_sorted.size > 1:
+            cuts = np.where(np.diff(x_sorted) > self.MAX_SEGMENT_GAP_HOURS)[0] + 1
+            seg_x = np.split(x_sorted, cuts)
+            seg_y = np.split(y_sorted, cuts)
+        else:
+            seg_x = [x_sorted]
+            seg_y = [y_sorted]
+
+        out_x: List[float] = []
+        out_y: List[float] = []
+        last_smoothed: Optional[float] = None
+        for sx, sy in zip(seg_x, seg_y):
+            if sx.size == 0:
+                continue
+            if sx.size >= self.MIN_SEGMENT_POINTS:
+                sy_smooth = ck.gaussian_filter1d(sy, sigma=self.SMOOTH_SIGMA)
+                if out_x:
+                    out_x.append(np.nan)
+                    out_y.append(np.nan)
+                out_x.extend(sx.tolist())
+                out_y.extend(sy_smooth.tolist())
+                last_smoothed = float(sy_smooth[-1])
+            # Segments shorter than MIN_SEGMENT_POINTS are intentionally
+            # not added to the trend line — the per-telescope scatter
+            # already shows those raw points, and a smoothed line through
+            # 1–3 samples is more misleading than helpful.
+
         if self._line_smoothed is not None:
-            self._line_smoothed.set_data(x_sorted, y_smooth)
-        if self._overlay_avg is not None and y_smooth.size:
-            latest = float(y_smooth[-1])
-            self._overlay_avg.set_text(f"{latest:+.3f} mag")
-            self._overlay_avg.set_color(self._color_for(latest))
+            self._line_smoothed.set_data(out_x, out_y)
+        if self._overlay_avg is not None and last_smoothed is not None:
+            self._overlay_avg.set_text(f"{last_smoothed:+.3f} mag")
+            self._overlay_avg.set_color(self._color_for(last_smoothed))
+        elif self._overlay_avg is not None:
+            self._overlay_avg.set_text('')
 
     def on_session_reset(self) -> None:
         for tel in self.telescopes:
