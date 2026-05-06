@@ -17,6 +17,33 @@ poetry run ocam --env <envname>
 
 where `<envname>` is the name of the settings section (e.g. `kitchen`)
 
+# Chart overlays — FWHM and Photometric Zero
+
+The weather/conditions page (`pages/weather.py`) renders a stack of squeezed
+charts. Two of them carry a large in-chart overlay value with non-obvious
+semantics:
+
+**FWHM (`fwhm` chart) — round-robin overlay.** The overlay does not show
+"the most recent FWHM regardless of telescope". Instead it cycles through
+telescopes every 3 s (`OVERLAY_ROTATE_SEC`), showing each telescope's last
+FWHM in turn, coloured by that telescope. A telescope is included in the
+rotation only while its last sample arrived within 15 minutes
+(`OVERLAY_FRESH_WINDOW_SEC`) of the most recent sample on *any*
+telescope — the gate is inter-telescope arrival skew, not wall-clock,
+so when all telescopes stop together at the end of the night they all
+keep cycling (showing the seeing at end-of-night), while a single
+telescope that stalls or is taken offline mid-night drops out about
+15 minutes later so observers aren't misled by stale seeing.
+
+**Photometric Zero (`phot_zero` chart) — site-wide trend overlay.** The
+overlay tracks the *trend line's* tip (the bright white smoothed mean
+across all telescopes), not any single telescope's last frame, so it
+conveys current site-wide photometric quality. Its colour follows the
+alert zones: green when the site is photometric, amber when degraded,
+red when poor. The white trend line itself sits above the per-telescope
+scatter at high opacity so it reads as the headline signal of the panel
+without being thick enough to obscure individual points.
+
 # Adding/modifying tabs
 
 Edit oca_monit_tabs.py and add new tab name to the "tabList" (the and of the file)

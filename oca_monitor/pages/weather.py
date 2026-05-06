@@ -1125,10 +1125,15 @@ class _FwhmPanel(_PerTelescopeScatterPanel):
     averaged, multiplied by ``raw.header.SCALE`` (arcsec/px). Restricted
     to ``IMAGETYP == 'science'`` frames as halina does.
 
-    Has a live overlay that shows the most recent FWHM value regardless
-    of which telescope produced it; the overlay text colour is the
-    contributing telescope's ``style.color`` blended toward neutral
-    text grey for legibility.
+    Live overlay is a *round-robin*: every ``OVERLAY_ROTATE_SEC`` it
+    advances to the next telescope whose last sample arrived no more
+    than ``OVERLAY_FRESH_WINDOW_SEC`` after the most recent sample on
+    *any* telescope. The freshness gate uses inter-telescope arrival
+    skew, not wall-clock — so when all telescopes stop together at the
+    end of the night the rotation keeps showing each of them; if a
+    single telescope stalls or is taken offline mid-night, it drops
+    out of rotation ~15 min later so observers aren't misled by stale
+    seeing readings.
     """
 
     needs_faststat = True
@@ -1138,21 +1143,29 @@ class _FwhmPanel(_PerTelescopeScatterPanel):
     marker = 'o'
     line_style = ''  # markers only — frames arrive irregularly
 
+    OVERLAY_ROTATE_SEC = 3.0           # round-robin cadence
+    OVERLAY_FRESH_WINDOW_SEC = 15 * 60.0  # max arrival skew vs newest sample
+
     def __init__(self, main_window, telescopes: Sequence[str]) -> None:
         super().__init__(main_window, telescopes)
-        self._latest_fwhm: Optional[float] = None
-        self._latest_tel: Optional[str] = None
+        # Per-telescope: latest arcsec value and the monotonic clock at
+        # arrival. Monotonic so the window is unaffected by day rollover
+        # or system-clock adjustments.
+        self._latest: Dict[str, Tuple[float, float]] = {}
+        self._rr_idx: int = 0
 
     title_side = 'right'   # title pinned where there's daytime gap, no data
 
     def init_axes(self, ax) -> None:
         super().init_axes(ax)
         self._overlay = ck.big_overlay(ax)
+        QtCore.QTimer.singleShot(int(self.OVERLAY_ROTATE_SEC * 1000),
+                                 self._do_rotate)
 
     def restamp_telescope_colors(self) -> None:
         super().restamp_telescope_colors()
-        # Re-apply the blended colour to the overlay for whichever telescope
-        # produced the latest sample, in case nats_cfg arrived afterwards.
+        # Re-apply the blended colour to the overlay in case nats_cfg
+        # arrived after init.
         self._refresh_overlay()
 
     def on_faststat(self, tel, hour, raw) -> None:
@@ -1167,24 +1180,57 @@ class _FwhmPanel(_PerTelescopeScatterPanel):
             return
         arcsec = fwhm * scale
         self._append(tel, hour, arcsec)
-        self._latest_fwhm = arcsec
-        self._latest_tel = tel
-        self._refresh_overlay()
+        self._latest[tel] = (arcsec, time.monotonic())
+
+    def _eligible(self) -> List[str]:
+        """Telescopes within the freshness window, in canonical order.
+
+        Eligibility is "arrival no more than OVERLAY_FRESH_WINDOW_SEC
+        behind the newest arrival across all telescopes" — relative,
+        not absolute, so the rotation keeps working when nobody has
+        published in hours."""
+        if not self._latest:
+            return []
+        newest = max(ts for _, ts in self._latest.values())
+        cutoff = newest - self.OVERLAY_FRESH_WINDOW_SEC
+        return [t for t in self.telescopes
+                if t in self._latest and self._latest[t][1] >= cutoff]
 
     def _refresh_overlay(self) -> None:
-        if self._overlay is None or self._latest_fwhm is None:
+        if self._overlay is None:
             return
-        self._overlay.set_text(f"{self._latest_fwhm:.2f} \"")
-        if self._latest_tel is not None:
-            tel_color = ck.telescope_color(self.main_window, self._latest_tel)
-            # 30% blend toward neutral grey so the colour reads identifiably
-            # but doesn't clash with the dark theme on saturated values.
-            self._overlay.set_color(ck.blend_colors(tel_color, ck.FG_TEXT, 0.30))
+        eligible = self._eligible()
+        if not eligible:
+            self._overlay.set_text('')
+            return
+        if self._rr_idx >= len(eligible):
+            self._rr_idx = 0
+        tel = eligible[self._rr_idx]
+        value, _ts = self._latest[tel]
+        self._overlay.set_text(f'{value:.2f} "')
+        tel_color = ck.telescope_color(self.main_window, tel)
+        # 30% blend toward neutral grey so the colour reads identifiably
+        # but doesn't clash with the dark theme on saturated values.
+        self._overlay.set_color(ck.blend_colors(tel_color, ck.FG_TEXT, 0.30))
+
+    def _do_rotate(self) -> None:
+        if self.ax is None:
+            return
+        eligible = self._eligible()
+        if eligible:
+            self._rr_idx = (self._rr_idx + 1) % len(eligible)
+        self._refresh_overlay()
+        try:
+            self.ax.figure.canvas.draw_idle()
+        except Exception:
+            pass
+        QtCore.QTimer.singleShot(int(self.OVERLAY_ROTATE_SEC * 1000),
+                                 self._do_rotate)
 
     def on_session_reset(self) -> None:
         super().on_session_reset()
-        self._latest_fwhm = None
-        self._latest_tel = None
+        self._latest.clear()
+        self._rr_idx = 0
         if self._overlay is not None:
             self._overlay.set_text('')
 
@@ -1216,12 +1262,17 @@ class _PhotZeroPanel(_Panel):
 
     Each telescope's points are plotted as a translucent scatter (fill
     by telescope colour, edge by filter colour). On top of that, a
-    bold gaussian-smoothed (sigma=3) curve combining points from ALL
-    telescopes gives the "site-wide photometric quality" trend; its
-    most-recent value is shown as a big translucent overlay coloured
-    against the alert-band thresholds.
+    bright white gaussian-smoothed (sigma=3) curve combining points
+    from ALL telescopes is the headline signal of the panel: the
+    "site-wide photometric quality" trend. Its most-recent value is
+    shown as a big overlay, coloured by alert zone — green when the
+    site is photometric, amber when degraded, red when poor. The
+    overlay therefore tracks the *trend line's* tip, not any single
+    telescope's last frame, so it conveys current site quality rather
+    than the latest individual measurement.
 
-    Alert bands (zone shading on the panel background):
+    Alert bands (zone shading on the panel background and applied to
+    the overlay text):
       * value ≥ ``GREEN_THRESHOLD`` (-0.05): photometric quality OK
       * ``YELLOW_THRESHOLD`` ≤ value < green: degraded
       * value < ``YELLOW_THRESHOLD`` (-0.10): poor / non-photometric
@@ -1236,6 +1287,10 @@ class _PhotZeroPanel(_Panel):
     SMOOTH_SIGMA = 3.0
     Y_MAX = 0.05    # fixed scale top
     Y_MIN = -0.125  # fixed scale bottom — outliers clip rather than rescaling
+    # Constant colour for the site-wide trend line. Pure white is unused
+    # elsewhere in the chart palette, so it visually flags "average across
+    # telescopes" without colliding with any telescope or filter colour.
+    MEAN_LINE_COLOR = '#ffffff'
     # Maximum hour-of-day gap between consecutive samples that still counts
     # as "the same segment" of the trend curve. Anything wider gets a NaN
     # break so the line doesn't connect islands of points across hours of
@@ -1273,11 +1328,14 @@ class _PhotZeroPanel(_Panel):
             self._scatters[tel] = ax.scatter([], [], s=10, c=color,
                                              alpha=0.50, edgecolors='none',
                                              linewidths=0, zorder=4, label=tel)
-        # Combined smoothed trend across all telescopes — kept translucent
-        # so it reads as a "trend overlay" rather than competing visually
-        # with the per-telescope scatter.
-        self._line_smoothed, = ax.plot([], [], '-', color=ck.FG_TEXT,
-                                       linewidth=1.4, alpha=0.45, zorder=6)
+        # Combined smoothed trend across all telescopes — the headline
+        # signal of the panel ("site-wide photometric quality"). Bright
+        # constant white at high alpha and elevated zorder so it reads
+        # as the dominant line; kept thin (1.6 px) so per-telescope
+        # scatter beneath stays legible. White is unused elsewhere in
+        # the chart palette, marking this line as "not a telescope".
+        self._line_smoothed, = ax.plot([], [], '-', color=self.MEAN_LINE_COLOR,
+                                       linewidth=1.6, alpha=0.95, zorder=8)
         self._overlay_avg = ck.big_overlay(ax)
 
     def restamp_telescope_colors(self) -> None:
