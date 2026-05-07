@@ -9,7 +9,7 @@ include = ["settings.toml", "oca_monitor/resources/icons/*"]
 
 
 [tool.poetry.dependencies]
-python = "^3.10, <3.14"
+python = ">=3.10, <3.16"
 #paho-mqtt = "^1.6.1"
 
 # pyqy6 is optional, because there is no such package for ARM
@@ -18,7 +18,6 @@ python = "^3.10, <3.14"
 #pyqt6 = {version="*",optional = true}
 pyqt6 = {version="*"}
 opencv-python = "*"
-astropy = "^7.0"   # 6.x calls np.in1d which numpy 2.4+ removed
 matplotlib = "*"
 requests = "^2.33.1"
 serverish = {version="^2.0.5", extras=["messenger"]}
@@ -26,6 +25,14 @@ qasync = "^0.28.0"
 dynaconf = "^3.2.13"
 aiofiles = "^25.1.0"
 aiohttp = "^3.13.5"
+# astropy 7+ requires py>=3.11 and is the only line compatible with
+# numpy 2.2+ (which removed np.in1d). Older RPi kiosks stuck on py3.10
+# pin to the 6.x line, which works because they're also pinned to
+# numpy 1.26 below.
+astropy = [
+  { version = "^7.0", python = ">=3.11" },
+  { version = "^6.1", python = ">=3.10,<3.11" }
+]
 numpy = [
   { version = "^2.4.4", python = ">=3.11" },
   { version = "^1.26", python = ">=3.10,<3.11" }
