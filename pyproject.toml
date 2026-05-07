@@ -1,6 +1,6 @@
 [tool.poetry]
 name = "oca_monitor"
-version = "0.4.20" # Also change the version in oca_monitor_bases.py
+version = "0.4.21" # Also change the version in oca_monitor_bases.py
 description = "Flexible GUI for displaying telescopes and other OCM systems status"
 license = "MIT"
 authors = ["pwielgorski"]
@@ -18,10 +18,10 @@ python = "^3.10, <3.14"
 #pyqt6 = {version="*",optional = true}
 pyqt6 = {version="*"}
 opencv-python = "*"
-astropy = "*"
+astropy = "^7.0"   # 6.x calls np.in1d which numpy 2.4+ removed
 matplotlib = "*"
 requests = "^2.33.1"
-serverish = {version="^2.0.1", extras=["messenger"]}
+serverish = {version="^2.0.5", extras=["messenger"]}
 qasync = "^0.28.0"
 dynaconf = "^3.2.13"
 aiofiles = "^25.1.0"
