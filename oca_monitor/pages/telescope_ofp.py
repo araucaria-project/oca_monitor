@@ -197,21 +197,24 @@ class TelescopeOfp(QWidget):
                 )
 
             except (ValueError, LookupError, TypeError) as e:
-                arr_min = content["min"]
-                arr_max = content["max"]
-                mean = content["mean"]
-                median = content["median"]
-                focus = content["focus"]
-                temp_ws = content["temp_ws"]
-                hum_ws = content["hum_ws"]
+                try:
+                    arr_min = content["min"]
+                    arr_max = content["max"]
+                    mean = content["mean"]
+                    median = content["median"]
+                    focus = content["focus"]
+                    temp_ws = content["temp_ws"]
+                    hum_ws = content["hum_ws"]
 
-                foc_calc = (self.FOCUS_COEF[self.tel]['temp'] * temp_ws) + \
-                           (self.FOCUS_COEF[self.tel]['hum'] * hum_ws) + self.FOCUS_COEF[self.tel]['intercept']
+                    foc_calc = (self.FOCUS_COEF[self.tel]['temp'] * temp_ws) + \
+                               (self.FOCUS_COEF[self.tel]['hum'] * hum_ws) + self.FOCUS_COEF[self.tel]['intercept']
 
-                txt = txt + (
-                    f'<font size="3">| min:{arr_min:.0f}'
-                    f' max:{arr_max:.0f} mean:{mean:.0f} median:{median:.0f}'
-                    f' focus:{focus:.0f}({focus - foc_calc:.0f})</font>|<br>')
+                    txt = txt + (
+                        f'<font size="3">| min:{arr_min:.0f}'
+                        f' max:{arr_max:.0f} mean:{mean:.0f} median:{median:.0f}'
+                        f' focus:{focus:.0f}({focus - foc_calc:.0f})</font>|<br>')
+                except (ValueError, LookupError, TypeError):
+                    pass
 
             try:
                 if len(content["objects"]) > 0:
