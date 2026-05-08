@@ -59,15 +59,40 @@ source = "telescopes"  # page source - page is defined in oca_monitor/pages/exam
 #auto_interval = 10  # seconds, how long to show this page before auto switching to next page
 source = "weather"  # page source - page is defined in oca_monitor/pages/example.py
 vertical_screen = 0
+# charts: ordered subset of available panels, rendered as a squeezed
+# shared-X stack. ``wind`` is always included (forced first if missing).
+# Available keys:
+#   wind               — speed (today + yesterday + alert bands)
+#                        + windy.com-style direction arrows along the bottom
+#   humidity_pressure  — humidity (semi-transparent area, left axis)
+#                        + pressure (line, right axis)
+#   temperature        — today + yesterday line
+#   dome_wind_az       — per-telescope dome↔wind alignment, dotted when
+#                        dome closed; danger band <``dome_danger_zone_deg``
+#   fwhm               — per-telescope FWHM in arcsec (pipeline.faststat,
+#                        IMAGETYP=science only)
+#   quality            — per-telescope star-presence ratio (pipeline.zdf)
+#   phot_zero          — per-telescope photometric zero point
+#                        (zero_monitor.lc), filter colour on marker edge
+charts = ["wind", "temperature", "humidity_pressure", "fwhm", "phot_zero", "power"]
+# Optional alert thresholds (defaults shown):
+#wind_warn_ms = 11.0
+#wind_danger_ms = 14.0
+#humidity_warn_pct = 70
+#humidity_danger_pct = 75
+#temperature_danger_c = 0
+#soc_warn_pct = 30
+#soc_danger_pct = 15
+#dome_danger_zone_deg = 30
 
-[default.panels.12.Ephemeris]
-#auto_interval = 10  # seconds, how long to show this page before auto switching to next page
-source = "ephemeris"  # page source - page is defined in oca_monitor/pages/example.py
-
-[default.panels.12.Conditions]
-#auto_interval = 10  # seconds, how long to show this page before auto switching to next page
-source = "conditions"  # page source - page is defined in oca_monitor/pages/example.py
-#vertical_screen = 0
+[default.panels.12.Site]
+source = "site_status"  # unified clocks + sun/moon events + water level
+# Optional overrides (defaults shown):
+#evening_events = [5, -1, -16, -18]
+#morning_events = [-18, -10, 0]
+#water_capacity_m3 = 15.0
+#water_warn_pct = 20.0     # %  → orange
+#water_danger_pct = 10.0   # %  → red
 
 
 

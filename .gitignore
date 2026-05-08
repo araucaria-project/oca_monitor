@@ -145,3 +145,7 @@ poetry.lock
 
 # Ignore dynaconf secret files
 .secrets.*
+
+# Throwaway scratch — debug probes, reproducers, draft notes
+scratch/
+STATIC_REVIEW.md
