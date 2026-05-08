@@ -166,7 +166,7 @@ class TelescopeOfp(QWidget):
 
                 txt = txt + f"<i>{type}</i> <b>{obj}</b>"
                 txt = txt + f" | {n}/{n_dit} <b>{filter_}</b>  <b>{exptime:.1f}</b>s |<br>"
-            except (ValueError, LookupError) as e:
+            except (ValueError, LookupError, TypeError) as e:
                 logger.warning(f"Can not parse data: {e}")
                 return
             try:
@@ -196,7 +196,7 @@ class TelescopeOfp(QWidget):
                     f' focus:{focus:.0f}({focus - foc_calc:.0f})</font>|<br>'
                 )
 
-            except (ValueError, LookupError) as e:
+            except (ValueError, LookupError, TypeError) as e:
                 arr_min = content["min"]
                 arr_max = content["max"]
                 mean = content["mean"]
@@ -223,7 +223,7 @@ class TelescopeOfp(QWidget):
                         txt = txt + (f' <font size="3"><b>{obj_name}</b>'
                                      f' max-adu:{adu_max:.0f} moon-dist:{moon_sep:.0f} </font>|')
 
-            except (ValueError, LookupError) as e:
+            except (ValueError, LookupError, TypeError) as e:
                 pass
 
             txt = txt + f" </p>"
