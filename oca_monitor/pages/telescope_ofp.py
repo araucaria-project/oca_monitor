@@ -158,14 +158,18 @@ class TelescopeOfp(QWidget):
             try:
                 date = content["date_obs"]
                 obj = content["object"]
-                type = content["imagetyp"]
+                _type = content["imagetyp"]
                 filter_ = content["filter"]
                 n = content["loop"]
                 n_dit = content["nloops"]
                 exptime = content["exptime"]
+                if exptime is not None:
+                    _exptime = round(exptime, 1)
+                else:
+                    _exptime = ""
 
-                txt = txt + f"<i>{type}</i> <b>{obj}</b>"
-                txt = txt + f" | {n}/{n_dit} <b>{filter_}</b>  <b>{exptime:.1f}</b>s |<br>"
+                txt = txt + f"<i>{_type}</i> <b>{obj}</b>"
+                txt = txt + f" | {n}/{n_dit} <b>{filter_}</b>  <b>{_exptime}</b>s |<br>"
             except (ValueError, LookupError, TypeError) as e:
                 logger.warning(f"Can not parse data: {e}")
                 return
@@ -175,13 +179,18 @@ class TelescopeOfp(QWidget):
                 return
 
             try:
-                fwhm_x = content["fwhm_x"]
-                fwhm_y = content["fwhm_y"]
+                scale = content["scale"]
+                fwhm_x = round(content["fwhm_x"] * scale, 1)
+                fwhm_y = round(content["fwhm_y"] * scale, 1)
+            except (ValueError, LookupError, TypeError):
+                fwhm_x = ""
+                fwhm_y = ""
+
+            try:
                 arr_min = content["min"]
                 arr_max = content["max"]
                 mean = content["mean"]
                 median = content["median"]
-                scale = content["scale"]
                 alt_tel = content["alt_tel"]
                 focus = content["focus"]
                 temp_ws = content["temp_ws"]
@@ -191,30 +200,13 @@ class TelescopeOfp(QWidget):
                            (self.FOCUS_COEF[self.tel]['hum'] * hum_ws) + self.FOCUS_COEF[self.tel]['intercept']
 
                 txt = txt + (
-                    f'<font size="3">| fwhm x:{fwhm_x * scale:.1f} y:{fwhm_y * scale:.1f} alt:{alt_tel:.0f}'
+                    f'<font size="3">| fwhm x:{fwhm_x} y:{fwhm_y} alt:{alt_tel:.0f}'
                     f' min:{arr_min:.0f} max:{arr_max:.0f} mean:{mean:.0f} med:{median:.0f}'
                     f' focus:{focus:.0f}({focus - foc_calc:.0f})</font>|<br>'
                 )
 
             except (ValueError, LookupError, TypeError) as e:
-                try:
-                    arr_min = content["min"]
-                    arr_max = content["max"]
-                    mean = content["mean"]
-                    median = content["median"]
-                    focus = content["focus"]
-                    temp_ws = content["temp_ws"]
-                    hum_ws = content["hum_ws"]
-
-                    foc_calc = (self.FOCUS_COEF[self.tel]['temp'] * temp_ws) + \
-                               (self.FOCUS_COEF[self.tel]['hum'] * hum_ws) + self.FOCUS_COEF[self.tel]['intercept']
-
-                    txt = txt + (
-                        f'<font size="3">| min:{arr_min:.0f}'
-                        f' max:{arr_max:.0f} mean:{mean:.0f} median:{median:.0f}'
-                        f' focus:{focus:.0f}({focus - foc_calc:.0f})</font>|<br>')
-                except (ValueError, LookupError, TypeError):
-                    pass
+                pass
 
             try:
                 if len(content["objects"]) > 0:
