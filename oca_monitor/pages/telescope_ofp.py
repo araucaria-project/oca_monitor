@@ -165,8 +165,10 @@ class TelescopeOfp(QWidget):
                 exptime = content["exptime"]
                 if exptime is not None:
                     _exptime = round(exptime, 1)
+                    expt = float(exptime)
                 else:
                     _exptime = ""
+                    expt = 0
 
                 txt = txt + f"<i>{_type}</i> <b>{obj}</b>"
                 txt = txt + f" | {n}/{n_dit} <b>{filter_}</b>  <b>{_exptime}</b>s |<br>"
@@ -174,7 +176,9 @@ class TelescopeOfp(QWidget):
                 logger.warning(f"Can not parse data: {e}")
                 return
             try:
-                self.info_e_last_date_obs = datetime.datetime.fromisoformat(date).replace(tzinfo=datetime.timezone.utc)
+                self.info_e_last_date_obs = datetime.datetime.fromisoformat(date).replace(
+                    tzinfo=datetime.timezone.utc
+                ) + datetime.timedelta(seconds=expt)
             except (ValueError, TypeError):
                 return
 
