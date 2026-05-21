@@ -1305,8 +1305,13 @@ class _PhotZeroPanel(_Panel):
         super().__init__()
         self.main_window = main_window
         self.telescopes = list(telescopes)
-        self._series: Dict[str, Tuple[List[float], List[float], List[str]]] = {
-            t: ([], [], []) for t in self.telescopes
+        # Per-tel parallel lists: (hours_utc, zps, filters, t_arrival_monotonic).
+        # ``t_arrival`` is the ground truth for "which sample is newest" —
+        # ``hours_utc`` wraps at 00:00 UTC and would otherwise order the
+        # post-midnight half of the night BEFORE the pre-midnight half.
+        self._series: Dict[str, Tuple[List[float], List[float], List[str],
+                                       List[float]]] = {
+            t: ([], [], [], []) for t in self.telescopes
         }
         self._scatters: Dict[str, Any] = {}
         self._line_smoothed = None
@@ -1361,10 +1366,11 @@ class _PhotZeroPanel(_Panel):
         if not _math.isfinite(zp):
             return
         flt = str(data.get('filter', '') or '')
-        hours, zps, fls = self._series[tel]
+        hours, zps, fls, tss = self._series[tel]
         hours.append(hour); zps.append(zp); fls.append(flt)
+        tss.append(time.monotonic())
         if len(hours) > 4000:
-            del hours[:1000]; del zps[:1000]; del fls[:1000]
+            del hours[:1000]; del zps[:1000]; del fls[:1000]; del tss[:1000]
         edge = [ck.PHOT_FILTER_COLORS.get(f, '#888888') for f in fls]
         self._scatters[tel].set_offsets(np.column_stack((hours, zps)))
         self._scatters[tel].set_edgecolors(edge)
@@ -1373,23 +1379,42 @@ class _PhotZeroPanel(_Panel):
     def _refresh_smoothed_and_scale(self) -> None:
         all_x: List[float] = []
         all_y: List[float] = []
-        for _tel, (xs, ys, _) in self._series.items():
+        all_t: List[float] = []
+        for _tel, (xs, ys, _, tss) in self._series.items():
             all_x.extend(xs)
             all_y.extend(ys)
+            all_t.extend(tss)
         if not all_x:
             if self._line_smoothed is not None:
                 self._line_smoothed.set_data([], [])
             return
-        idx = np.argsort(np.asarray(all_x))
+        # Sort by arrival time, NOT by hour-of-day. The night straddles
+        # 00:00 UTC, so sorting by ``hour`` would place post-midnight
+        # samples (x≈0..8) before pre-midnight ones (x≈22..24), making
+        # the smoothed-line tip — and the overlay value — track the
+        # oldest sample of the night instead of the newest.
+        idx = np.argsort(np.asarray(all_t))
         x_sorted = np.asarray(all_x, dtype=float)[idx]
         y_sorted = np.asarray(all_y, dtype=float)[idx]
+        t_sorted = np.asarray(all_t, dtype=float)[idx]
 
-        # Split into segments at gaps wider than MAX_SEGMENT_GAP_HOURS so
-        # the trend never connects across hours of silence. Smooth each
-        # segment independently with sigma=SMOOTH_SIGMA, then concatenate
-        # with NaN separators (matplotlib breaks the line at NaN).
+        # Split into segments on TWO independent gap conditions, both
+        # measured between consecutive time-ordered samples:
+        #   * real-time silence > MAX_SEGMENT_GAP_HOURS — the trend
+        #     never connects across hours of no data (cloud-out, downtime);
+        #   * |Δx| > MAX_SEGMENT_GAP_HOURS — catches the UTC-midnight
+        #     wrap (x jumps 23.x → 0.x in a few minutes of real time),
+        #     so the line doesn't draw a long horizontal stroke back
+        #     across the chart.
+        # Smooth each segment independently with sigma=SMOOTH_SIGMA,
+        # then concatenate with NaN separators (matplotlib breaks the
+        # line at NaN).
         if x_sorted.size > 1:
-            cuts = np.where(np.diff(x_sorted) > self.MAX_SEGMENT_GAP_HOURS)[0] + 1
+            dt_h = np.diff(t_sorted) / 3600.0   # monotonic seconds → hours
+            dx_h = np.abs(np.diff(x_sorted))
+            gap = (dt_h > self.MAX_SEGMENT_GAP_HOURS) | \
+                  (dx_h > self.MAX_SEGMENT_GAP_HOURS)
+            cuts = np.where(gap)[0] + 1
             seg_x = np.split(x_sorted, cuts)
             seg_y = np.split(y_sorted, cuts)
         else:
@@ -1425,7 +1450,7 @@ class _PhotZeroPanel(_Panel):
 
     def on_session_reset(self) -> None:
         for tel in self.telescopes:
-            self._series[tel] = ([], [], [])
+            self._series[tel] = ([], [], [], [])
             if tel in self._scatters:
                 self._scatters[tel].set_offsets(np.zeros((0, 2)))
         if self._line_smoothed is not None:
