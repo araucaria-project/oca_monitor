@@ -1383,6 +1383,9 @@ class _PhotZeroPanel(_Panel):
         idx = np.argsort(np.asarray(all_x))
         x_sorted = np.asarray(all_x, dtype=float)[idx]
         y_sorted = np.asarray(all_y, dtype=float)[idx]
+        rem_after_18 = x_sorted < 18.0
+        x_sorted = x_sorted[rem_after_18]
+        y_sorted = y_sorted[rem_after_18]
 
         # Split into segments at gaps wider than MAX_SEGMENT_GAP_HOURS so
         # the trend never connects across hours of silence. Smooth each
