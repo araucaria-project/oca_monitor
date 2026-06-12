@@ -353,10 +353,10 @@ class SiteStatusWidget(QWidget):
             else:
                 pct_color = '#808080'  # gray (normal)
             self.lbl_water.setText(
-                f'{self.water_level_m3:.1f} m³  '
+                f'💧 {self.water_level_m3:.1f} m³  '
                 f'<span style="color:{pct_color}">{pct:.0f}%</span>')
         else:
-            self.lbl_water.setText(f"{self.water_level_m3:.1f} m³")
+            self.lbl_water.setText(f"💧 {self.water_level_m3:.1f} m³")
 
     # ---- 1 Hz tick ----------------------------------------------------------
 
