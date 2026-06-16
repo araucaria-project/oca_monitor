@@ -4,6 +4,7 @@ import logging
 import os.path
 from typing import Any, Optional
 import json
+import mloca
 
 from serverish.base import create_task
 from serverish.base.iterators import AsyncDictItemsIter
@@ -52,6 +53,7 @@ class TelescopeOfp(QWidget):
         self.main_window = main_window
         self.info_e_txt: str = ''
         self.info_e_last_date_obs: Optional[datetime.datetime] = None
+        self.focus_model = mloca.FocusModel(telescope_id=tel)
         super().__init__()
         self.initUI()
         logger.info(f"TelescopeOfp {self.tel} init setup done")
@@ -200,13 +202,19 @@ class TelescopeOfp(QWidget):
                 temp_ws = content["temp_ws"]
                 hum_ws = content["hum_ws"]
 
-                foc_calc = (self.FOCUS_COEF[self.tel]['temp'] * temp_ws) + \
-                           (self.FOCUS_COEF[self.tel]['hum'] * hum_ws) + self.FOCUS_COEF[self.tel]['intercept']
+                # foc_calc = (self.FOCUS_COEF[self.tel]['temp'] * temp_ws) + \
+                #            (self.FOCUS_COEF[self.tel]['hum'] * hum_ws) + self.FOCUS_COEF[self.tel]['intercept']
+
+                foc_calc = self.focus_model.predict(temp=temp_ws, hum=hum_ws)
+                if isinstance(foc_calc, float):
+                    _foc = f"{focus - foc_calc:.0f}"
+                else:
+                    _foc = "None"
 
                 txt = txt + (
                     f'<font size="3">| fwhm x:{fwhm_x} y:{fwhm_y} alt:{alt_tel:.0f}'
                     f' min:{arr_min:.0f} max:{arr_max:.0f} mean:{mean:.0f} med:{median:.0f}'
-                    f' focus:{focus:.0f}({focus - foc_calc:.0f})</font>|<br>'
+                    f' focus:{focus:.0f}({_foc})</font>|<br>'
                 )
 
             except (ValueError, LookupError, TypeError) as e:
