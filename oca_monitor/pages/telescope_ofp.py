@@ -205,7 +205,7 @@ class TelescopeOfp(QWidget):
                 # foc_calc = (self.FOCUS_COEF[self.tel]['temp'] * temp_ws) + \
                 #            (self.FOCUS_COEF[self.tel]['hum'] * hum_ws) + self.FOCUS_COEF[self.tel]['intercept']
 
-                foc_calc = self.focus_model.predict(temp=temp_ws, hum=hum_ws)
+                foc_calc = await self.focus_model.predict(temp=temp_ws, hum=hum_ws)
                 if isinstance(foc_calc, float):
                     _foc = f"{focus - foc_calc:.0f}"
                 else:
@@ -272,7 +272,7 @@ class TelescopeOfp(QWidget):
 
     @asyncSlot()
     async def async_init(self) -> None:
-
+        await self.focus_model.load_model()
         im_on_init = await self.image_instance(image_path=os.path.join(self.dir, self.PNG_FILE_NAME))
         await self.image_display(object_to_display=im_on_init)
         lc_on_init = await self.image_instance(image_path=os.path.join(self.dir, self.LC_FILE_NAME))
