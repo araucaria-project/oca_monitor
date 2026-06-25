@@ -1164,8 +1164,11 @@ class _FwhmPanel(_PerTelescopeScatterPanel):
         super().init_axes(ax)
         for tel in self.telescopes:
             color = ck.telescope_color(self.main_window, tel)
+            if tel in self._lines:
+                self._lines[tel].set_markersize(2.2)
+                self._lines[tel].set_alpha(0.24)
             self._smooth_lines[tel], = ax.plot(
-                [], [], '-', color=color, linewidth=1.2, alpha=0.90,
+                [], [], '-', color=color, linewidth=1.4, alpha=0.95,
                 zorder=7)
         self._overlay = ck.big_overlay(ax)
         QtCore.QTimer.singleShot(int(self.OVERLAY_ROTATE_SEC * 1000),
