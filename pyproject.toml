@@ -23,7 +23,7 @@ matplotlib = "*"
 requests = "^2.33.1"
 serverish = {version="^2.0.5", extras=["messenger"]}
 qasync = "^0.28.0"
-dynaconf = "^3.2.13"
+dynaconf = "3.2.13"
 aiofiles = "^25.1.0"
 aiohttp = "^3.13.5"
 numpy = [
