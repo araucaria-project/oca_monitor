@@ -1145,6 +1145,9 @@ class _FwhmPanel(_PerTelescopeScatterPanel):
 
     OVERLAY_ROTATE_SEC = 3.0           # round-robin cadence
     OVERLAY_FRESH_WINDOW_SEC = 15 * 60.0  # max arrival skew vs newest sample
+    SMOOTH_SIGMA = 5.0
+    MAX_SEGMENT_GAP_HOURS = 0.5
+    MIN_SEGMENT_POINTS = 3
 
     def __init__(self, main_window, telescopes: Sequence[str]) -> None:
         super().__init__(main_window, telescopes)
@@ -1153,17 +1156,25 @@ class _FwhmPanel(_PerTelescopeScatterPanel):
         # or system-clock adjustments.
         self._latest: Dict[str, Tuple[float, float]] = {}
         self._rr_idx: int = 0
+        self._smooth_lines: Dict[str, Any] = {}
 
     title_side = 'right'   # title pinned where there's daytime gap, no data
 
     def init_axes(self, ax) -> None:
         super().init_axes(ax)
+        for tel in self.telescopes:
+            color = ck.telescope_color(self.main_window, tel)
+            self._smooth_lines[tel], = ax.plot(
+                [], [], '-', color=color, linewidth=1.2, alpha=0.90,
+                zorder=7)
         self._overlay = ck.big_overlay(ax)
         QtCore.QTimer.singleShot(int(self.OVERLAY_ROTATE_SEC * 1000),
                                  self._do_rotate)
 
     def restamp_telescope_colors(self) -> None:
         super().restamp_telescope_colors()
+        for tel, line in self._smooth_lines.items():
+            line.set_color(ck.telescope_color(self.main_window, tel))
         # Re-apply the blended colour to the overlay in case nats_cfg
         # arrived after init.
         self._refresh_overlay()
@@ -1181,6 +1192,41 @@ class _FwhmPanel(_PerTelescopeScatterPanel):
         arcsec = fwhm * scale
         self._append(tel, hour, arcsec)
         self._latest[tel] = (arcsec, time.monotonic())
+        self._refresh_smoothed(tel)
+
+    def _refresh_smoothed(self, tel: str) -> None:
+        line = self._smooth_lines.get(tel)
+        if line is None:
+            return
+        hours, vals = self._series.get(tel, ([], []))
+        if not hours:
+            line.set_data([], [])
+            return
+
+        idx = np.argsort(np.asarray(hours, dtype=float))
+        x_sorted = np.asarray(hours, dtype=float)[idx]
+        y_sorted = np.asarray(vals, dtype=float)[idx]
+
+        if x_sorted.size > 1:
+            cuts = np.where(np.diff(x_sorted) > self.MAX_SEGMENT_GAP_HOURS)[0] + 1
+            seg_x = np.split(x_sorted, cuts)
+            seg_y = np.split(y_sorted, cuts)
+        else:
+            seg_x = [x_sorted]
+            seg_y = [y_sorted]
+
+        out_x: List[float] = []
+        out_y: List[float] = []
+        for sx, sy in zip(seg_x, seg_y):
+            if sx.size < self.MIN_SEGMENT_POINTS:
+                continue
+            sy_smooth = ck.gaussian_filter1d(sy, sigma=self.SMOOTH_SIGMA)
+            if out_x:
+                out_x.append(np.nan)
+                out_y.append(np.nan)
+            out_x.extend(sx.tolist())
+            out_y.extend(sy_smooth.tolist())
+        line.set_data(out_x, out_y)
 
     def _eligible(self) -> List[str]:
         """Telescopes within the freshness window, in canonical order.
@@ -1229,6 +1275,8 @@ class _FwhmPanel(_PerTelescopeScatterPanel):
 
     def on_session_reset(self) -> None:
         super().on_session_reset()
+        for line in self._smooth_lines.values():
+            line.set_data([], [])
         self._latest.clear()
         self._rr_idx = 0
         if self._overlay is not None:
