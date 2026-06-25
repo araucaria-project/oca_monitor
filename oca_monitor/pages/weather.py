@@ -1284,7 +1284,7 @@ class _PhotZeroPanel(_Panel):
 
     GREEN_THRESHOLD = -0.05
     YELLOW_THRESHOLD = -0.10
-    SMOOTH_SIGMA = 3.0
+    SMOOTH_SIGMA = 5.0
     Y_MAX = 0.05    # fixed scale top
     Y_MIN = -0.125  # fixed scale bottom — outliers clip rather than rescaling
     # Constant colour for the site-wide trend line. Pure white is unused
