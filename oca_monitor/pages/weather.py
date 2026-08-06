@@ -1145,7 +1145,7 @@ class _FwhmPanel(_PerTelescopeScatterPanel):
 
     OVERLAY_ROTATE_SEC = 3.0           # round-robin cadence
     OVERLAY_FRESH_WINDOW_SEC = 15 * 60.0  # max arrival skew vs newest sample
-    SMOOTH_SIGMA = 5.0
+    SMOOTH_SIGMA = {'default': 5.0, 'zb08': 8.0}
     MAX_SEGMENT_GAP_HOURS = 0.5
     MIN_SEGMENT_POINTS = 3
 
@@ -1220,6 +1220,10 @@ class _FwhmPanel(_PerTelescopeScatterPanel):
 
         out_x: List[float] = []
         out_y: List[float] = []
+        if tel in self.SMOOTH_SIGMA.keys():
+            smooth_sigma = self.SMOOTH_SIGMA[tel]
+        else:
+            smooth_sigma = self.SMOOTH_SIGMA['default']
         for sx, sy in zip(seg_x, seg_y):
             if sx.size < self.MIN_SEGMENT_POINTS:
                 continue
