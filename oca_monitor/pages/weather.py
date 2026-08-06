@@ -1227,7 +1227,7 @@ class _FwhmPanel(_PerTelescopeScatterPanel):
         for sx, sy in zip(seg_x, seg_y):
             if sx.size < self.MIN_SEGMENT_POINTS:
                 continue
-            sy_smooth = ck.gaussian_filter1d(sy, sigma=self.SMOOTH_SIGMA)
+            sy_smooth = ck.gaussian_filter1d(sy, sigma=smooth_sigma)
             if out_x:
                 out_x.append(np.nan)
                 out_y.append(np.nan)
