@@ -61,7 +61,7 @@ class AllskyAnimationWidget(QWidget):
 
     @asyncSlot()
     async def async_init(self):
-        logger.info('Starting allsky display.')
+        logger.info(f'Starting allsky display from {self.dir}.')
         display = ImageDisplay(
             name='allsky', images_dir=self.dir, image_display_clb=self.image_display,
             image_instance_clb=self.image_instance, images_prefix='lastimage',
