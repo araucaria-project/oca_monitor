@@ -1753,7 +1753,7 @@ class WeatherDataWidget(QWidget):
         total_ms = (_time.perf_counter() - t0) * 1000.0
         if total_ms > 10.0 or per_panel:
             details = ", ".join(f"{name}={dt:.0f}ms" for name, dt in per_panel)
-            logger.info(f"[render] {total_ms:.0f}ms total" +
+            logger.debug(f"[render] {total_ms:.0f}ms total" +
                         (f" ({details})" if details else ""))
 
     def _schedule_next_sunset_reset(self) -> None:
