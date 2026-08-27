@@ -113,7 +113,7 @@ class AllskyAnimationMplWidget(QWidget):
 
     async def image_instance(self, image_path: str) -> Any:
 
-        figure = Figure()
+        figure = Figure(facecolor='black')
         figure.clf()
         ax = figure.add_subplot(111)
         image = plt.imread(image_path)
