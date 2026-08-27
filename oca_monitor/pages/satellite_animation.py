@@ -2,58 +2,56 @@ import asyncio
 import logging
 from typing import Any
 
-from PyQt6.QtWidgets import QWidget, QVBoxLayout,QLabel,QSizePolicy
+from PyQt6.QtWidgets import QWidget, QVBoxLayout, QLabel, QSizePolicy
 from PyQt6.QtCore import QTimer
 from PyQt6 import QtCore
 from PyQt6.QtGui import QPixmap
 
 from qasync import asyncSlot
 
-#from PyQt6 import Qt
-#from matplotlib.backends.backend_qt5agg import FigureCanvasQTAgg as FigureCanvas
-#from matplotlib.figure import Figure
-#from qasync import asyncSlot
-#from serverish.base import dt_ensure_datetime
+# from PyQt6 import Qt
+# from matplotlib.backends.backend_qt5agg import FigureCanvasQTAgg as FigureCanvas
+# from matplotlib.figure import Figure
+# from qasync import asyncSlot
+# from serverish.base import dt_ensure_datetime
 
 from oca_monitor.image_display import ImageDisplay
 
-#from serverish.messenger import Messenger
+# from serverish.messenger import Messenger
 
 logger = logging.getLogger(__name__.rsplit('.')[-1])
 
-class SatelliteAnimationWidget(QWidget):
 
+class SatelliteAnimationWidget(QWidget):
     IMAGE_PREFIX = '600x600'
     REFRESH_IMAGE_TIME_SEC = 10
     IMAGE_CHANGE_SEC = 0.75
     MAX_IMAGES_NO = 12
 
-    def __init__(self, main_window, allsky_dir='/data/misc/GOES_satellite/', vertical_screen=False,
-                 max_age_sec: float = 1800, **kwargs):
+    def __init__(self, main_window, allsky_dir='/data/misc/GOES_satellite/', vertical_screen=False, **kwargs):
         super().__init__()
         self.main_window = main_window
         self.dir = allsky_dir
         self.freq = 500
         self.vertical = bool(vertical_screen)
         self.counter = 0
-        self.max_age_sec = float(max_age_sec)
         self.lock = asyncio.Lock()
         self.image_queue = asyncio.Queue()
         self.files_list = []
         self.initUI()
         logger.info(f"SatelliteAnimationWidget init setup done")
-        
+
     def initUI(self):
         self.layout = QVBoxLayout(self)
         self.label = QLabel()
         if self.vertical:
-            self.label.resize(self.width(),self.width())
+            self.label.resize(self.width(), self.width())
         else:
-            self.label.resize(self.height(),self.height())
-        self.layout.addWidget(self.label,1)
+            self.label.resize(self.height(), self.height())
+        self.layout.addWidget(self.label, 1)
         self.w = self.width()
         self.h = self.height()
-        self.label.setSizePolicy(QSizePolicy.Policy.Ignored,QSizePolicy.Policy.Ignored)
+        self.label.setSizePolicy(QSizePolicy.Policy.Ignored, QSizePolicy.Policy.Ignored)
         QTimer.singleShot(0, self.async_init)
         # logger.info(f"SatelliteAnimationWidget UI setup done")
 
@@ -79,24 +77,13 @@ class SatelliteAnimationWidget(QWidget):
             )
             self.label.setAlignment(QtCore.Qt.AlignmentFlag.AlignCenter)
 
-    async def show_stale(self, reason: str) -> None:
-        """Clear the satellite pixmap and show a red-on-black diagnostic so
-        observers do not act on yesterday's GOES frame."""
-        self.label.clear()
-        self.label.setStyleSheet(
-            "background-color: black; color: red; font-size: 24px; font-weight: bold;"
-        )
-        self.label.setAlignment(QtCore.Qt.AlignmentFlag.AlignCenter)
-        self.label.setText(f"GOES SATELLITE\nUNAVAILABLE\n\n{reason}")
-
     @asyncSlot()
     async def async_init(self):
         logger.info('Starting satellite display.')
         display = ImageDisplay(
             name='satellite', images_dir=self.dir, image_display_clb=self.image_display,
-            image_instance_clb=self.image_instance, images_prefix=self.IMAGE_PREFIX,
-            image_cascade_sec=0.75, image_pause_sec=1.25, refresh_list_sec=10, mode='new_files',
-            max_age_sec=self.max_age_sec, on_stale_clb=self.show_stale,
+            image_instance_clb=self.image_instance, images_prefix='600x600',
+            image_cascade_sec=0.75, image_pause_sec=1.25, refresh_list_sec=10, mode='new_files'
         )
         await display.display_init()
 
