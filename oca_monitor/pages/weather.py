@@ -1955,7 +1955,7 @@ class WeatherDataWidget(QWidget):
                 if not caught_up and (now - ts).total_seconds() < 30.0:
                     elapsed = _time.perf_counter() - t_start
                     other = max(0.0, elapsed - sum_wait - sum_hook)
-                    logger.info(
+                    logger.debug(
                         f"[hydration] {subject} caught up after {n_msgs} msgs "
                         f"({n_yest} yesterday + {n_today} today) in {elapsed:.1f}s "
                         f"— wait={sum_wait:.1f}s hook={sum_hook:.1f}s other={other:.1f}s")
@@ -1963,7 +1963,7 @@ class WeatherDataWidget(QWidget):
                 if n_msgs - last_log_n >= 250:
                     now_perf = _time.perf_counter()
                     rate = (n_msgs - last_log_n) / (now_perf - last_log_t)
-                    logger.info(
+                    logger.debug(
                         f"[hydration] {subject} {n_msgs} msgs "
                         f"({n_yest}y/{n_today}t), last ts={ts.isoformat()}, "
                         f"recent rate={rate:.0f} msg/s, "
