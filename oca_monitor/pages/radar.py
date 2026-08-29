@@ -1,40 +1,7 @@
-"""Sky radar — every OCM telescope, the Sun and the Moon on one polar sky map.
+"""Sky radar: telescope dots with motion trails, slew targets, Sun and Moon.
 
-A single all-sky view answering "what is the observatory pointing at right
-now?" at a glance, in the same dark visual language as the weather/quality
-pages (``oca_monitor.widgets.chart_kit``).
-
-What is drawn
--------------
-* **Telescope dots** — one per telescope, filled with the telescope colour
-  from the observatory config, ringed with its mount state (green tracking,
-  amber slewing, dim idle).
-* **Fading trails** — the last ``trail_seconds`` of mount positions, sampled
-  once a second and faded out by age, so a slew reads as a comet tail and a
-  parked mount leaves nothing behind.
-* **Target crosshair** — while a mount is off-target, an ``x`` at the current
-  alt/az of the OB it is heading for, joined to the dot by a dashed line.
-* **Progress strip** — one row per telescope under the sky: object name,
-  mount state and an OB progress bar (elapsed / expected).
-* **Sun and Moon** — true alt/az; the Moon's disc brightens with its phase.
-  Below the horizon both slide into the compressed band outside the horizon
-  circle rather than vanishing.
-
-Data sources — everything is read straight off NATS subjects, nothing goes
-through ocabox or the TIC API:
-
-===============================================  ==========================
-``tic.telemetry.{tel}.mount.azimuth|altitude``   mount position (pms)
-``tic.status.{tel}.mount.slewing|tracking``      mount state (pms)
-``tic.status.{tel}.mount.motorstatus``           motors on/off (pms)
-``tic.status.{tel}.toi.ob``                      running OB + progress (toi)
-``tic.status.{tel}.toi.plan``                    current/next OB target (toi)
-``tic.config.observatory``                       telescope list and colours
-===============================================  ==========================
-
-Sun/Moon/target positions come from pyaraucaria via
-``oca_monitor.utils.ephem_ocm`` — see that module on why they are computed
-on a slow cadence and off the qasync event loop.
+Data straight off NATS: tic.telemetry.{tel}.mount.azimuth|altitude,
+tic.status.{tel}.mount.slewing|tracking|motorstatus, tic.status.{tel}.toi.ob|plan.
 """
 from __future__ import annotations
 
@@ -47,7 +14,7 @@ from collections import deque
 from typing import Any, Deque, Dict, List, Optional, Tuple
 
 import numpy as np
-from PyQt6 import QtCore  # imported before matplotlib so qt_compat picks PyQt6
+from PyQt6 import QtCore  # before matplotlib, so qt_compat picks PyQt6
 from PyQt6.QtWidgets import QVBoxLayout, QWidget
 from matplotlib.backends.backend_qt5agg import FigureCanvasQTAgg as FigureCanvas
 from matplotlib.colors import to_rgba
@@ -64,17 +31,11 @@ from oca_monitor.widgets import chart_kit as ck
 logger = logging.getLogger(__name__.rsplit('.')[-1])
 
 
-# ---- Radial geometry -------------------------------------------------------
-# Radius is 90 - altitude, so the zenith is the centre and the horizon a
-# circle at r = 90. Everything below the horizon is squeezed into a thin
-# outer band: alt -90 lands on R_MAX. That keeps a sunk Sun on the plot
-# (it is the whole point of the panel at dusk) without stealing sky area.
+# r = 90 - alt; below the horizon squeezed into the band up to R_MAX
 R_HORIZON = 90.0
 R_MAX = 112.0
 R_BELOW_SPAN = R_MAX - R_HORIZON
 
-# Sky-disc tint by solar altitude — the same day / twilight / night split
-# the ephemeris page uses, muted to fit the dark theme.
 SKY_DAY = '#2a2317'
 SKY_TWILIGHT = '#1d2130'
 SKY_NIGHT = ck.BG_AXES
@@ -87,7 +48,6 @@ COLOR_TARGET_LINK = '#8a8a8a'
 
 
 def _radius(alt_deg: float) -> float:
-    """Altitude in degrees → plot radius (see the geometry note above)."""
     if alt_deg >= 0.0:
         return R_HORIZON - alt_deg
     return R_HORIZON + R_BELOW_SPAN * min(1.0, -alt_deg / 90.0)
@@ -98,7 +58,6 @@ def _theta(az_deg: float) -> float:
 
 
 def _as_bool(value: Any) -> Optional[bool]:
-    """pms publishes booleans both as JSON bools and as ``"true"``/``"false"``."""
     if isinstance(value, bool):
         return value
     if isinstance(value, str):
@@ -136,11 +95,6 @@ def _hhmm(dt: Optional[datetime.datetime]) -> str:
 
 
 def _program_object(program: Optional[str]) -> str:
-    """Short object label out of a toi ``ob_program`` line.
-
-    ``"OBJECT AO_Lep 05:24:.. seq=.."`` → ``AO_Lep``; anything else keeps
-    its first two words (``"SNAP dd"``, ``"FOCUS 3"``, ``"STOPPED"``).
-    """
     if not program:
         return ''
     parts = program.split()
@@ -152,7 +106,6 @@ def _program_object(program: Optional[str]) -> str:
 
 
 def _angular_sep(az1: float, alt1: float, az2: float, alt2: float) -> float:
-    """Great-circle separation of two horizontal positions, in degrees."""
     a1, a2 = math.radians(alt1), math.radians(alt2)
     d_az = math.radians(az1 - az2)
     cos_sep = math.sin(a1) * math.sin(a2) + math.cos(a1) * math.cos(a2) * math.cos(d_az)
@@ -161,18 +114,17 @@ def _angular_sep(az1: float, alt1: float, az2: float, alt2: float) -> float:
 
 class RadarWidget(QWidget):
 
-    REFRESH_S = 1.0            # redraw + trail sampling cadence
-    ASTRO_REFRESH_S = 5.0      # Sun/Moon/target alt-az recompute
-    ALMANAC_REFRESH_S = 60.0   # rise/set events (expensive, barely moves)
+    REFRESH_S = 1.0
+    ASTRO_REFRESH_S = 5.0
+    ALMANAC_REFRESH_S = 60.0
 
-    TRAIL_SECONDS = 120.0      # how long a trail dot lingers
-    TRAIL_MIN_STEP_DEG = 0.03  # don't stack dots on a parked mount
+    TRAIL_SECONDS = 120.0
+    TRAIL_MIN_STEP_DEG = 0.03
     TRAIL_MAX_POINTS = 400
 
-    STALE_S = 1800.0           # position older than this → hollow, dimmed dot
-    TARGET_MIN_SEP_DEG = 1.0   # closer than this: on target, no crosshair
+    STALE_S = 1800.0
+    TARGET_MIN_SEP_DEG = 1.0
 
-    # Mount telemetry (pms) — subject suffix → state key.
     MOUNT_TELEMETRY = {'az': 'mount.azimuth', 'alt': 'mount.altitude'}
     MOUNT_STATUS = {'slewing': 'mount.slewing',
                     'tracking': 'mount.tracking',
@@ -197,8 +149,6 @@ class RadarWidget(QWidget):
             }
             for tel in self.telescopes
         }
-        # Filled by the astro thread: {'sun': {...}, 'moon': {...},
-        # 'targets': {tel: {'name','az','alt'}}} — read by the draw path only.
         self._astro: Dict[str, Any] = {}
         self._almanac: Dict[str, Any] = {}
 
@@ -232,8 +182,8 @@ class RadarWidget(QWidget):
         gs = self.figure.add_gridspec(2, 1, height_ratios=[1.0, 0.085 * n])
         self.ax_sky = self.figure.add_subplot(gs[0], polar=True)
         self.ax_status = self.figure.add_subplot(gs[1])
-        self.figure.subplots_adjust(left=0.02, right=0.98, top=0.98,
-                                    bottom=0.02, hspace=0.04)
+        self.figure.subplots_adjust(left=0.045, right=0.955, top=0.97,
+                                    bottom=0.025, hspace=0.05)
         self._draw()
 
     # ---- NATS readers -------------------------------------------------------
@@ -262,7 +212,6 @@ class RadarWidget(QWidget):
 
     async def _measurement_reader(self, subject: str, tel: str, key: str,
                                   measurement: str, position: bool = False) -> None:
-        """pms telemetry/status: one named measurement per message."""
         try:
             reader = get_reader(subject, deliver_policy='last')
             async for data, meta in reader:
@@ -279,7 +228,6 @@ class RadarWidget(QWidget):
             logger.warning(f'radar reader {subject} failed: {e}')
 
     async def _document_reader(self, subject: str, tel: str, key: str) -> None:
-        """toi status documents (``ob``, ``plan``) — stored whole."""
         try:
             reader = get_reader(subject, deliver_policy='last')
             async for data, meta in reader:
@@ -292,13 +240,6 @@ class RadarWidget(QWidget):
     # ---- Ephemeris ----------------------------------------------------------
 
     def _plan_target(self, tel: str) -> Optional[Dict[str, Any]]:
-        """Current (else next) OB of the telescope's plan, as name + ra/dec.
-
-        ``meta.az``/``meta.alt`` are the *planned* horizontal coordinates —
-        kept as a fallback for when the exact transform is unavailable, but
-        they drift by the time the OB actually runs, so the crosshair
-        normally uses ra/dec re-projected to now.
-        """
         plan = self._state[tel].get('plan') or {}
         items = plan.get('plan') or []
         if not items:
@@ -313,6 +254,7 @@ class RadarWidget(QWidget):
         meta = entry.get('meta') or {}
         if ob.get('ra') is None or ob.get('dec') is None:
             return None
+        # meta az/alt are the planned coords, they drift - fallback only
         return {
             'name': ob.get('name') or '',
             'ra': str(ob['ra']),
@@ -322,12 +264,7 @@ class RadarWidget(QWidget):
         }
 
     def _compute_astro(self, targets: Dict[str, Dict[str, Any]]) -> Dict[str, Any]:
-        """Blocking — always called through ``asyncio.to_thread``.
-
-        pyaraucaria builds astropy frames per call; on the qasync loop that
-        is long enough to starve the NATS readers (see ephem_ocm's perf
-        note), so the whole thing runs off-loop.
-        """
+        # blocking: always via asyncio.to_thread, astropy frames starve the loop
         from pyaraucaria.ephemeris import Moon, Star, Sun
 
         loc = location()
@@ -355,7 +292,6 @@ class RadarWidget(QWidget):
         }
 
     def _compute_almanac(self) -> Dict[str, Any]:
-        """Blocking — rise/set times, refreshed once a minute off-loop."""
         now = _now_utc()
         return {
             'sunset': next_sun_alt_event(now, 0.0, 'setting'),
@@ -422,7 +358,6 @@ class RadarWidget(QWidget):
     # ---- Drawing ------------------------------------------------------------
 
     def _mount_state(self, tel: str) -> Tuple[str, str]:
-        """Mount state label and its colour."""
         st = self._state[tel]
         if self._is_stale(st):
             return 'NO DATA', ck.FG_DIM
@@ -435,7 +370,6 @@ class RadarWidget(QWidget):
         return 'IDLE', ck.FG_DIM
 
     def _ob_progress(self, tel: str) -> Tuple[str, Optional[float]]:
-        """Object label and OB progress (elapsed/expected), if one is running."""
         ob = self._state[tel].get('ob') or {}
         label = _program_object(ob.get('ob_program'))
         if not (ob.get('ob_started') and not ob.get('ob_done')):
@@ -478,7 +412,6 @@ class RadarWidget(QWidget):
         ax.grid(True, color=ck.GRID_MAJOR, linewidth=0.6, alpha=0.7)
         ax.spines['polar'].set_color(ck.SPINE)
 
-        # Below-horizon band and the low-altitude zone most OBs avoid.
         ax.bar(0.0, R_BELOW_SPAN, width=2 * np.pi, bottom=R_HORIZON,
                color='#0b0b0b', alpha=0.85, linewidth=0, zorder=0)
         ax.bar(0.0, 20.0, width=2 * np.pi, bottom=R_HORIZON - 20.0,
@@ -531,19 +464,16 @@ class RadarWidget(QWidget):
         _, state_color = self._mount_state(tel)
         theta, r = _theta(az), _radius(alt)
 
-        # Trail — oldest dots smallest and faintest, so motion reads as a tail.
         trail = list(st['trail'])
         if len(trail) > 1:
             now = time.time()
-            fresh = np.array([1.0 - (now - t) / self.trail_seconds for t, _, _ in trail])
-            fresh = np.clip(fresh, 0.0, 1.0)
+            fresh = np.clip([1.0 - (now - t) / self.trail_seconds for t, _, _ in trail], 0.0, 1.0)
             rgba = np.array([to_rgba(color, alpha=0.06 + 0.44 * f) for f in fresh])
             ax.scatter([_theta(a) for _, a, _ in trail],
                        [_radius(h) for _, _, h in trail],
                        s=2.0 + 11.0 * fresh ** 2, c=rgba,
                        edgecolors='none', zorder=4)
 
-        # Where it is heading, while it is not there yet.
         target = (self._astro.get('targets') or {}).get(tel)
         if target is not None and not stale and st['motors'] is not False:
             if _angular_sep(az, alt, target['az'], target['alt']) > self.TARGET_MIN_SEP_DEG:
@@ -596,7 +526,6 @@ class RadarWidget(QWidget):
                 alpha=0.7, ha='left', va='bottom', zorder=12)
 
     def _draw_status(self) -> None:
-        """One row per telescope: colour chip, name, mount state, object, progress."""
         ax = self.ax_status
         ax.clear()
         ax.set_facecolor(ck.BG_AXES)
@@ -609,7 +538,7 @@ class RadarWidget(QWidget):
         for spine in ax.spines.values():
             spine.set_color(ck.SPINE)
 
-        bar_x, bar_w = 0.58, 0.35
+        bar_x, bar_w = 0.63, 0.28
 
         for i, tel in enumerate(self.telescopes):
             y = i + 0.5
@@ -621,20 +550,18 @@ class RadarWidget(QWidget):
                                    color=color, linewidth=0))
             ax.text(0.032, y, tel, color=color, fontsize=9, fontweight='bold',
                     ha='left', va='center')
-            ax.text(0.115, y, state, color=state_color, fontsize=8,
+            ax.text(0.135, y, state, color=state_color, fontsize=8,
                     ha='left', va='center')
-            ax.text(0.255, y, obj or '—', color=ck.FG_TEXT, fontsize=8.5,
+            ax.text(0.30, y, obj or '—', color=ck.FG_TEXT, fontsize=8.5,
                     ha='left', va='center', alpha=0.9 if obj else 0.4)
 
             ax.add_patch(Rectangle((bar_x, i + 0.34), bar_w, 0.32,
                                    color='#2c2c2c', linewidth=0))
             if progress is not None:
-                # Past 100 % the OB is running long — flag it rather than
-                # letting the bar quietly stall at full.
-                fill = min(1.0, progress)
+                # over 100% the OB runs long - flag it instead of stalling at full
                 fill_color = ck.COLOR_WARN if progress > 1.0 else ck.COLOR_OK
-                ax.add_patch(Rectangle((bar_x, i + 0.34), bar_w * fill, 0.32,
-                                       color=fill_color, linewidth=0))
+                ax.add_patch(Rectangle((bar_x, i + 0.34), bar_w * min(1.0, progress),
+                                       0.32, color=fill_color, linewidth=0))
                 ax.text(0.995, y, f'{progress * 100:.0f}%', color=fill_color,
                         fontsize=8, ha='right', va='center')
 

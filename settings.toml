@@ -21,20 +21,13 @@ log_level = "INFO"
 # Panel page declaration:
 # environment.panels.rowcolumn.tabname
 
-[default.panels.00.wk06]
+[default.panels.00.Radar]
 #auto_interval = 10  # seconds, how long to show this page before auto switching to next page
-source = "telescope_ofp"  # page source - page is defined in oca_monitor/pages/example.py
-tel = 'wk06'
-
-[default.panels.00.zb08]
-#auto_interval = 10  # seconds, how long to show this page before auto switching to next page
-source = "telescope_ofp"  # page source - page is defined in oca_monitor/pages/example.py
-tel = 'zb08'
-
-[default.panels.00.jk15]
-#auto_interval = 10  # seconds, how long to show this page before auto switching to next page
-source = "telescope_ofp"  # page source - page is defined in oca_monitor/pages/example.py
-tel = 'jk15'
+source = "radar"  # page source - page is defined in oca_monitor/pages/radar.py
+# telescopes drawn on the sky map; defaults to main_window.telescope_names
+telescopes = ["wk06", "zb08", "jk15", "iris"]
+# how long a mount leaves a fading trail behind it [s]
+trail_seconds = 120
 
 [default.panels.10.Message]
 #auto_interval = 10  # seconds, how long to show this page before auto switching to next page
