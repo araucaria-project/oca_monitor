@@ -99,7 +99,7 @@ source = "site_status"  # unified clocks + sun/moon events + water level
 ##-------------------------- aux obs display---------------
 
 [aux]  # global configuration is used by all environments, setting from here override all other settings
-window_size = [2000, 1300]
+window_size = [2000, 1350]
 panel_columns = [1, 1, 1]  # The size ratio of the columns in the panel grid
 panel_rows = [3, 1, 1]   # The size ratio of the rows in the panel grid
 style = "dark"

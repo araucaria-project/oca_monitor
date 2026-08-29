@@ -3,8 +3,9 @@
 One squeezed time-series panel per telescope, styled after the
 ``Photometric Zero`` panel of :mod:`oca_monitor.pages.weather`: fixed Y
 scale with alert zone bands behind the data, a translucent scatter of
-individual frames, a bright white gaussian-smoothed trend line as the
-headline signal, and a big live overlay coloured by alert zone.
+individual frames, a solid gaussian-smoothed trend line in the
+telescope's colour as the headline signal, and a big live overlay
+coloured by alert zone.
 
 The plotted quantity is the star-presence ratio
 ``<main_key>.stars_presence.ratio_no_bkg.1`` of each processed frame,
@@ -14,10 +15,10 @@ collects into ``quality_qmap_data`` and charts as *Quality [%]* in the
 nightly e-mail report.
 
 Like halina, both pipeline stages feed the same series: ``raw`` under
-the ``raw`` key and ``zdf`` under the ``zdf`` key. They are drawn as two
-separately-coloured scatters so the stages stay distinguishable, while
-the trend line is computed across both — that combined curve is the
-panel's headline "how good are the frames right now" signal.
+the ``raw`` key and ``zdf`` under the ``zdf`` key. Both scatter in the
+telescope's own colour, told apart by marker weight rather than hue,
+while the trend line is computed across both — that combined curve is
+the panel's headline "how good are the frames right now" signal.
 """
 from __future__ import annotations
 
@@ -112,14 +113,15 @@ def _dt_from_meta(meta) -> Optional[datetime.datetime]:
 class QualityChartWidget(QWidget):
     """Frame star-presence quality of one telescope, over the night."""
 
-    # Pipeline stage → (payload key, colour, marker size, alpha). The zdf
-    # stage is the one an operator judges the night by, so it gets the
-    # telescope's own colour and the heavier marker; raw sits behind it
-    # in neutral grey as context.
+    # Pipeline stages feeding the panel. Both are drawn in the
+    # telescope's own colour — the panel is read at a glance next to its
+    # siblings, so the colour has to say "which telescope", not "which
+    # pipeline stage". The stages stay apart by weight instead: zdf, the
+    # one an operator judges the night by, gets the heavier, less
+    # transparent marker; raw sits behind it as fainter context.
     STAGES: Tuple[str, ...] = ('raw', 'zdf')
-    RAW_COLOR = ck.FG_DIM
 
-    title = 'Quality  [%]'
+    title = 'Quality qmap  [%]'
 
     Y_MIN = 0.0
     Y_MAX = 100.0
@@ -142,8 +144,6 @@ class QualityChartWidget(QWidget):
     # through 1–3 samples is more misleading than helpful, and the
     # scatter already shows those raw points.
     MIN_SEGMENT_POINTS = 4
-
-    MEAN_LINE_COLOR = '#ffffff'   # unused elsewhere in the palette
 
     MAX_POINTS = 4000             # ring-buffer cap, per stage
     TRIM_POINTS = 1000
@@ -178,9 +178,7 @@ class QualityChartWidget(QWidget):
 
     # ---- UI -----------------------------------------------------------------
 
-    def _stage_color(self, stage: str) -> str:
-        if stage == 'raw':
-            return self.RAW_COLOR
+    def _tel_color(self) -> str:
         return ck.telescope_color(self.main_window, self.tel)
 
     def _init_ui(self) -> None:
@@ -221,18 +219,19 @@ class QualityChartWidget(QWidget):
             heavy = stage != 'raw'
             self._scatters[stage] = ax.scatter(
                 [], [], s=12 if heavy else 7,
-                c=self._stage_color(stage),
+                c=self._tel_color(),
                 alpha=0.55 if heavy else 0.35,
                 edgecolors='none', linewidths=0,
                 zorder=5 if heavy else 4, label=stage)
 
         # Trend across BOTH stages — the headline signal of the panel.
-        # Bright constant white at high alpha and elevated zorder so it
-        # dominates; kept thin (1.6 px) so the scatter beneath stays
-        # legible. White is unused elsewhere in the chart palette,
-        # marking this line as "not a pipeline stage".
-        self._line_smoothed, = ax.plot([], [], '-', color=self.MEAN_LINE_COLOR,
-                                       linewidth=1.6, alpha=0.95, zorder=8)
+        # Solid, fully opaque telescope colour at elevated zorder so it
+        # reads as the one hard line over the translucent scatter of
+        # individual frames; kept thin (1.6 px) so the points beneath
+        # stay legible.
+        self._line_smoothed, = ax.plot([], [], '-',
+                                       color=self._tel_color(),
+                                       linewidth=1.6, alpha=1.0, zorder=8)
         # Centred, unlike the weather panels' right-aligned overlays: an
         # OCM night occupies 18-24 h and 0-6 h on this axis, so the
         # middle of the chart is the daytime gap and the only spot that
@@ -243,7 +242,7 @@ class QualityChartWidget(QWidget):
         # on this panel both are occupied: good frames sit at the top of
         # the scale for the whole night, at both ends of the axis. Same
         # visual spec as ck.inline_title, x moved to the gap.
-        ax.text(0.5, 0.94, f'{self.title}  [{self.tel}]', transform=ax.transAxes,
+        ax.text(0.5, 0.94, self.title, transform=ax.transAxes,
                 color=ck.FG_TEXT, fontsize=11, fontweight='bold',
                 alpha=0.55, va='top', ha='center',
                 bbox=dict(facecolor='#101010', edgecolor='#383838',
@@ -253,7 +252,9 @@ class QualityChartWidget(QWidget):
     def restamp_telescope_colors(self) -> None:
         for stage in self.STAGES:
             if stage in self._scatters:
-                self._scatters[stage].set_color(self._stage_color(stage))
+                self._scatters[stage].set_color(self._tel_color())
+        if self._line_smoothed is not None:
+            self._line_smoothed.set_color(self._tel_color())
 
     def _zone_color(self, value: float) -> str:
         if value >= self.GREEN_THRESHOLD:
