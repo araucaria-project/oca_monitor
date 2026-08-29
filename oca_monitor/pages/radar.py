@@ -225,7 +225,10 @@ class RadarWidget(QWidget):
     DOME_TELEMETRY = {'dome_az': 'dome.azimuth'}
     MOUNT_STATUS = {'slewing': 'mount.slewing',
                     'tracking': 'mount.tracking',
-                    'motors': 'mount.motorstatus'}
+                    'motors': 'mount.motorstatus',
+                    # not published today; read anyway, so the park state stops
+                    # being guessed the moment TIC starts forwarding it
+                    'atpark': 'mount.atpark'}
     INT_STATUS = {'dome_shutter': 'dome.shutterstatus',
                   'cover_state': 'covercalibrator.coverstate',
                   'camera_state': 'camera.camerastate',
@@ -257,6 +260,7 @@ class RadarWidget(QWidget):
             tel: {
                 'az': None, 'alt': None, 'pos_dt': None,
                 'slewing': None, 'tracking': None, 'motors': None,
+                'atpark': None,
                 'dome_az': None, 'dome_shutter': None,
                 'camera_state': None, 'fw_position': None, 'cover_state': None,
                 'ob': None, 'plan': None,
@@ -737,17 +741,23 @@ class RadarWidget(QWidget):
         return ann
 
     def _is_parked(self, tel: str) -> bool:
+        """The mount's own park flag, or a still mount at its park altitude.
+
+        No subject on NATS carries the park state today, so it has to be read
+        off the position. Only the altitude is checked: park_az is 180 for
+        every telescope in the observatory config, while jk15 rests at azimuth
+        0, so requiring it as well left a plainly parked mount looking active.
+        mount.atpark wins outright whenever it starts being published."""
         st = self._state[tel]
+        if st['atpark'] is not None:
+            return bool(st['atpark'])
         if st['tracking'] or st['slewing'] or st['alt'] is None:
             return False
         mount = tuple(tel if k == '{tel}' else k for k in self.MOUNT_CFG_PATH)
         park_alt = _as_float(self._cfg(mount + ('park_alt',)))
-        if park_alt is None or abs(st['alt'] - park_alt) > self.PARK_TOL_DEG:
+        if park_alt is None:
             return False
-        park_az = _as_float(self._cfg(mount + ('park_az',)))
-        if park_az is None or st['az'] is None:
-            return True
-        return abs((st['az'] - park_az + 180.0) % 360.0 - 180.0) <= self.PARK_TOL_DEG
+        return abs(st['alt'] - park_alt) <= self.PARK_TOL_DEG
 
     def _screen_pos(self, ax, theta: float, r: float):
         """Sky point as (x, y, x-scale, y-scale) in axes fractions, so glyphs
