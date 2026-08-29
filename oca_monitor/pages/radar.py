@@ -158,10 +158,11 @@ class RadarWidget(QWidget):
     TRAIL_ARC_MAX_STEPS = 60
     TRAIL_HEAD_D_PX = 10.0
     TRAIL_TAIL_D_PX = 1.4
-    TRAIL_HEAD_ALPHA = 0.95
+    TRAIL_HEAD_ALPHA = 0.80
     TRAIL_TAIL_ALPHA = 0.15
     TRAIL_SIZE_POW = 2.2
     TRAIL_ALPHA_POW = 3.0
+    TRAIL_FADE_SHRINK_POW = 2.0
 
     STALE_S = 1800.0
     TARGET_MIN_SEP_DEG = 1.0
@@ -588,6 +589,11 @@ class RadarWidget(QWidget):
             ax.text(np.radians(22.5), self._radius(alt), f'{alt}°',
                     color=COLOR_GRID_TEXT, fontsize=8, alpha=0.85,
                     ha='center', va='center', zorder=3)
+        # the observing limit is the one ring that moves with the config, so it
+        # says which altitude it stands for rather than leaving it to be guessed
+        ax.text(np.radians(22.5), r_min, f'{self._obs_min_alt():g}°',
+                color=ck.COLOR_DANGER, fontsize=8, alpha=0.95,
+                ha='center', va='center', zorder=3)
 
         for tel in self.telescopes:
             self._draw_dome(ax, tel)
@@ -717,10 +723,15 @@ class RadarWidget(QWidget):
             # the newest arc point sits under the telescope marker itself, so
             # the head of the taper belongs to the first dot behind it
             keep = self._thin_by_screen(ax, thetas, radii)[:-1]
-            if len(keep):
+            fade = self._trail_fade(trail[-1][0])
+            if len(keep) and fade > 0.0:
                 sizes, alphas = self._trail_taper(len(keep))
-                rgba = np.array([to_rgba(color, alpha=a) for a in alphas])
-                ax.scatter(thetas[keep], radii[keep], s=sizes,
+                rgba = np.array([to_rgba(color, alpha=a * fade) for a in alphas])
+                # squared: the fade scales the dot's diameter, not its area,
+                # so an ageing trail visibly shrinks as well as dims
+                ax.scatter(thetas[keep],
+                           radii[keep],
+                           s=sizes * fade ** self.TRAIL_FADE_SHRINK_POW,
                            c=rgba, edgecolors='none', zorder=4)
 
         target = (self._astro.get('targets') or {}).get(tel)
@@ -785,6 +796,16 @@ class RadarWidget(QWidget):
         thetas.append(_theta(az))
         radii.append(self._radius(alt))
         return np.array(thetas), np.array(radii)
+
+    def _trail_fade(self, head_t: float) -> float:
+        """Whole-trail fade, driven by how long ago the mount last moved.
+
+        The per-dot taper is ranked along the path, so a trail left behind by a
+        finished slew would keep its head bright while ageing points drop off
+        the tail - it would sit there fully lit and then blink out. Fading it as
+        a whole over ``trail_seconds`` lets it die away instead."""
+        idle = time.time() - head_t
+        return float(np.clip(1.0 - idle / self.trail_seconds, 0.0, 1.0))
 
     def _trail_taper(self, n: int):
         """Marker areas and alphas for ``n`` trail dots ordered oldest first.
