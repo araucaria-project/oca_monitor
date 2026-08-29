@@ -113,6 +113,25 @@ def _program_object(program: Optional[str]) -> str:
     return ' '.join(parts[:2])
 
 
+def _slerp_altaz(az0: float, alt0: float, az1: float, alt1: float,
+                 f: float) -> Tuple[float, float]:
+    """Point a fraction ``f`` along the great circle between two horizontal
+    positions - the path a mount actually sweeps between two samples."""
+    a0, h0 = math.radians(az0), math.radians(alt0)
+    a1, h1 = math.radians(az1), math.radians(alt1)
+    v0 = (math.cos(h0) * math.cos(a0), math.cos(h0) * math.sin(a0), math.sin(h0))
+    v1 = (math.cos(h1) * math.cos(a1), math.cos(h1) * math.sin(a1), math.sin(h1))
+    dot = max(-1.0, min(1.0, sum(p * q for p, q in zip(v0, v1))))
+    omega = math.acos(dot)
+    if omega < 1e-9:
+        return az0, alt0
+    s0 = math.sin((1.0 - f) * omega) / math.sin(omega)
+    s1 = math.sin(f * omega) / math.sin(omega)
+    x, y, z = (s0 * p + s1 * q for p, q in zip(v0, v1))
+    return math.degrees(math.atan2(y, x)) % 360.0, math.degrees(math.asin(
+        max(-1.0, min(1.0, z))))
+
+
 def _boxes_overlap(a, b, pad: float = 2.0) -> bool:
     return not (a[2] + pad < b[0] or b[2] + pad < a[0]
                 or a[3] + pad < b[1] or b[3] + pad < a[1])
@@ -135,6 +154,8 @@ class RadarWidget(QWidget):
     TRAIL_MIN_STEP_DEG = 0.03
     TRAIL_MAX_POINTS = 400
     TRAIL_DOT_SEP_PX = 13.0
+    TRAIL_ARC_STEP_DEG = 0.25
+    TRAIL_ARC_MAX_STEPS = 60
 
     STALE_S = 1800.0
     TARGET_MIN_SEP_DEG = 1.0
@@ -684,15 +705,12 @@ class RadarWidget(QWidget):
 
         trail = list(st['trail'])
         if len(trail) > 1:
-            now = time.time()
-            thetas = np.array([_theta(a) for _, a, _ in trail])
-            radii = np.array([self._radius(h) for _, _, h in trail])
-            ages = np.array([now - t for t, _, _ in trail])
+            thetas, radii, ages = self._arc_trail(trail)
             keep = self._thin_by_screen(ax, thetas, radii)
             fresh = np.clip(1.0 - ages[keep] / self.trail_seconds, 0.0, 1.0)
-            rgba = np.array([to_rgba(color, alpha=0.12 + 0.38 * f) for f in fresh])
-            ax.scatter(thetas[keep], radii[keep], s=10.0 + 22.0 * fresh, c=rgba,
-                       edgecolors='none', zorder=4)
+            rgba = np.array([to_rgba(color, alpha=0.10 + 0.42 * f) for f in fresh])
+            ax.scatter(thetas[keep], radii[keep], s=4.0 + 26.0 * fresh ** 1.4,
+                       c=rgba, edgecolors='none', zorder=4)
 
         target = (self._astro.get('targets') or {}).get(tel)
         label_theta, label_r = theta, r
@@ -731,6 +749,28 @@ class RadarWidget(QWidget):
             self._draw_progress_bar(ax, label_theta, label_r, progress, color)
         if st['camera_state'] == self.CAMERA_EXPOSING:
             self._draw_camera(ax, label_theta, label_r, dim, self._filter_name(tel))
+
+    def _arc_trail(self, trail):
+        """Sampled positions densified along great-circle arcs. The mount only
+        reports about once a second, so the raw samples alone would leave a few
+        scattered dots instead of a tail curving the way the mount swept."""
+        now = time.time()
+        thetas, radii, ages = [], [], []
+        for (t0, az0, alt0), (t1, az1, alt1) in zip(trail, trail[1:]):
+            sep = _angular_sep(az0, alt0, az1, alt1)
+            steps = max(1, min(self.TRAIL_ARC_MAX_STEPS,
+                               int(sep / self.TRAIL_ARC_STEP_DEG)))
+            for i in range(steps):
+                f = i / steps
+                az, alt = _slerp_altaz(az0, alt0, az1, alt1, f)
+                thetas.append(_theta(az))
+                radii.append(self._radius(alt))
+                ages.append(now - (t0 + (t1 - t0) * f))
+        t, az, alt = trail[-1]
+        thetas.append(_theta(az))
+        radii.append(self._radius(alt))
+        ages.append(now - t)
+        return np.array(thetas), np.array(radii), np.array(ages)
 
     def _thin_by_screen(self, ax, thetas, radii):
         """Indices of trail points at least ``TRAIL_DOT_SEP_PX`` apart on
