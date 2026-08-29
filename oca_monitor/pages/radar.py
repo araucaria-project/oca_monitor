@@ -156,6 +156,12 @@ class RadarWidget(QWidget):
     TRAIL_DOT_SEP_PX = 13.0
     TRAIL_ARC_STEP_DEG = 0.25
     TRAIL_ARC_MAX_STEPS = 60
+    TRAIL_HEAD_D_PX = 10.0
+    TRAIL_TAIL_D_PX = 1.4
+    TRAIL_HEAD_ALPHA = 0.95
+    TRAIL_TAIL_ALPHA = 0.15
+    TRAIL_SIZE_POW = 2.2
+    TRAIL_ALPHA_POW = 3.0
 
     STALE_S = 1800.0
     TARGET_MIN_SEP_DEG = 1.0
@@ -707,12 +713,15 @@ class RadarWidget(QWidget):
 
         trail = list(st['trail'])
         if len(trail) > 1:
-            thetas, radii, ages = self._arc_trail(trail)
-            keep = self._thin_by_screen(ax, thetas, radii)
-            fresh = np.clip(1.0 - ages[keep] / self.trail_seconds, 0.0, 1.0)
-            rgba = np.array([to_rgba(color, alpha=0.60 * f ** 2.0) for f in fresh])
-            ax.scatter(thetas[keep], radii[keep], s=1.0 + 42.0 * fresh ** 2.4,
-                       c=rgba, edgecolors='none', zorder=4)
+            thetas, radii = self._arc_trail(trail)
+            # the newest arc point sits under the telescope marker itself, so
+            # the head of the taper belongs to the first dot behind it
+            keep = self._thin_by_screen(ax, thetas, radii)[:-1]
+            if len(keep):
+                sizes, alphas = self._trail_taper(len(keep))
+                rgba = np.array([to_rgba(color, alpha=a) for a in alphas])
+                ax.scatter(thetas[keep], radii[keep], s=sizes,
+                           c=rgba, edgecolors='none', zorder=4)
 
         target = (self._astro.get('targets') or {}).get(tel)
         label_theta, label_r = theta, r
@@ -763,23 +772,36 @@ class RadarWidget(QWidget):
         """Sampled positions densified along great-circle arcs. The mount only
         reports about once a second, so the raw samples alone would leave a few
         scattered dots instead of a tail curving the way the mount swept."""
-        now = time.time()
-        thetas, radii, ages = [], [], []
+        thetas, radii = [], []
         for (t0, az0, alt0), (t1, az1, alt1) in zip(trail, trail[1:]):
             sep = _angular_sep(az0, alt0, az1, alt1)
             steps = max(1, min(self.TRAIL_ARC_MAX_STEPS,
                                int(sep / self.TRAIL_ARC_STEP_DEG)))
             for i in range(steps):
-                f = i / steps
-                az, alt = _slerp_altaz(az0, alt0, az1, alt1, f)
+                az, alt = _slerp_altaz(az0, alt0, az1, alt1, i / steps)
                 thetas.append(_theta(az))
                 radii.append(self._radius(alt))
-                ages.append(now - (t0 + (t1 - t0) * f))
-        t, az, alt = trail[-1]
+        _, az, alt = trail[-1]
         thetas.append(_theta(az))
         radii.append(self._radius(alt))
-        ages.append(now - t)
-        return np.array(thetas), np.array(radii), np.array(ages)
+        return np.array(thetas), np.array(radii)
+
+    def _trail_taper(self, n: int):
+        """Marker areas and alphas for ``n`` trail dots ordered oldest first.
+
+        The taper runs over the dots themselves, not their age: a two-second
+        slew has to fade from head to tail just as visibly as a long one, so
+        the dot next to the telescope is always the big bright one and the far
+        end of the path always the tiny faint one."""
+        if n <= 0:
+            return np.empty(0), np.empty(0)
+        u = np.linspace(0.0, 1.0, n) if n > 1 else np.ones(1)
+        d = (self.TRAIL_TAIL_D_PX + (self.TRAIL_HEAD_D_PX - self.TRAIL_TAIL_D_PX)
+             * u ** self.TRAIL_SIZE_POW)
+        alphas = (self.TRAIL_TAIL_ALPHA
+                  + (self.TRAIL_HEAD_ALPHA - self.TRAIL_TAIL_ALPHA)
+                  * u ** self.TRAIL_ALPHA_POW)
+        return d ** 2, alphas
 
     def _thin_by_screen(self, ax, thetas, radii):
         """Indices of trail points at least ``TRAIL_DOT_SEP_PX`` apart on
