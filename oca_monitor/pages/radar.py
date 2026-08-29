@@ -56,7 +56,7 @@ COLOR_MOON_DARK = '#3a3f47'
 COLOR_MOON_ZONE = '#7fa8ff'
 COLOR_ICON = '#d8dde3'
 COLOR_WIND_TRACK = '#4d4d4d'
-COLOR_COVER_CROSS = '#8a8a8a'
+COLOR_COVER_CROSS = '#000000'
 
 
 def _theta(az_deg: float) -> float:
