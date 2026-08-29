@@ -160,8 +160,9 @@ class RadarWidget(QWidget):
     STALE_S = 1800.0
     TARGET_MIN_SEP_DEG = 1.0
 
-    OB_LABEL_DY_PX = 20
-    OB_BAR_DY_PX = 16
+    OB_LABEL_DY_PX = 40
+    OB_BAR_DY_PX = 31
+    TEL_LABEL_DY_PX = -14
     OB_BAR_W_PX = 30
     OB_BAR_H_PX = 3
     OB_WARN_FACTOR = 1.0
@@ -172,11 +173,10 @@ class RadarWidget(QWidget):
     PING_R0_PX = 8.0
     PING_GROW_PX = 24.0
 
-    PARKED_ALPHA = 0.25
     PARK_TOL_DEG = 1.0
     LABEL_STEP_PX = 16.0
     LABEL_MAX_STEPS = 6
-    CAM_DY_PX = 35.0
+    CAM_DY_PX = 15.0
     CAM_W_PX = 17.0
     CAM_H_PX = 12.0
     RETICLE_R_PX = 7.0
@@ -725,30 +725,34 @@ class RadarWidget(QWidget):
             self._draw_ping(ax, theta, r, color)
 
         parked = self._is_parked(tel)
-        dim = self.PARKED_ALPHA if parked else 1.0
         ax.scatter([theta], [r], s=120, c=['none'] if stale else [color],
                    edgecolors=[color], linewidths=1.8,
-                   alpha=0.4 if stale else dim, zorder=9)
+                   alpha=0.4 if stale else 1.0, zorder=9)
 
         if st['cover_state'] == self.COVER_CLOSED and not stale:
-            self._draw_cover_cross(ax, theta, r, dim, color)
+            self._draw_cover_cross(ax, theta, r, color)
+
+        self._place_label(ax, (theta, r), tel, (0, self.TEL_LABEL_DY_PX),
+                          ha='center', va='top', color=color, fontsize=8.5,
+                          fontweight='bold', alpha=0.45 if stale else 1.0,
+                          zorder=11)
 
         if stale:
             return
         if parked:
             self._place_label(ax, (theta, r), 'PARKED', (18.0, 0), ha='left',
                               va='center', color=color, fontsize=8.5,
-                              fontweight='bold', alpha=dim, zorder=11)
+                              fontweight='bold', alpha=1.0, zorder=11)
 
         obj, progress, active = self._ob_progress(tel)
         if active and obj:
             self._place_label(ax, (label_theta, label_r), obj,
                               (0, self.OB_LABEL_DY_PX), ha='center', color=color,
-                              fontsize=8.5, alpha=1.0 * dim, zorder=11)
+                              fontsize=8.5, alpha=1.0, zorder=11)
         if active and progress is not None:
             self._draw_progress_bar(ax, label_theta, label_r, progress, color)
         if st['camera_state'] == self.CAMERA_EXPOSING:
-            self._draw_camera(ax, label_theta, label_r, dim, self._filter_name(tel))
+            self._draw_camera(ax, label_theta, label_r, self._filter_name(tel))
 
     def _arc_trail(self, trail):
         """Sampled positions densified along great-circle arcs. The mount only
@@ -804,14 +808,13 @@ class RadarWidget(QWidget):
                     transform=ax.transAxes, color=color, linewidth=1.3,
                     alpha=0.9, zorder=8, clip_on=False)
 
-    def _draw_cover_cross(self, ax, theta: float, r: float, dim: float,
+    def _draw_cover_cross(self, ax, theta: float, r: float,
                           color: str) -> None:
         """Closed mirror cover - the same thin cross marker the target
         reticle used to use, darkened so it reads on the filled dot."""
         ax.scatter([theta], [r], marker='x', s=self.COVER_X_SIZE,
                    c=[ck.blend_colors(color, '#000000', 0.45)],
-                   linewidths=1.9, alpha=min(1.0, dim + 0.35),
-                   zorder=10, clip_on=False)
+                   linewidths=1.9, alpha=1.0, zorder=10, clip_on=False)
 
     def _draw_ping(self, ax, theta: float, r: float, color: str) -> None:
         pos = self._screen_pos(ax, theta, r)
@@ -826,7 +829,7 @@ class RadarWidget(QWidget):
                 transform=ax.transAxes, facecolor='none', edgecolor=color,
                 linewidth=1.3, alpha=0.50 * (1.0 - grow), zorder=3, clip_on=False))
 
-    def _draw_camera(self, ax, theta: float, r: float, dim: float,
+    def _draw_camera(self, ax, theta: float, r: float,
                      filter_name: Optional[str]) -> None:
         pos = self._screen_pos(ax, theta, r)
         if pos is None:
@@ -836,8 +839,8 @@ class RadarWidget(QWidget):
         gap, text_w = 3.0, (9.0 if filter_name else -3.0)
         total = w + gap + text_w
         x0 = cx - (total / 2.0) * fx
-        y0 = cy - self.CAM_DY_PX * fy
-        alpha = 0.9 * dim
+        y0 = cy + self.CAM_DY_PX * fy
+        alpha = 0.9
         hole = ck.BG_FIGURE
         ax.add_patch(FancyBboxPatch(
             (x0 + 0.22 * w * fx, y0 + 0.98 * h * fy), 0.32 * w * fx, 0.20 * h * fy,
@@ -885,7 +888,7 @@ class RadarWidget(QWidget):
         cx, cy, fx, fy = pos
         w, h = self.OB_BAR_W_PX * fx, self.OB_BAR_H_PX * fy
         x0 = cx - w / 2.0
-        y0 = cy - (self.OB_BAR_DY_PX + self.OB_BAR_H_PX) * fy
+        y0 = cy + self.OB_BAR_DY_PX * fy
 
         # past its expected time the OB runs long - amber, then red, instead
         # of the bar quietly stalling at full
