@@ -27,7 +27,7 @@ source = "radar"  # page source - page is defined in oca_monitor/pages/radar.py
 # telescopes drawn on the sky map; defaults to main_window.telescope_names
 telescopes = ["wk06", "zb08", "jk15"]
 # how long a mount leaves a fading trail behind it [s]
-trail_seconds = 120
+trail_seconds = 10
 # limits below default to tic.config.observatory; set them to override
 #subject = "telemetry.weather.davis"   # wind arrow source
 #wind_warn_ms = 11.0                   # obs_limits.weather_restrictions.wind.pointing

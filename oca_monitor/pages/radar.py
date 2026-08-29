@@ -150,7 +150,7 @@ class RadarWidget(QWidget):
     ASTRO_REFRESH_S = 5.0
     ALMANAC_REFRESH_S = 60.0
 
-    TRAIL_SECONDS = 5.0
+    TRAIL_SECONDS = 10.0
     TRAIL_MIN_STEP_DEG = 0.03
     TRAIL_MAX_POINTS = 400
     TRAIL_DOT_SEP_PX = 13.0
@@ -719,14 +719,15 @@ class RadarWidget(QWidget):
 
         trail = list(st['trail'])
         if len(trail) > 1:
-            thetas, radii = self._arc_trail(trail)
+            thetas, radii, ages = self._arc_trail(trail)
             # the newest arc point sits under the telescope marker itself, so
             # the head of the taper belongs to the first dot behind it
             keep = self._thin_by_screen(ax, thetas, radii)[:-1]
-            fade = self._trail_fade(trail[-1][0])
-            if len(keep) and fade > 0.0:
+            if len(keep):
                 sizes, alphas = self._trail_taper(len(keep))
-                rgba = np.array([to_rgba(color, alpha=a * fade) for a in alphas])
+                fade = self._trail_fade(ages[keep])
+                rgba = np.array([to_rgba(color, alpha=a)
+                                 for a in alphas * fade])
                 # squared: the fade scales the dot's diameter, not its area,
                 # so an ageing trail visibly shrinks as well as dims
                 ax.scatter(thetas[keep],
@@ -783,29 +784,33 @@ class RadarWidget(QWidget):
         """Sampled positions densified along great-circle arcs. The mount only
         reports about once a second, so the raw samples alone would leave a few
         scattered dots instead of a tail curving the way the mount swept."""
-        thetas, radii = [], []
+        now = time.time()
+        thetas, radii, ages = [], [], []
         for (t0, az0, alt0), (t1, az1, alt1) in zip(trail, trail[1:]):
             sep = _angular_sep(az0, alt0, az1, alt1)
             steps = max(1, min(self.TRAIL_ARC_MAX_STEPS,
                                int(sep / self.TRAIL_ARC_STEP_DEG)))
             for i in range(steps):
-                az, alt = _slerp_altaz(az0, alt0, az1, alt1, i / steps)
+                f = i / steps
+                az, alt = _slerp_altaz(az0, alt0, az1, alt1, f)
                 thetas.append(_theta(az))
                 radii.append(self._radius(alt))
-        _, az, alt = trail[-1]
+                ages.append(now - (t0 + (t1 - t0) * f))
+        t, az, alt = trail[-1]
         thetas.append(_theta(az))
         radii.append(self._radius(alt))
-        return np.array(thetas), np.array(radii)
+        ages.append(now - t)
+        return np.array(thetas), np.array(radii), np.array(ages)
 
-    def _trail_fade(self, head_t: float) -> float:
-        """Whole-trail fade, driven by how long ago the mount last moved.
+    def _trail_fade(self, ages):
+        """How much of each dot is left, from its own age.
 
-        The per-dot taper is ranked along the path, so a trail left behind by a
-        finished slew would keep its head bright while ageing points drop off
-        the tail - it would sit there fully lit and then blink out. Fading it as
-        a whole over ``trail_seconds`` lets it die away instead."""
-        idle = time.time() - head_t
-        return float(np.clip(1.0 - idle / self.trail_seconds, 0.0, 1.0))
+        Ageing every dot on its own clock is what makes a finished slew go
+        away: each one starts shrinking the moment it is laid down and is gone
+        exactly ``trail_seconds`` later, whatever the mount does next. Driving
+        the fade off the trail as a whole instead let a single tracking nudge
+        relight dots that were nearly out."""
+        return np.clip(1.0 - np.asarray(ages) / self.trail_seconds, 0.0, 1.0)
 
     def _trail_taper(self, n: int):
         """Marker areas and alphas for ``n`` trail dots ordered oldest first.
