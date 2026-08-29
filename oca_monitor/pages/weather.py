@@ -1337,8 +1337,8 @@ class _PhotZeroPanel(_Panel):
     title = 'Photometric Zero  [mag]'
     title_side = 'right'   # falls into the daytime gap, doesn't cover data
 
-    GREEN_THRESHOLD = -0.05
-    YELLOW_THRESHOLD = -0.10
+    GREEN_THRESHOLD = -0.1
+    YELLOW_THRESHOLD = -0.2
     SMOOTH_SIGMA = 5.0
     Y_MAX = 0.05    # fixed scale top
     Y_MIN = -0.225  # fixed scale bottom — outliers clip rather than rescaling
