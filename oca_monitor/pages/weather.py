@@ -1341,7 +1341,7 @@ class _PhotZeroPanel(_Panel):
     YELLOW_THRESHOLD = -0.10
     SMOOTH_SIGMA = 5.0
     Y_MAX = 0.05    # fixed scale top
-    Y_MIN = -0.125  # fixed scale bottom — outliers clip rather than rescaling
+    Y_MIN = -0.225  # fixed scale bottom — outliers clip rather than rescaling
     # Constant colour for the site-wide trend line. Pure white is unused
     # elsewhere in the chart palette, so it visually flags "average across
     # telescopes" without colliding with any telescope or filter colour.
