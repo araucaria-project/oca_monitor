@@ -198,7 +198,6 @@ class RadarWidget(QWidget):
 
     PARKED_ALPHA = 0.6
     PARKED_LABEL_DY_PX = 14
-    PARK_TOL_DEG = 1.0
     LABEL_STEP_PX = 16.0
     LABEL_MAX_STEPS = 6
     CAM_DY_PX = 15.0
@@ -741,23 +740,13 @@ class RadarWidget(QWidget):
         return ann
 
     def _is_parked(self, tel: str) -> bool:
-        """The mount's own park flag, or a still mount at its park altitude.
+        """The mount's own park flag from PMS, and nothing else.
 
-        No subject on NATS carries the park state today, so it has to be read
-        off the position. Only the altitude is checked: park_az is 180 for
-        every telescope in the observatory config, while jk15 rests at azimuth
-        0, so requiring it as well left a plainly parked mount looking active.
-        mount.atpark wins outright whenever it starts being published."""
-        st = self._state[tel]
-        if st['atpark'] is not None:
-            return bool(st['atpark'])
-        if st['tracking'] or st['slewing'] or st['alt'] is None:
-            return False
-        mount = tuple(tel if k == '{tel}' else k for k in self.MOUNT_CFG_PATH)
-        park_alt = _as_float(self._cfg(mount + ('park_alt',)))
-        if park_alt is None:
-            return False
-        return abs(st['alt'] - park_alt) <= self.PARK_TOL_DEG
+        A mount that does not publish mount.atpark simply reads as not parked:
+        guessing it from the resting position gets it wrong either way, since
+        park_az in the observatory config does not match where every mount
+        actually stands."""
+        return bool(self._state[tel]['atpark'])
 
     def _screen_pos(self, ax, theta: float, r: float):
         """Sky point as (x, y, x-scale, y-scale) in axes fractions, so glyphs
