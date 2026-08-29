@@ -10,7 +10,7 @@ from serverish.base import create_task
 from serverish.base.iterators import AsyncDictItemsIter
 
 from oca_monitor.utils import get_time_ago_text
-from PyQt6.QtWidgets import QWidget, QVBoxLayout, QLabel, QTextEdit, QLineEdit
+from PyQt6.QtWidgets import QWidget, QVBoxLayout, QLabel, QTextEdit, QLineEdit, QSizePolicy
 from PyQt6 import QtCore, QtGui
 from PyQt6.QtCore import Qt
 from qasync import asyncSlot
@@ -78,6 +78,7 @@ class TelescopeOfp(QWidget):
             color = 'black'
 
         self.fits_pic = QLabel()
+        self.fits_pic.setSizePolicy(QSizePolicy.Policy.Ignored, QSizePolicy.Policy.Ignored)
 
         self.curve_pix = QLabel()
         self.curve_pix.setFixedHeight(self.LC_HEIGHT)
@@ -90,7 +91,7 @@ class TelescopeOfp(QWidget):
         self.info_e.setStyleSheet(f"background-color: {color}; color: white")
         # self.set_pix_maps()
 
-        self.layout.addWidget(self.fits_pic)
+        self.layout.addWidget(self.fits_pic, 1)
         self.layout.addWidget(self.info_e)
         self.layout.addWidget(self.curve_pix)
 
@@ -251,7 +252,7 @@ class TelescopeOfp(QWidget):
         if object_to_display:
             self.fits_pic.setPixmap(
                 object_to_display.scaled(
-                    self.info_e.width(),
+                    self.fits_pic.width(),
                     height,
                     QtCore.Qt.AspectRatioMode.KeepAspectRatio,
                     QtCore.Qt.TransformationMode.SmoothTransformation
@@ -264,7 +265,7 @@ class TelescopeOfp(QWidget):
             object_to_display.scaled(
                 self.info_e.width(),
                 self.LC_HEIGHT,
-                QtCore.Qt.AspectRatioMode.IgnoreAspectRatio,
+                QtCore.Qt.AspectRatioMode.KeepAspectRatio,
                 QtCore.Qt.TransformationMode.SmoothTransformation
         ))
         # self.curve_pix.setAlignment(QtCore.Qt.AlignmentFlag.AlignCenter)
