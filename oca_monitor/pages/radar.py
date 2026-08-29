@@ -150,7 +150,7 @@ class RadarWidget(QWidget):
     ASTRO_REFRESH_S = 5.0
     ALMANAC_REFRESH_S = 60.0
 
-    TRAIL_SECONDS = 120.0
+    TRAIL_SECONDS = 5.0
     TRAIL_MIN_STEP_DEG = 0.03
     TRAIL_MAX_POINTS = 400
     TRAIL_DOT_SEP_PX = 13.0
@@ -710,8 +710,8 @@ class RadarWidget(QWidget):
             thetas, radii, ages = self._arc_trail(trail)
             keep = self._thin_by_screen(ax, thetas, radii)
             fresh = np.clip(1.0 - ages[keep] / self.trail_seconds, 0.0, 1.0)
-            rgba = np.array([to_rgba(color, alpha=0.10 + 0.42 * f) for f in fresh])
-            ax.scatter(thetas[keep], radii[keep], s=4.0 + 26.0 * fresh ** 1.4,
+            rgba = np.array([to_rgba(color, alpha=0.60 * f ** 2.0) for f in fresh])
+            ax.scatter(thetas[keep], radii[keep], s=1.0 + 42.0 * fresh ** 2.4,
                        c=rgba, edgecolors='none', zorder=4)
 
         target = (self._astro.get('targets') or {}).get(tel)
