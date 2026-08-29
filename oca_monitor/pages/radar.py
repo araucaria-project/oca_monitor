@@ -411,8 +411,14 @@ class RadarWidget(QWidget):
                 except (LookupError, TypeError):
                     continue
                 parsed = parse(value)
+                if parsed is None:
+                    # an empty reading means the source had nothing to say, not
+                    # that the value became unknown: the domes publish null
+                    # between reports and would otherwise blank their own
+                    # position every quarter of an hour
+                    continue
                 self._state[tel][key] = parsed
-                if position and parsed is not None:
+                if position:
                     self._state[tel]['pos_dt'] = _meta_dt(meta)
         except (asyncio.CancelledError, asyncio.TimeoutError):
             raise
