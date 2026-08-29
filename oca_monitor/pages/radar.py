@@ -147,7 +147,6 @@ class RadarWidget(QWidget):
     PING_R0_PX = 8.0
     PING_GROW_PX = 24.0
 
-    IDLE_ALPHA = 0.5
     PARKED_ALPHA = 0.25
     PARK_TOL_DEG = 1.0
     LABEL_STEP_PX = 16.0
@@ -702,12 +701,7 @@ class RadarWidget(QWidget):
             self._draw_ping(ax, theta, r, color)
 
         parked = self._is_parked(tel)
-        if st['tracking']:
-            dim = 1.0
-        elif parked:
-            dim = self.PARKED_ALPHA
-        else:
-            dim = self.IDLE_ALPHA
+        dim = self.PARKED_ALPHA if parked else 1.0
         ax.scatter([theta], [r], s=120, c=['none'] if stale else [color],
                    edgecolors=[color], linewidths=1.8,
                    alpha=0.4 if stale else dim, zorder=9)
