@@ -1390,7 +1390,7 @@ class _PhotZeroPanel(_Panel):
         # scatter beneath stays legible. White is unused elsewhere in
         # the chart palette, marking this line as "not a telescope".
         self._line_smoothed, = ax.plot([], [], '-', color=self.MEAN_LINE_COLOR,
-                                       linewidth=1.6, alpha=0.95, zorder=8)
+                                       linewidth=1.4, alpha=0.95, zorder=8)
         self._overlay_avg = ck.big_overlay(ax)
 
     def restamp_telescope_colors(self) -> None:
