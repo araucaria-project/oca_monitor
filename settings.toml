@@ -6,7 +6,7 @@
 [default]  # global configuration is used by all environments, setting from here override all other settings
 window_size = [1910, 1040]
 #window_size = [1800, 1000]
-panel_columns = [4,6,4]  # The size ratio of the columns in the panel grid
+panel_columns = [7,5,4]  # The size ratio of the columns in the panel grid - radar column kept ~square
 panel_rows = [5,1]   # The size ratio of the rows in the panel grid
 style = "dark"
 #style = "white"
@@ -25,7 +25,7 @@ log_level = "INFO"
 #auto_interval = 10  # seconds, how long to show this page before auto switching to next page
 source = "radar"  # page source - page is defined in oca_monitor/pages/radar.py
 # telescopes drawn on the sky map; defaults to main_window.telescope_names
-telescopes = ["wk06", "zb08", "jk15", "iris"]
+telescopes = ["wk06", "zb08", "jk15"]
 # how long a mount leaves a fading trail behind it [s]
 trail_seconds = 120
 

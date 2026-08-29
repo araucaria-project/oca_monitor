@@ -36,7 +36,7 @@ R_HORIZON = 90.0
 R_MAX = 112.0
 R_BELOW_SPAN = R_MAX - R_HORIZON
 
-SKY_DAY = '#2a2317'
+SKY_DAY = '#221e17'
 SKY_TWILIGHT = '#1d2130'
 SKY_NIGHT = ck.BG_AXES
 TWILIGHT_ALT_DEG = -18.0
@@ -125,6 +125,11 @@ class RadarWidget(QWidget):
     STALE_S = 1800.0
     TARGET_MIN_SEP_DEG = 1.0
 
+    OB_LABEL_DY_PX = 14
+    OB_BAR_DY_PX = 13
+    OB_BAR_W_PX = 46
+    OB_BAR_H_PX = 5
+
     MOUNT_TELEMETRY = {'az': 'mount.azimuth', 'alt': 'mount.altitude'}
     MOUNT_STATUS = {'slewing': 'mount.slewing',
                     'tracking': 'mount.tracking',
@@ -178,12 +183,8 @@ class RadarWidget(QWidget):
         self.canvas = FigureCanvas(self.figure)
         self.layout_root.addWidget(self.canvas, 1)
 
-        n = max(1, len(self.telescopes))
-        gs = self.figure.add_gridspec(2, 1, height_ratios=[1.0, 0.085 * n])
-        self.ax_sky = self.figure.add_subplot(gs[0], polar=True)
-        self.ax_status = self.figure.add_subplot(gs[1])
-        self.figure.subplots_adjust(left=0.045, right=0.955, top=0.97,
-                                    bottom=0.025, hspace=0.05)
+        self.ax_sky = self.figure.add_subplot(111, polar=True)
+        self.figure.subplots_adjust(left=0.045, right=0.955, top=0.97, bottom=0.03)
         self._draw()
 
     # ---- NATS readers -------------------------------------------------------
@@ -219,8 +220,9 @@ class RadarWidget(QWidget):
                     value = data['measurements'][measurement]
                 except (LookupError, TypeError):
                     continue
-                self._state[tel][key] = _as_float(value) if position else _as_bool(value)
-                if position:
+                parsed = _as_float(value) if position else _as_bool(value)
+                self._state[tel][key] = parsed
+                if position and parsed is not None:
                     self._state[tel]['pos_dt'] = _meta_dt(meta)
         except (asyncio.CancelledError, asyncio.TimeoutError):
             raise
@@ -369,17 +371,17 @@ class RadarWidget(QWidget):
             return 'TRACKING', ck.COLOR_OK
         return 'IDLE', ck.FG_DIM
 
-    def _ob_progress(self, tel: str) -> Tuple[str, Optional[float]]:
+    def _ob_progress(self, tel: str) -> Tuple[str, Optional[float], bool]:
         ob = self._state[tel].get('ob') or {}
-        label = _program_object(ob.get('ob_program'))
         if not (ob.get('ob_started') and not ob.get('ob_done')):
             target = (self._astro.get('targets') or {}).get(tel)
-            return (target['name'] if target else ''), None
+            return (target['name'] if target else ''), None, False
+        label = _program_object(ob.get('ob_program'))
         t0 = _as_float(ob.get('ob_start_time'))
         expected = _as_float(ob.get('ob_expected_time'))
         if not t0 or not expected:
-            return label, None
-        return label, max(0.0, (time.time() - t0) / expected)
+            return label, None, True
+        return label, max(0.0, (time.time() - t0) / expected), True
 
     def _sky_facecolor(self) -> str:
         sun = self._astro.get('sun')
@@ -393,7 +395,6 @@ class RadarWidget(QWidget):
 
     def _draw(self) -> None:
         self._draw_sky()
-        self._draw_status()
         self.canvas.draw_idle()
 
     def _draw_sky(self) -> None:
@@ -475,7 +476,7 @@ class RadarWidget(QWidget):
                        edgecolors='none', zorder=4)
 
         target = (self._astro.get('targets') or {}).get(tel)
-        if target is not None and not stale and st['motors'] is not False:
+        if target is not None and not stale and (st['slewing'] or st['tracking']):
             if _angular_sep(az, alt, target['az'], target['alt']) > self.TARGET_MIN_SEP_DEG:
                 t_theta, t_r = _theta(target['az']), _radius(target['alt'])
                 ax.plot([theta, t_theta], [r, t_r], linestyle='--', linewidth=1.0,
@@ -487,15 +488,41 @@ class RadarWidget(QWidget):
                    c=['none'] if stale else [color],
                    edgecolors=[state_color], linewidths=1.8,
                    alpha=0.4 if stale else 1.0, zorder=9)
-        ax.annotate(tel, (theta, r), textcoords='offset points', xytext=(0, 11),
-                    ha='center', color=color, fontsize=9, fontweight='bold',
-                    alpha=0.5 if stale else 1.0, zorder=11)
 
-        obj, _ = self._ob_progress(tel)
-        if obj and not stale:
-            ax.annotate(obj, (theta, r), textcoords='offset points', xytext=(0, -17),
-                        ha='center', color=ck.FG_TEXT, fontsize=7.5, alpha=0.85,
-                        zorder=11)
+        if stale:
+            return
+        obj, progress, active = self._ob_progress(tel)
+        if not active:
+            return
+        if obj:
+            ax.annotate(obj, (theta, r), textcoords='offset points',
+                        xytext=(0, self.OB_LABEL_DY_PX), ha='center', color=color,
+                        fontsize=7.5, alpha=0.95, zorder=11)
+        if progress is not None:
+            self._draw_progress_bar(ax, theta, r, progress)
+
+    def _draw_progress_bar(self, ax, theta: float, r: float, progress: float) -> None:
+        # sized in px so it reads the same wherever the dot sits
+        try:
+            box = ax.get_window_extent()
+            px, py = ax.transData.transform((theta, r))
+        except (ValueError, AttributeError, RuntimeError):
+            return
+        if not box.width or not box.height:
+            return
+        fx, fy = 1.0 / box.width, 1.0 / box.height
+        cx, cy = (px - box.x0) * fx, (py - box.y0) * fy
+        w, h = self.OB_BAR_W_PX * fx, self.OB_BAR_H_PX * fy
+        x0 = cx - w / 2.0
+        y0 = cy - (self.OB_BAR_DY_PX + self.OB_BAR_H_PX) * fy
+
+        # past 100 % the OB runs long - flag it instead of stalling at full
+        fill_color = ck.COLOR_WARN if progress > 1.0 else ck.COLOR_OK
+        ax.add_patch(Rectangle((x0, y0), w, h, transform=ax.transAxes,
+                               color='#4d4d4d', alpha=0.75, linewidth=0, clip_on=False, zorder=10))
+        ax.add_patch(Rectangle((x0, y0), w * min(1.0, progress), h,
+                               transform=ax.transAxes, color=fill_color,
+                               linewidth=0, clip_on=False, zorder=11))
 
     def _draw_almanac(self, ax) -> None:
         sun = self._astro.get('sun')
@@ -524,46 +551,6 @@ class RadarWidget(QWidget):
         ax.text(0.0, 0.0, _now_utc().strftime('%H:%M:%S UT'),
                 transform=ax.transAxes, color=ck.FG_DIM, fontsize=8,
                 alpha=0.7, ha='left', va='bottom', zorder=12)
-
-    def _draw_status(self) -> None:
-        ax = self.ax_status
-        ax.clear()
-        ax.set_facecolor(ck.BG_AXES)
-        n = max(1, len(self.telescopes))
-        ax.set_xlim(0.0, 1.0)
-        ax.set_ylim(0.0, float(n))
-        ax.invert_yaxis()
-        ax.set_xticks([])
-        ax.set_yticks([])
-        for spine in ax.spines.values():
-            spine.set_color(ck.SPINE)
-
-        bar_x, bar_w = 0.63, 0.28
-
-        for i, tel in enumerate(self.telescopes):
-            y = i + 0.5
-            color = self._tel_color(tel)
-            state, state_color = self._mount_state(tel)
-            obj, progress = self._ob_progress(tel)
-
-            ax.add_patch(Rectangle((0.008, i + 0.22), 0.012, 0.56,
-                                   color=color, linewidth=0))
-            ax.text(0.032, y, tel, color=color, fontsize=9, fontweight='bold',
-                    ha='left', va='center')
-            ax.text(0.135, y, state, color=state_color, fontsize=8,
-                    ha='left', va='center')
-            ax.text(0.30, y, obj or '—', color=ck.FG_TEXT, fontsize=8.5,
-                    ha='left', va='center', alpha=0.9 if obj else 0.4)
-
-            ax.add_patch(Rectangle((bar_x, i + 0.34), bar_w, 0.32,
-                                   color='#2c2c2c', linewidth=0))
-            if progress is not None:
-                # over 100% the OB runs long - flag it instead of stalling at full
-                fill_color = ck.COLOR_WARN if progress > 1.0 else ck.COLOR_OK
-                ax.add_patch(Rectangle((bar_x, i + 0.34), bar_w * min(1.0, progress),
-                                       0.32, color=fill_color, linewidth=0))
-                ax.text(0.995, y, f'{progress * 100:.0f}%', color=fill_color,
-                        fontsize=8, ha='right', va='center')
 
 
 widget_class = RadarWidget
