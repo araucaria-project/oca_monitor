@@ -41,9 +41,13 @@ R_DOME_TOP = 97.0
 R_MAX = 103.0
 R_BELOW_SPAN = R_DOME_TOP - R_HORIZON
 
-SKY_DAY = '#1f1c17'
-SKY_TWILIGHT = '#1d2130'
-SKY_NIGHT = ck.BG_AXES
+SKY_DAY = '#2b2620'
+SKY_TWILIGHT = '#262b3d'
+SKY_NIGHT = '#272727'
+COLOR_GRID = '#4d4d4d'
+COLOR_GRID_TEXT = '#bcbcbc'
+COLOR_RING_BG = '#151515'
+COLOR_HORIZON = '#949494'
 TWILIGHT_ALT_DEG = -18.0
 
 COLOR_SUN = '#ffd24a'
@@ -372,9 +376,11 @@ class RadarWidget(QWidget):
                     msm = data['measurements']
                 except (LookupError, TypeError):
                     continue
-                speed = _as_float(msm.get('wind_ms'))
+                # the 10 min mean is what the limits are set against, gusts
+                # would flip the arrow colour on every squall
+                speed = _as_float(msm.get('wind_10min_ms'))
                 if speed is None:
-                    speed = _as_float(msm.get('wind_10min_ms'))
+                    speed = _as_float(msm.get('wind_ms'))
                 self._wind = {'ms': speed, 'dir': _as_float(msm.get('wind_dir_deg'))}
         except (asyncio.CancelledError, asyncio.TimeoutError):
             raise
@@ -534,24 +540,24 @@ class RadarWidget(QWidget):
         rings = [a for a in (30, 45, 60, 75) if a > self._obs_min_alt() + 3.0][-3:]
         ax.set_rticks([self._radius(a) for a in reversed(rings)])
         ax.set_yticklabels([])
-        ax.tick_params(colors=ck.FG_DIM, labelsize=8, pad=-13)
-        ax.grid(True, color=ck.GRID_MAJOR, linewidth=0.6, alpha=0.7)
+        ax.tick_params(colors=COLOR_GRID_TEXT, labelsize=9, pad=-13)
+        ax.grid(True, color=COLOR_GRID, linewidth=0.7, alpha=0.85)
         ax.spines['polar'].set_color(ck.SPINE)
 
         ax.bar(0.0, R_MAX - R_HORIZON, width=2 * np.pi, bottom=R_HORIZON,
-               color='#0b0b0b', alpha=0.85, linewidth=0, zorder=0)
+               color=COLOR_RING_BG, alpha=0.9, linewidth=0, zorder=0)
         r_min = self._radius(self._obs_min_alt())
         ax.bar(0.0, R_HORIZON - r_min, width=2 * np.pi, bottom=r_min,
-               color=ck.COLOR_DANGER, alpha=0.07, linewidth=0, zorder=0)
+               color=ck.COLOR_DANGER, alpha=0.09, linewidth=0, zorder=0)
         ring = np.linspace(0.0, 2 * np.pi, 181)
-        ax.plot(ring, np.full_like(ring, R_HORIZON), color='#7a7a7a',
-                linewidth=1.0, alpha=0.8, zorder=2)
+        ax.plot(ring, np.full_like(ring, R_HORIZON), color=COLOR_HORIZON,
+                linewidth=1.1, alpha=0.9, zorder=2)
         ax.plot(ring, np.full_like(ring, r_min), color=ck.COLOR_DANGER,
-                linewidth=0.9, linestyle='--', alpha=0.45, zorder=2)
+                linewidth=1.0, linestyle='--', alpha=0.6, zorder=2)
 
         for alt in rings:
             ax.text(np.radians(22.5), self._radius(alt), f'{alt}°',
-                    color=ck.FG_DIM, fontsize=7, alpha=0.7,
+                    color=COLOR_GRID_TEXT, fontsize=8, alpha=0.85,
                     ha='center', va='center', zorder=3)
 
         for tel in self.telescopes:
@@ -571,7 +577,7 @@ class RadarWidget(QWidget):
             ax.scatter([theta], [r], s=150, c=[COLOR_SUN], edgecolors='#8a6a12',
                        linewidths=0.8, alpha=1.0 if up else 0.45, zorder=7)
             self._place_label(ax, (theta, r), 'SUN', (0, -24), ha='center',
-                              color=COLOR_SUN, fontsize=7.5, alpha=0.85, zorder=11)
+                              color=COLOR_SUN, fontsize=8.5, alpha=0.95, zorder=11)
 
         moon = self._astro.get('moon')
         if moon is not None:
@@ -583,8 +589,8 @@ class RadarWidget(QWidget):
                        linewidths=0.8, alpha=1.0 if up else 0.4, zorder=7)
             self._place_label(ax, (theta, r), f"MOON {moon['phase'] * 100:.0f}%",
                               (0, -24), ha='center', color=COLOR_MOON_LIT,
-                              fontsize=8, fontweight='bold',
-                              alpha=0.85 if up else 0.5, zorder=11)
+                              fontsize=9, fontweight='bold',
+                              alpha=0.95 if up else 0.6, zorder=11)
 
     def _draw_moon_zone(self, ax, moon: Dict[str, float]) -> None:
         avoid = self._moon_avoid()
@@ -602,7 +608,7 @@ class RadarWidget(QWidget):
         radius = avoid * self._deg_scale() * (box.width / 2.0) / R_MAX * f
         zone = Circle(((px - box.x0) * f, (py - box.y0) / box.height), radius,
                       transform=ax.transAxes, facecolor=COLOR_MOON_ZONE,
-                      edgecolor=COLOR_MOON_ZONE, linewidth=0.8, alpha=0.14,
+                      edgecolor=COLOR_MOON_ZONE, linewidth=0.8, alpha=0.18,
                       zorder=1)
         zone.set_clip_path(Circle((0.5, 0.5), 0.5 * R_HORIZON / R_MAX,
                                   transform=ax.transAxes))
@@ -684,7 +690,7 @@ class RadarWidget(QWidget):
             ages = np.array([now - t for t, _, _ in trail])
             keep = self._thin_by_screen(ax, thetas, radii)
             fresh = np.clip(1.0 - ages[keep] / self.trail_seconds, 0.0, 1.0)
-            rgba = np.array([to_rgba(color, alpha=0.06 + 0.30 * f) for f in fresh])
+            rgba = np.array([to_rgba(color, alpha=0.12 + 0.38 * f) for f in fresh])
             ax.scatter(thetas[keep], radii[keep], s=10.0 + 22.0 * fresh, c=rgba,
                        edgecolors='none', zorder=4)
 
@@ -713,14 +719,14 @@ class RadarWidget(QWidget):
             return
         if parked:
             self._place_label(ax, (theta, r), 'PARKED', (18.0, 0), ha='left',
-                              va='center', color=color, fontsize=7.5,
+                              va='center', color=color, fontsize=8.5,
                               fontweight='bold', alpha=dim, zorder=11)
 
         obj, progress, active = self._ob_progress(tel)
         if active and obj:
             self._place_label(ax, (label_theta, label_r), obj,
                               (0, self.OB_LABEL_DY_PX), ha='center', color=color,
-                              fontsize=7.5, alpha=0.95 * dim, zorder=11)
+                              fontsize=8.5, alpha=1.0 * dim, zorder=11)
         if active and progress is not None:
             self._draw_progress_bar(ax, label_theta, label_r, progress, color)
         if st['camera_state'] == self.CAMERA_EXPOSING:
@@ -816,7 +822,7 @@ class RadarWidget(QWidget):
             # in axes fractions like the icon itself, so the two stay aligned
             ax.text(x0 + (w + gap) * fx, y0 + 0.5 * h * fy, filter_name,
                     transform=ax.transAxes, ha='left', va='center',
-                    color=COLOR_ICON, fontsize=7.5, fontweight='bold',
+                    color=COLOR_ICON, fontsize=8.5, fontweight='bold',
                     alpha=alpha, zorder=11, clip_on=False)
 
     def _filter_name(self, tel: str) -> Optional[str]:
@@ -850,7 +856,7 @@ class RadarWidget(QWidget):
         else:
             fill_color = color
         ax.add_patch(Rectangle((x0, y0), w, h, transform=ax.transAxes,
-                               color='#4d4d4d', alpha=0.8, linewidth=0,
+                               color='#5e5e5e', alpha=0.85, linewidth=0,
                                clip_on=False, zorder=10))
         ax.add_patch(Rectangle((x0, y0), w * min(1.0, progress), h,
                                transform=ax.transAxes, color=fill_color,
@@ -867,20 +873,16 @@ class RadarWidget(QWidget):
         shutter = st['dome_shutter']
         if shutter is None:
             return
-        bottom, height = self._dome_lane(tel)
-        # pms publishes a null dome azimuth when the encoder is unavailable, so
-        # fall back to the mount and dot the outline to mark it as assumed
-        az, inferred = st['dome_az'], False
-        if az is None:
-            az, inferred = st['az'], True
+        az = st['dome_az']
         if az is None:
             return
+        bottom, height = self._dome_lane(tel)
         color = self._tel_color(tel)
         shut = shutter != self.DOME_OPEN
-        alpha = (0.4 if shut else 0.55) if inferred else (0.65 if shut else 0.95)
         ax.bar(_theta(az), height, width=math.radians(self.DOME_WEDGE_DEG),
                bottom=bottom, facecolor=color if shut else 'none',
-               edgecolor=color, linewidth=1.4, alpha=alpha, zorder=2)
+               edgecolor=color, linewidth=1.5,
+               alpha=0.75 if shut else 1.0, zorder=2)
 
     def _wind_color(self, speed_ms: float) -> str:
         warn, danger = self._wind_limits()
@@ -904,7 +906,7 @@ class RadarWidget(QWidget):
         # hung off the outer end of the arrow; the plate keeps it legible
         # wherever it lands
         ax.text(theta, self.WIND_LABEL_R, f'{speed:.1f} m/s', color=color,
-                fontsize=8, fontweight='bold', ha='center', va='center',
+                fontsize=9, fontweight='bold', ha='center', va='center',
                 bbox=dict(facecolor=ck.BG_FIGURE, edgecolor='none',
                           boxstyle='round,pad=0.2', alpha=0.65),
                 zorder=12)
