@@ -56,6 +56,7 @@ COLOR_MOON_DARK = '#3a3f47'
 COLOR_MOON_ZONE = '#7fa8ff'
 COLOR_ICON = '#d8dde3'
 COLOR_WIND_TRACK = '#4d4d4d'
+COLOR_COVER_CROSS = '#8a8a8a'
 
 
 def _theta(az_deg: float) -> float:
@@ -821,7 +822,7 @@ class RadarWidget(QWidget):
                    alpha=0.4 if stale else dim, zorder=9)
 
         if st['cover_state'] == self.COVER_CLOSED and not stale:
-            self._draw_cover_cross(ax, theta, r, dim, color)
+            self._draw_cover_cross(ax, theta, r, dim)
 
         self._place_label(ax, (theta, r), tel, (0, self.TEL_LABEL_DY_PX),
                           ha='center', va='top', color=color, fontsize=8.5,
@@ -927,12 +928,13 @@ class RadarWidget(QWidget):
                     transform=ax.transAxes, color=color, linewidth=1.3,
                     alpha=0.9, zorder=8, clip_on=False)
 
-    def _draw_cover_cross(self, ax, theta: float, r: float, dim: float,
-                          color: str) -> None:
-        """Closed mirror cover - the same thin cross marker the target
-        reticle used to use, darkened so it reads on the filled dot."""
+    def _draw_cover_cross(self, ax, theta: float, r: float,
+                          dim: float) -> None:
+        """Closed mirror cover - a thin cross over the dot, in grey rather
+        than the telescope's own colour so it reads as a state and not as
+        part of the marker."""
         ax.scatter([theta], [r], marker='x', s=self.COVER_X_SIZE,
-                   c=[ck.blend_colors(color, '#000000', 0.45)],
+                   c=[COLOR_COVER_CROSS],
                    linewidths=1.9, alpha=dim, zorder=10, clip_on=False)
 
     def _draw_ping(self, ax, theta: float, r: float, color: str) -> None:
