@@ -102,6 +102,22 @@ def _now_utc() -> datetime.datetime:
     return datetime.datetime.now(datetime.timezone.utc)
 
 
+def _program_coords(program: str) -> Optional[Tuple[str, str, str]]:
+    """(name, ra, dec) out of an ``OBJECT <name> <ra> <dec> ...`` block."""
+    parts = program.split()
+    if len(parts) >= 4 and parts[0] == 'OBJECT':
+        return parts[1], parts[2], parts[3]
+    return None
+
+
+def _program_uobi(program: str) -> Optional[str]:
+    """The OB id the program carries, which names its entry in the plan."""
+    for part in program.split():
+        if part.startswith('uobi='):
+            return part[len('uobi='):] or None
+    return None
+
+
 def _program_object(program: Optional[str]) -> str:
     if not program:
         return ''
@@ -430,26 +446,52 @@ class RadarWidget(QWidget):
 
     # ---- Ephemeris ----------------------------------------------------------
 
-    def _plan_target(self, tel: str) -> Optional[Dict[str, Any]]:
+    def _plan_entry(self, tel: str,
+                    uobi: Optional[str]) -> Optional[Dict[str, Any]]:
+        """The plan entry a running program refers to, by its OB id.
+
+        ``current_i`` is -1 whenever the queue is idle, and the old ``next_i``
+        fallback is what put a reticle on a target nobody was observing yet, so
+        it is not consulted here."""
         plan = self._state[tel].get('plan') or {}
         items = plan.get('plan') or []
         if not items:
             return None
+        if uobi:
+            for entry in items:
+                if ((entry or {}).get('ob') or {}).get('uobi') == uobi:
+                    return entry
         idx = plan.get('current_i', -1)
-        if not isinstance(idx, int) or not 0 <= idx < len(items):
-            idx = plan.get('next_i', -1)
-        if not isinstance(idx, int) or not 0 <= idx < len(items):
+        if isinstance(idx, int) and 0 <= idx < len(items):
+            return items[idx]
+        return None
+
+    def _program_target(self, tel: str) -> Optional[Dict[str, Any]]:
+        """Where the running program points, or None when none is running.
+
+        Same source as the telescopes page's Program column,
+        tic.status.{tel}.toi.ob: no program entry, no target, so no reticle.
+        Coordinates come out of the program block itself when it carries them
+        and from the plan entry it names otherwise."""
+        ob = self._state[tel].get('ob') or {}
+        if not (ob.get('ob_started') and not ob.get('ob_done')):
             return None
-        entry = items[idx] or {}
-        ob = entry.get('ob') or {}
+        program = ob.get('ob_program') or ''
+        coords = _program_coords(program)
+        if coords is not None:
+            name, ra, dec = coords
+            return {'name': name, 'ra': ra, 'dec': dec,
+                    'plan_az': None, 'plan_alt': None}
+        entry = self._plan_entry(tel, _program_uobi(program)) or {}
+        entry_ob = entry.get('ob') or {}
         meta = entry.get('meta') or {}
-        if ob.get('ra') is None or ob.get('dec') is None:
+        if entry_ob.get('ra') is None or entry_ob.get('dec') is None:
             return None
         # meta az/alt are the planned coords, they drift - fallback only
         return {
-            'name': ob.get('name') or '',
-            'ra': str(ob['ra']),
-            'dec': str(ob['dec']),
+            'name': entry_ob.get('name') or '',
+            'ra': str(entry_ob['ra']),
+            'dec': str(entry_ob['dec']),
             'plan_az': _as_float(meta.get('az')),
             'plan_alt': _as_float(meta.get('alt')),
         }
@@ -486,7 +528,7 @@ class RadarWidget(QWidget):
         while True:
             targets = {}
             for tel in self.telescopes:
-                target = self._plan_target(tel)
+                target = self._program_target(tel)
                 if target is not None:
                     targets[tel] = target
             try:
@@ -548,8 +590,7 @@ class RadarWidget(QWidget):
     def _ob_progress(self, tel: str) -> Tuple[str, Optional[float], bool]:
         ob = self._state[tel].get('ob') or {}
         if not (ob.get('ob_started') and not ob.get('ob_done')):
-            target = (self._astro.get('targets') or {}).get(tel)
-            return (target['name'] if target else ''), None, False
+            return '', None, False
         label = _program_object(ob.get('ob_program'))
         t0 = _as_float(ob.get('ob_start_time'))
         expected = _as_float(ob.get('ob_expected_time'))
