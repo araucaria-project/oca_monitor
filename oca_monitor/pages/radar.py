@@ -34,8 +34,8 @@ logger = logging.getLogger(__name__.rsplit('.')[-1])
 # r = 90 - alt; 90..R_DOME_TOP holds sunk bodies and the dome lanes, the ring
 # beyond it is left free for the wind arrow
 R_HORIZON = 90.0
-R_DOME_TOP = 108.0
-R_MAX = 126.0
+R_DOME_TOP = 99.0
+R_MAX = 113.0
 R_BELOW_SPAN = R_DOME_TOP - R_HORIZON
 
 SKY_DAY = '#1f1c17'
@@ -140,7 +140,7 @@ class RadarWidget(QWidget):
     DOME_WEDGE_DEG = 10.0
     DOME_LANE_GAP = 1.0
     WIND_ARROW_R0 = R_MAX - 1.0
-    WIND_ARROW_R1 = R_DOME_TOP + 6.0
+    WIND_ARROW_R1 = R_DOME_TOP + 6.5
     WIND_LABEL_R = R_DOME_TOP + 2.5
     MOON_AVOID_DEFAULT_DEG = 30.0
     OBS_MIN_ALT_DEFAULT_DEG = 35.0
@@ -255,7 +255,7 @@ class RadarWidget(QWidget):
         self.layout_root.addWidget(self.canvas, 1)
 
         self.ax_sky = self.figure.add_subplot(111, polar=True)
-        self.figure.subplots_adjust(left=0.045, right=0.955, top=0.97, bottom=0.03)
+        self.figure.subplots_adjust(left=0.005, right=0.995, top=0.995, bottom=0.005)
         self._draw()
 
     # ---- NATS readers -------------------------------------------------------
@@ -490,7 +490,7 @@ class RadarWidget(QWidget):
         ax.set_xticklabels(['N', 'NE', 'E', 'SE', 'S', 'SW', 'W', 'NW'])
         ax.set_rticks([R_HORIZON - 60.0, R_HORIZON - 30.0])
         ax.set_yticklabels([])
-        ax.tick_params(colors=ck.FG_DIM, labelsize=9, pad=-2)
+        ax.tick_params(colors=ck.FG_DIM, labelsize=8, pad=-13)
         ax.grid(True, color=ck.GRID_MAJOR, linewidth=0.6, alpha=0.7)
         ax.spines['polar'].set_color(ck.SPINE)
 
