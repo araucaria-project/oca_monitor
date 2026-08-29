@@ -1165,8 +1165,8 @@ class _FwhmPanel(_PerTelescopeScatterPanel):
         for tel in self.telescopes:
             color = ck.telescope_color(self.main_window, tel)
             if tel in self._lines:
-                self._lines[tel].set_markersize(2.2)
-                self._lines[tel].set_alpha(0.24)
+                self._lines[tel].set_markersize(2.7)
+                self._lines[tel].set_alpha(0.37)
             self._smooth_lines[tel], = ax.plot(
                 [], [], '-', color=color, linewidth=1.4, alpha=0.95,
                 zorder=7)
@@ -1380,8 +1380,8 @@ class _PhotZeroPanel(_Panel):
                    color=ck.COLOR_DANGER, alpha=0.20, linewidth=0, zorder=0)
         for tel in self.telescopes:
             color = ck.telescope_color(self.main_window, tel)
-            self._scatters[tel] = ax.scatter([], [], s=10, c=color,
-                                             alpha=0.50, edgecolors='none',
+            self._scatters[tel] = ax.scatter([], [], s=7, c=color,
+                                             alpha=0.37, edgecolors='none',
                                              linewidths=0, zorder=4, label=tel)
         # Combined smoothed trend across all telescopes — the headline
         # signal of the panel ("site-wide photometric quality"). Bright
