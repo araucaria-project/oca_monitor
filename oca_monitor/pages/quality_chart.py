@@ -1,25 +1,3 @@
-"""Frame-quality chart page.
-
-One squeezed time-series panel per telescope, styled after the
-``Photometric Zero`` panel of :mod:`oca_monitor.pages.weather`: fixed Y
-scale with alert zone bands behind the data, a translucent scatter of
-individual frames, a solid gaussian-smoothed trend line in the
-telescope's colour as the headline signal, and a big live overlay
-coloured by alert zone.
-
-The plotted quantity is the star-presence ratio
-``<main_key>.stars_presence.ratio_no_bkg.1`` of each processed frame,
-scaled to percent, timestamped from the frame's ``header.DATE-OBS`` —
-the value halina's ``TelescopeDtaCollector._read_data_from_stream``
-collects into ``quality_qmap_data`` and charts as *Quality [%]* in the
-nightly e-mail report.
-
-Like halina, both pipeline stages feed the same series: ``raw`` under
-the ``raw`` key and ``zdf`` under the ``zdf`` key. Both scatter in the
-telescope's own colour, told apart by marker weight rather than hue,
-while the trend line is computed across both — that combined curve is
-the panel's headline "how good are the frames right now" signal.
-"""
 from __future__ import annotations
 
 import datetime
@@ -42,15 +20,7 @@ from oca_monitor.widgets import chart_kit as ck
 
 logger = logging.getLogger(__name__.rsplit('.')[-1])
 
-
-# ----------------------------------------------------------------------------
-# Time helpers — kept in sync with the pipeline panels of weather.py
-# ----------------------------------------------------------------------------
-
-# OCM is at -70°W → local noon = 16:00 UTC. Frames are replayed from that
-# boundary so the chart holds exactly the current observing night.
 _OCM_LOCAL_NOON_UTC_HOUR = 16
-
 
 def _hour_of_day(dt: datetime.datetime) -> float:
     return dt.hour + dt.minute / 60.0 + dt.second / 3600.0
@@ -74,15 +44,13 @@ def _next_sunset_utc() -> datetime.datetime:
     now = _now_utc()
     t = next_sun_alt_event(now, 0.0, 'setting')
     if t is None:
-        # Degenerate geometry (never reached at OCM); push to "tomorrow"
-        # so the reset scheduler still ticks.
+
         return now + datetime.timedelta(days=1)
     return t
 
 
 def _as_utc(dt: Optional[datetime.datetime]) -> Optional[datetime.datetime]:
-    """Normalise to tz-aware UTC. Naive input is assumed UTC — FITS
-    ``DATE-OBS`` carries no zone but is UTC by convention."""
+
     if dt is None:
         return None
     if dt.tzinfo is None:
@@ -106,19 +74,8 @@ def _dt_from_meta(meta) -> Optional[datetime.datetime]:
         return None
 
 
-# ----------------------------------------------------------------------------
-# Page widget
-# ----------------------------------------------------------------------------
-
 class QualityChartWidget(QWidget):
-    """Frame star-presence quality of one telescope, over the night."""
 
-    # Pipeline stages feeding the panel. Both are drawn in the
-    # telescope's own colour — the panel is read at a glance next to its
-    # siblings, so the colour has to say "which telescope", not "which
-    # pipeline stage". The stages stay apart by weight instead: zdf, the
-    # one an operator judges the night by, gets the heavier, less
-    # transparent marker; raw sits behind it as fainter context.
     STAGES: Tuple[str, ...] = ('raw', 'zdf')
 
     title = 'Quality qmap  [%]'
@@ -126,23 +83,13 @@ class QualityChartWidget(QWidget):
     Y_MIN = 0.0
     Y_MAX = 100.0
 
-    # Alert bands, in percent — the ratio thresholds 0.40 and 0.05 as
-    # used operationally. At or above GREEN the frames are usable;
-    # below YELLOW the star field is essentially gone (cloud, dome,
-    # focus), and the wide amber band between them is the degraded
-    # range that still yields something.
     GREEN_THRESHOLD = 40.0    # ratio 0.40 — warning below this
     YELLOW_THRESHOLD = 5.0    # ratio 0.05 — bad below this
 
     SMOOTH_SIGMA = 5.0
-    # Maximum gap between consecutive frames that still counts as "the
-    # same segment" of the trend curve. Anything wider gets a NaN break
-    # so the line doesn't connect islands of frames across hours of
-    # silence.
+
     MAX_SEGMENT_GAP_HOURS = 0.5
-    # Minimum frames in a segment before smoothing is applied — a curve
-    # through 1–3 samples is more misleading than helpful, and the
-    # scatter already shows those raw points.
+
     MIN_SEGMENT_POINTS = 4
 
     MAX_POINTS = 4000             # ring-buffer cap, per stage
@@ -157,9 +104,7 @@ class QualityChartWidget(QWidget):
         self.raw_subject = f'tic.status.{tel}.fits.pipeline.raw'
         self.zdf_subject = f'tic.status.{tel}.fits.pipeline.zdf'
 
-        # Per stage: (epoch seconds, hour-of-day, quality percent).
-        # Absolute time is kept alongside the plotting hour so the two
-        # independent readers can be merged in true chronological order.
+
         self._series: Dict[str, Tuple[List[float], List[float], List[float]]] = {
             stage: ([], [], []) for stage in self.STAGES
         }
@@ -199,11 +144,7 @@ class QualityChartWidget(QWidget):
     def _init_axes(self, ax) -> None:
         ax.set_zorder(2)
         ax.set_ylim(self.Y_MIN, self.Y_MAX)
-        # 40 is labelled because it is the warning threshold. Nothing is
-        # labelled below it: format_hour_xaxis pulls the hour labels
-        # inside the axes, so any tick in the bottom few percent — which
-        # is exactly where the 5 % band edge falls — collides with them.
-        # That edge stays readable as a colour boundary anyway.
+
         ax.set_yticks([40, 70, 100])
 
         # Threshold zone bands — drawn behind the data so the background
@@ -224,24 +165,13 @@ class QualityChartWidget(QWidget):
                 edgecolors='none', linewidths=0,
                 zorder=5 if heavy else 4, label=stage)
 
-        # Trend across BOTH stages — the headline signal of the panel.
-        # Solid, fully opaque telescope colour at elevated zorder so it
-        # reads as the one hard line over the translucent scatter of
-        # individual frames; kept thin (1.6 px) so the points beneath
-        # stay legible.
+
         self._line_smoothed, = ax.plot([], [], '-',
                                        color=self._tel_color(),
                                        linewidth=1.6, alpha=1.0, zorder=8)
-        # Centred, unlike the weather panels' right-aligned overlays: an
-        # OCM night occupies 18-24 h and 0-6 h on this axis, so the
-        # middle of the chart is the daytime gap and the only spot that
-        # never covers data.
+
         self._overlay = ck.big_overlay(ax, x=0.5, ha='center')
-        # Title pill centred in the daytime gap for the same reason as
-        # the overlay. ck.inline_title only offers the two corners, and
-        # on this panel both are occupied: good frames sit at the top of
-        # the scale for the whole night, at both ends of the axis. Same
-        # visual spec as ck.inline_title, x moved to the gap.
+
         ax.text(0.5, 0.94, self.title, transform=ax.transAxes,
                 color=ck.FG_TEXT, fontsize=11, fontweight='bold',
                 alpha=0.55, va='top', ha='center',
@@ -275,12 +205,7 @@ class QualityChartWidget(QWidget):
         self._schedule_next_sunset_reset()
 
     async def _color_resolver(self):
-        """One-shot watcher: re-stamp the telescope colour once nats_cfg arrives.
 
-        The widget is constructed during ``MainWindow.__init__`` — before
-        its ``single_read`` on ``tic.config.observatory`` has finished —
-        so the first paint uses the chart_kit fallback colour.
-        """
         import asyncio
         for _ in range(120):  # ~60 s of patience, then give up
             cfg = getattr(self.main_window, 'nats_cfg', None) or {}
@@ -294,8 +219,7 @@ class QualityChartWidget(QWidget):
         self._schedule_draw()
 
     async def _pipeline_loop(self, stage: str, subject: str) -> None:
-        """Replay the current night's frames from one pipeline stage,
-        then follow it live."""
+
         try:
             r = get_reader(subject, deliver_policy='by_start_time',
                            opt_start_time=_current_night_start_utc())
@@ -327,9 +251,7 @@ class QualityChartWidget(QWidget):
             del ts[:self.TRIM_POINTS]
             del hours[:self.TRIM_POINTS]
             del values[:self.TRIM_POINTS]
-        # Only flag; the actual O(N) rebuild happens once per throttled
-        # redraw, so a history replay of thousands of frames costs O(N)
-        # rather than O(N²).
+
         self._dirty = True
 
     # ---- rendering ----------------------------------------------------------
@@ -383,19 +305,7 @@ class QualityChartWidget(QWidget):
         return best_v
 
     def _trend(self) -> Tuple[List[float], List[float], Optional[float]]:
-        """Gaussian-smooth the combined raw+zdf series.
 
-        Returns ``(xs, ys, last_smoothed)`` with NaN separators between
-        segments — matplotlib breaks the line at NaN, so the trend never
-        connects across hours of silence.
-
-        Points are ordered by ABSOLUTE time, not by hour-of-day: an
-        observing night crosses midnight, so sorting on the plotting
-        hour would put the morning tail before the evening head and the
-        trend's tip would stop being now. Segments are then cut both on
-        a too-wide time gap and where the hour wraps at midnight, so
-        every segment stays monotonic on the hour-of-day axis.
-        """
         all_t: List[float] = []
         all_h: List[float] = []
         all_v: List[float] = []
@@ -425,10 +335,7 @@ class QualityChartWidget(QWidget):
         out_y: List[float] = []
         last_smoothed: Optional[float] = None
         for sh, sv in zip(seg_h, seg_v):
-            # Segments shorter than MIN_SEGMENT_POINTS are intentionally
-            # left out of the trend line — the scatter already shows
-            # those frames, and a smoothed curve through 1–3 samples is
-            # more misleading than helpful.
+
             if sh.size < self.MIN_SEGMENT_POINTS:
                 continue
             sv_smooth = np.asarray(ck.gaussian_filter1d(sv, sigma=self.SMOOTH_SIGMA),
@@ -444,8 +351,7 @@ class QualityChartWidget(QWidget):
     # ---- nightly reset ------------------------------------------------------
 
     def _schedule_next_sunset_reset(self) -> None:
-        """Arm a one-shot timer for the next OCM sunset, at which point
-        the chart wipes its buffers so each observing night starts fresh."""
+
         try:
             sunset = _next_sunset_utc()
         except Exception as e:
