@@ -212,6 +212,9 @@ class RadarWidget(QWidget):
     WIND_ARROW_R0 = R_DOME_TOP + 1.6
     WIND_ARROW_R1 = R_HORIZON + 1.0
     WIND_LABEL_R = R_MAX - 2.0
+    # calm, over the warn limit, over the danger limit: the reading grows with
+    # the risk, so a dangerous wind is legible from across the control room
+    WIND_LABEL_FONTSIZES = (9.0, 11.0, 13.0)
     MOON_AVOID_DEFAULT_DEG = 30.0
     OBS_MIN_ALT_DEFAULT_DEG = 35.0
     MOON_AVOID_CFG_PATH = ('config', 'site', 'global', 'obs_limits', 'ephem',
@@ -1043,20 +1046,24 @@ class RadarWidget(QWidget):
                edgecolor=color, linewidth=1.5,
                alpha=0.75 if shut else 1.0, zorder=2)
 
-    def _wind_color(self, speed_ms: float) -> str:
+    def _wind_level(self, speed_ms: float) -> int:
+        """0 calm, 1 over the warn limit, 2 over the danger limit."""
         warn, danger = self._wind_limits()
         if speed_ms < warn:
-            return ck.COLOR_OK
-        if speed_ms < danger:
-            return ck.COLOR_WARN
-        return ck.COLOR_DANGER
+            return 0
+        return 1 if speed_ms < danger else 2
+
+    def _wind_color(self, speed_ms: float) -> str:
+        return (ck.COLOR_OK, ck.COLOR_WARN,
+                ck.COLOR_DANGER)[self._wind_level(speed_ms)]
 
     def _draw_wind(self, ax) -> None:
         speed, direction = self._wind['ms'], self._wind['dir']
         if speed is None or direction is None:
             return
         theta = _theta(direction)
-        color = self._wind_color(speed)
+        level = self._wind_level(speed)
+        color = (ck.COLOR_OK, ck.COLOR_WARN, ck.COLOR_DANGER)[level]
         # blows inward from where it comes from; annotate keeps it screen-straight
         ax.annotate('', xy=(theta, self.WIND_ARROW_R1), xytext=(theta, self.WIND_ARROW_R0),
                     arrowprops=dict(arrowstyle='-|>,head_width=0.25,head_length=0.5',
@@ -1065,7 +1072,8 @@ class RadarWidget(QWidget):
         # hung off the outer end of the arrow; the plate keeps it legible
         # wherever it lands
         ax.text(theta, self.WIND_LABEL_R, f'{speed:.1f} m/s', color=color,
-                fontsize=9, fontweight='bold', ha='center', va='center',
+                fontsize=self.WIND_LABEL_FONTSIZES[level],
+                fontweight='bold', ha='center', va='center',
                 bbox=dict(facecolor=ck.BG_FIGURE, edgecolor='none',
                           boxstyle='round,pad=0.2', alpha=0.65),
                 zorder=12)
