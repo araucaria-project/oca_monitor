@@ -25,7 +25,7 @@ from serverish.base import dt_from_array
 from serverish.base.task_manager import create_task
 from serverish.messenger import get_reader
 
-from oca_monitor.utils.ephem_ocm import location, next_moon_event, next_sun_alt_event
+from oca_monitor.utils.ephem_ocm import location
 from oca_monitor.widgets import chart_kit as ck
 
 logger = logging.getLogger(__name__.rsplit('.')[-1])
@@ -44,7 +44,9 @@ TWILIGHT_ALT_DEG = -18.0
 COLOR_SUN = '#ffd24a'
 COLOR_MOON_LIT = '#eef2f7'
 COLOR_MOON_DARK = '#3a3f47'
+COLOR_MOON_ZONE = '#7fa8ff'
 COLOR_TARGET_LINK = '#8a8a8a'
+COLOR_WIND_TRACK = '#4d4d4d'
 
 
 def _radius(alt_deg: float) -> float:
@@ -69,6 +71,13 @@ def _as_bool(value: Any) -> Optional[bool]:
     return None
 
 
+def _as_int(value: Any) -> Optional[int]:
+    try:
+        return int(value)
+    except (TypeError, ValueError):
+        return None
+
+
 def _as_float(value: Any) -> Optional[float]:
     try:
         return float(value)
@@ -88,10 +97,6 @@ def _meta_dt(meta) -> Optional[datetime.datetime]:
 
 def _now_utc() -> datetime.datetime:
     return datetime.datetime.now(datetime.timezone.utc)
-
-
-def _hhmm(dt: Optional[datetime.datetime]) -> str:
-    return dt.strftime('%H:%M') if dt is not None else '--:--'
 
 
 def _program_object(program: Optional[str]) -> str:
@@ -130,32 +135,51 @@ class RadarWidget(QWidget):
     OB_BAR_W_PX = 46
     OB_BAR_H_PX = 5
 
+    DOME_WEDGE_DEG = 22.0
+    DOME_LANE_GAP = 1.0
+    WIND_ARROW_R0 = R_HORIZON - 2.0
+    WIND_ARROW_R1 = R_HORIZON - 20.0
+    WIND_LABEL_R = R_HORIZON - 27.0
+    MOON_AVOID_DEFAULT_DEG = 30.0
+    MOON_AVOID_CFG_PATH = ('config', 'site', 'global', 'obs_limits', 'ephem',
+                           'full_moon_distance')
+
     MOUNT_TELEMETRY = {'az': 'mount.azimuth', 'alt': 'mount.altitude'}
+    DOME_TELEMETRY = {'dome_az': 'dome.azimuth'}
     MOUNT_STATUS = {'slewing': 'mount.slewing',
                     'tracking': 'mount.tracking',
                     'motors': 'mount.motorstatus'}
+    DOME_STATUS = {'dome_shutter': 'dome.shutterstatus'}
 
     def __init__(self, main_window, telescopes: Optional[List[str]] = None,
                  trail_seconds: Optional[float] = None,
-                 subject: str = '', vertical_screen: bool = False,
-                 **kwargs) -> None:
+                 subject: str = 'telemetry.weather.davis',
+                 wind_warn_ms: float = ck.WIND_WARN_MS,
+                 wind_danger_ms: float = ck.WIND_DANGER_MS,
+                 moon_avoid_deg: Optional[float] = None,
+                 vertical_screen: bool = False, **kwargs) -> None:
         super().__init__()
         self.main_window = main_window
         self.vertical = bool(vertical_screen)
         self.telescopes = self._resolve_telescopes(telescopes)
         self.trail_seconds = float(trail_seconds or self.TRAIL_SECONDS)
+        self.subject = subject
+        self.wind_warn_ms = float(wind_warn_ms)
+        self.wind_danger_ms = float(wind_danger_ms)
+        self.moon_avoid_deg = None if moon_avoid_deg is None else float(moon_avoid_deg)
 
         self._state: Dict[str, Dict[str, Any]] = {
             tel: {
                 'az': None, 'alt': None, 'pos_dt': None,
                 'slewing': None, 'tracking': None, 'motors': None,
+                'dome_az': None, 'dome_shutter': None,
                 'ob': None, 'plan': None,
                 'trail': deque(maxlen=self.TRAIL_MAX_POINTS),
             }
             for tel in self.telescopes
         }
         self._astro: Dict[str, Any] = {}
-        self._almanac: Dict[str, Any] = {}
+        self._wind: Dict[str, Optional[float]] = {'ms': None, 'dir': None}
 
         self._init_ui()
         QtCore.QTimer.singleShot(0, self.async_init)
@@ -172,6 +196,17 @@ class RadarWidget(QWidget):
 
     def _tel_color(self, tel: str) -> str:
         return ck.telescope_color(self.main_window, tel)
+
+    def _moon_avoid(self) -> float:
+        if self.moon_avoid_deg is not None:
+            return self.moon_avoid_deg
+        node = getattr(self.main_window, 'nats_cfg', None) or {}
+        try:
+            for key in self.MOON_AVOID_CFG_PATH:
+                node = node[key]
+            return float(node)
+        except (LookupError, TypeError, ValueError):
+            return self.MOON_AVOID_DEFAULT_DEG
 
     def _init_ui(self) -> None:
         self.layout_root = QVBoxLayout(self)
@@ -194,25 +229,35 @@ class RadarWidget(QWidget):
         for tel in self.telescopes:
             for key, suffix in self.MOUNT_TELEMETRY.items():
                 await create_task(
-                    self._measurement_reader(f'tic.telemetry.{tel}.{suffix}',
-                                             tel, key, f'{tel}.{suffix}', position=True),
+                    self._measurement_reader(f'tic.telemetry.{tel}.{suffix}', tel, key,
+                                             f'{tel}.{suffix}', _as_float, position=True),
+                    f'radar_{tel}_{key}')
+            for key, suffix in self.DOME_TELEMETRY.items():
+                await create_task(
+                    self._measurement_reader(f'tic.telemetry.{tel}.{suffix}', tel, key,
+                                             f'{tel}.{suffix}', _as_float),
                     f'radar_{tel}_{key}')
             for key, suffix in self.MOUNT_STATUS.items():
                 await create_task(
-                    self._measurement_reader(f'tic.status.{tel}.{suffix}',
-                                             tel, key, f'{tel}.{suffix}'),
+                    self._measurement_reader(f'tic.status.{tel}.{suffix}', tel, key,
+                                             f'{tel}.{suffix}', _as_bool),
+                    f'radar_{tel}_{key}')
+            for key, suffix in self.DOME_STATUS.items():
+                await create_task(
+                    self._measurement_reader(f'tic.status.{tel}.{suffix}', tel, key,
+                                             f'{tel}.{suffix}', _as_int),
                     f'radar_{tel}_{key}')
             await create_task(self._document_reader(f'tic.status.{tel}.toi.ob', tel, 'ob'),
                               f'radar_{tel}_ob')
             await create_task(self._document_reader(f'tic.status.{tel}.toi.plan', tel, 'plan'),
                               f'radar_{tel}_plan')
 
+        await create_task(self._wind_reader(), 'radar_wind')
         await create_task(self._astro_loop(), 'radar_astro')
-        await create_task(self._almanac_loop(), 'radar_almanac')
         await create_task(self._refresh_loop(), 'radar_refresh')
 
     async def _measurement_reader(self, subject: str, tel: str, key: str,
-                                  measurement: str, position: bool = False) -> None:
+                                  measurement: str, parse, position: bool = False) -> None:
         try:
             reader = get_reader(subject, deliver_policy='last')
             async for data, meta in reader:
@@ -220,7 +265,7 @@ class RadarWidget(QWidget):
                     value = data['measurements'][measurement]
                 except (LookupError, TypeError):
                     continue
-                parsed = _as_float(value) if position else _as_bool(value)
+                parsed = parse(value)
                 self._state[tel][key] = parsed
                 if position and parsed is not None:
                     self._state[tel]['pos_dt'] = _meta_dt(meta)
@@ -228,6 +273,23 @@ class RadarWidget(QWidget):
             raise
         except Exception as e:
             logger.warning(f'radar reader {subject} failed: {e}')
+
+    async def _wind_reader(self) -> None:
+        try:
+            reader = get_reader(self.subject, deliver_policy='last')
+            async for data, meta in reader:
+                try:
+                    msm = data['measurements']
+                except (LookupError, TypeError):
+                    continue
+                speed = _as_float(msm.get('wind_ms'))
+                if speed is None:
+                    speed = _as_float(msm.get('wind_10min_ms'))
+                self._wind = {'ms': speed, 'dir': _as_float(msm.get('wind_dir_deg'))}
+        except (asyncio.CancelledError, asyncio.TimeoutError):
+            raise
+        except Exception as e:
+            logger.warning(f'radar reader {self.subject} failed: {e}')
 
     async def _document_reader(self, subject: str, tel: str, key: str) -> None:
         try:
@@ -293,15 +355,6 @@ class RadarWidget(QWidget):
             'targets': resolved,
         }
 
-    def _compute_almanac(self) -> Dict[str, Any]:
-        now = _now_utc()
-        return {
-            'sunset': next_sun_alt_event(now, 0.0, 'setting'),
-            'sunrise': next_sun_alt_event(now, 0.0, 'rising'),
-            'moonset': next_moon_event(now, 'setting'),
-            'moonrise': next_moon_event(now, 'rising'),
-        }
-
     async def _astro_loop(self) -> None:
         while True:
             targets = {}
@@ -314,14 +367,6 @@ class RadarWidget(QWidget):
             except Exception as e:
                 logger.warning(f'radar astro update failed: {e}')
             await asyncio.sleep(self.ASTRO_REFRESH_S)
-
-    async def _almanac_loop(self) -> None:
-        while True:
-            try:
-                self._almanac = await asyncio.to_thread(self._compute_almanac)
-            except Exception as e:
-                logger.warning(f'radar almanac update failed: {e}')
-            await asyncio.sleep(self.ALMANAC_REFRESH_S)
 
     # ---- Trails -------------------------------------------------------------
 
@@ -426,10 +471,12 @@ class RadarWidget(QWidget):
                     color=ck.FG_DIM, fontsize=7, alpha=0.7,
                     ha='center', va='center', zorder=3)
 
+        for tel in self.telescopes:
+            self._draw_dome(ax, tel)
         self._draw_bodies(ax)
+        self._draw_wind(ax)
         for tel in self.telescopes:
             self._draw_telescope(ax, tel)
-        self._draw_almanac(ax)
 
     def _draw_bodies(self, ax) -> None:
         sun = self._astro.get('sun')
@@ -449,11 +496,31 @@ class RadarWidget(QWidget):
             theta, r = _theta(moon['az']), _radius(moon['alt'])
             up = moon['alt'] > 0.0
             face = ck.blend_colors(COLOR_MOON_DARK, COLOR_MOON_LIT, moon['phase'])
+            self._draw_moon_zone(ax, moon)
             ax.scatter([theta], [r], s=120, c=[face], edgecolors=COLOR_MOON_LIT,
                        linewidths=0.8, alpha=1.0 if up else 0.4, zorder=7)
-            ax.annotate('MOON', (theta, r), textcoords='offset points',
-                        xytext=(0, -16), ha='center', color=COLOR_MOON_LIT,
-                        fontsize=7.5, alpha=0.75, zorder=11)
+            ax.annotate(f"{moon['phase'] * 100:.0f}%", (theta, r),
+                        textcoords='offset points', xytext=(0, -16), ha='center',
+                        color=COLOR_MOON_LIT, fontsize=8, fontweight='bold',
+                        alpha=0.85 if up else 0.5, zorder=11)
+
+    def _draw_moon_zone(self, ax, moon: Dict[str, float]) -> None:
+        rho = math.radians(self._moon_avoid())
+        alt_m, az_m = math.radians(moon['alt']), math.radians(moon['az'])
+        if moon['alt'] < -self._moon_avoid():
+            return
+        # small circle of angular radius rho around the Moon, clamped at the
+        # horizon so the part below it collapses onto the rim
+        phi = np.linspace(0.0, 2 * np.pi, 181)
+        sin_alt = (math.sin(alt_m) * math.cos(rho)
+                   + math.cos(alt_m) * math.sin(rho) * np.cos(phi))
+        alt = np.arcsin(np.clip(sin_alt, -1.0, 1.0))
+        az = az_m + np.arctan2(
+            np.sin(phi) * math.sin(rho) * math.cos(alt_m),
+            math.cos(rho) - math.sin(alt_m) * np.sin(alt))
+        r = R_HORIZON - np.clip(np.degrees(alt), 0.0, 90.0)
+        ax.fill(az, r, color=COLOR_MOON_ZONE, alpha=0.10, linewidth=0, zorder=1)
+        ax.plot(az, r, color=COLOR_MOON_ZONE, alpha=0.30, linewidth=0.8, zorder=1)
 
     def _draw_telescope(self, ax, tel: str) -> None:
         st = self._state[tel]
@@ -524,33 +591,61 @@ class RadarWidget(QWidget):
                                transform=ax.transAxes, color=fill_color,
                                linewidth=0, clip_on=False, zorder=11))
 
-    def _draw_almanac(self, ax) -> None:
-        sun = self._astro.get('sun')
-        moon = self._astro.get('moon')
-        alm = self._almanac
+    def _dome_lane(self, tel: str) -> Tuple[float, float]:
+        n = max(1, len(self.telescopes))
+        height = R_BELOW_SPAN / n
+        bottom = R_HORIZON + self.telescopes.index(tel) * height
+        return bottom + self.DOME_LANE_GAP / 2.0, height - self.DOME_LANE_GAP
 
-        if sun is not None:
-            if sun['alt'] > 0.0:
-                event = f"sunset {_hhmm(alm.get('sunset'))}"
-            else:
-                event = f"sunrise {_hhmm(alm.get('sunrise'))}"
-            ax.text(0.0, 1.0, f"SUN {sun['alt']:+.1f}°\n{event} UT",
-                    transform=ax.transAxes, color=COLOR_SUN, fontsize=8,
-                    alpha=0.8, ha='left', va='top', linespacing=1.5, zorder=12)
+    def _draw_dome(self, ax, tel: str) -> None:
+        st = self._state[tel]
+        shutter = st['dome_shutter']
+        if shutter is None:
+            return
+        bottom, height = self._dome_lane(tel)
+        az = st['dome_az']
+        # pms publishes a null azimuth when the encoder is unavailable; then
+        # the whole lane is filled, so the shutter state still reads
+        if az is None:
+            theta, width = 0.0, 2 * np.pi
+        else:
+            theta, width = _theta(az), math.radians(self.DOME_WEDGE_DEG)
+        color = self._tel_color(tel)
+        closed = shutter == 1
+        full = az is None
+        if closed:
+            alpha = 0.3 if full else 0.6
+        else:
+            alpha = 0.7 if full else 0.95
+        ax.bar(theta, height, width=width, bottom=bottom,
+               facecolor=color if closed else 'none', edgecolor=color,
+               linewidth=1.4, linestyle='--' if shutter in (2, 3) else '-',
+               alpha=alpha, zorder=2)
 
-        if moon is not None:
-            if moon['alt'] > 0.0:
-                event = f"moonset {_hhmm(alm.get('moonset'))}"
-            else:
-                event = f"moonrise {_hhmm(alm.get('moonrise'))}"
-            ax.text(1.0, 1.0,
-                    f"MOON {moon['phase'] * 100:.0f}%  {moon['alt']:+.0f}°\n{event} UT",
-                    transform=ax.transAxes, color=COLOR_MOON_LIT, fontsize=8,
-                    alpha=0.7, ha='right', va='top', linespacing=1.5, zorder=12)
+    def _wind_color(self, speed_ms: float) -> str:
+        if speed_ms < self.wind_warn_ms:
+            return ck.COLOR_OK
+        if speed_ms < self.wind_danger_ms:
+            return ck.COLOR_WARN
+        return ck.COLOR_DANGER
 
-        ax.text(0.0, 0.0, _now_utc().strftime('%H:%M:%S UT'),
-                transform=ax.transAxes, color=ck.FG_DIM, fontsize=8,
-                alpha=0.7, ha='left', va='bottom', zorder=12)
+    def _draw_wind(self, ax) -> None:
+        speed, direction = self._wind['ms'], self._wind['dir']
+        if speed is None or direction is None:
+            return
+        theta = _theta(direction)
+        color = self._wind_color(speed)
+        # blows inward from the direction it comes from, as on the toi radar;
+        # annotate draws it in screen space, so the polar warp cannot bend it
+        ax.annotate('', xy=(theta, self.WIND_ARROW_R1), xytext=(theta, self.WIND_ARROW_R0),
+                    arrowprops=dict(arrowstyle='-|>,head_width=0.28,head_length=0.6',
+                                    color=color, linewidth=2.0, shrinkA=0, shrinkB=0,
+                                    alpha=0.9), zorder=6)
+        ax.text(theta, self.WIND_LABEL_R, f'{speed:.1f} m/s', color=color,
+                fontsize=8.5, fontweight='bold', ha='center', va='center',
+                bbox=dict(facecolor='#101010', edgecolor=color,
+                          boxstyle='round,pad=0.25', alpha=0.55),
+                zorder=12)
 
 
 widget_class = RadarWidget

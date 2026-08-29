@@ -6,7 +6,7 @@
 [default]  # global configuration is used by all environments, setting from here override all other settings
 window_size = [1910, 1040]
 #window_size = [1800, 1000]
-panel_columns = [7,5,4]  # The size ratio of the columns in the panel grid - radar column kept ~square
+panel_columns = [1,1,1]  # The size ratio of the columns in the panel grid
 panel_rows = [5,1]   # The size ratio of the rows in the panel grid
 style = "dark"
 #style = "white"
@@ -28,6 +28,10 @@ source = "radar"  # page source - page is defined in oca_monitor/pages/radar.py
 telescopes = ["wk06", "zb08", "jk15"]
 # how long a mount leaves a fading trail behind it [s]
 trail_seconds = 120
+# wind arrow: source subject and the toi alert limits [m/s]
+#subject = "telemetry.weather.davis"
+#wind_warn_ms = 11.0
+#wind_danger_ms = 14.0
 
 [default.panels.10.Message]
 #auto_interval = 10  # seconds, how long to show this page before auto switching to next page
