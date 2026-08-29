@@ -182,6 +182,7 @@ class RadarWidget(QWidget):
 
     STALE_S = 1800.0
     TARGET_MIN_SEP_DEG = 1.0
+    BODY_HIDE_ALT_DEG = -10.0
 
     OB_LABEL_DY_PX = 40
     OB_BAR_DY_PX = 31
@@ -662,8 +663,10 @@ class RadarWidget(QWidget):
             self._draw_telescope(ax, tel)
 
     def _draw_bodies(self, ax) -> None:
+        # well below the horizon they say nothing worth the room they take in
+        # the ring, where everything sunk that far piles up together anyway
         sun = self._astro.get('sun')
-        if sun is not None:
+        if sun is not None and sun['alt'] >= self.BODY_HIDE_ALT_DEG:
             theta, r = _theta(sun['az']), self._radius(sun['alt'])
             up = sun['alt'] > 0.0
             ax.scatter([theta], [r], s=700, c=[COLOR_SUN], linewidths=0,
@@ -674,7 +677,7 @@ class RadarWidget(QWidget):
                               color=COLOR_SUN, fontsize=8.5, alpha=0.95, zorder=11)
 
         moon = self._astro.get('moon')
-        if moon is not None:
+        if moon is not None and moon['alt'] >= self.BODY_HIDE_ALT_DEG:
             theta, r = _theta(moon['az']), self._radius(moon['alt'])
             up = moon['alt'] > 0.0
             face = ck.blend_colors(COLOR_MOON_DARK, COLOR_MOON_LIT, moon['phase'])
