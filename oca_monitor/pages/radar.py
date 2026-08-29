@@ -33,11 +33,12 @@ logger = logging.getLogger(__name__.rsplit('.')[-1])
 
 # Radial scale, see RadarWidget._radius: the observable sky gets R_USEFUL,
 # the unusable wedge under obs_min_alt only the rim up to R_HORIZON, sunk
-# bodies and the dome lanes 90..R_DOME_TOP, the wind arrow the ring beyond.
+# bodies and the dome lanes 90..R_DOME_TOP (sized to still split six ways),
+# the wind label the thin ring beyond.
 R_USEFUL = 72.0
 R_HORIZON = 90.0
 R_DOME_TOP = 97.0
-R_MAX = 107.0
+R_MAX = 103.0
 R_BELOW_SPAN = R_DOME_TOP - R_HORIZON
 
 SKY_DAY = '#1f1c17'
@@ -158,10 +159,10 @@ class RadarWidget(QWidget):
     COVER_X_SIZE = 85.0
 
     DOME_WEDGE_DEG = 16.0
-    DOME_LANE_GAP = 0.4
-    WIND_ARROW_R0 = R_DOME_TOP + 3.5
+    DOME_LANE_GAP = 0.25
+    WIND_ARROW_R0 = R_DOME_TOP + 1.6
     WIND_ARROW_R1 = R_HORIZON + 1.0
-    WIND_LABEL_R = R_MAX - 3.0
+    WIND_LABEL_R = R_MAX - 2.0
     MOON_AVOID_DEFAULT_DEG = 30.0
     OBS_MIN_ALT_DEFAULT_DEG = 35.0
     MOON_AVOID_CFG_PATH = ('config', 'site', 'global', 'obs_limits', 'ephem',
@@ -494,16 +495,6 @@ class RadarWidget(QWidget):
 
     # ---- Drawing ------------------------------------------------------------
 
-    def _mount_state_color(self, tel: str) -> str:
-        st = self._state[tel]
-        if self._is_stale(st) or st['motors'] is False:
-            return ck.FG_DIM
-        if st['slewing']:
-            return ck.COLOR_WARN
-        if st['tracking']:
-            return ck.COLOR_OK
-        return ck.FG_DIM
-
     def _ob_progress(self, tel: str) -> Tuple[str, Optional[float], bool]:
         ob = self._state[tel].get('ob') or {}
         if not (ob.get('ob_started') and not ob.get('ob_done')):
@@ -703,13 +694,8 @@ class RadarWidget(QWidget):
         if target is not None and not stale:
             t_theta, t_r = _theta(target['az']), self._radius(target['alt'])
             label_theta, label_r = t_theta, t_r
-            on_target = _angular_sep(az, alt, target['az'],
-                                     target['alt']) <= self.TARGET_MIN_SEP_DEG
-            if not on_target and (st['slewing'] or st['tracking']):
-                ax.plot([theta, t_theta], [r, t_r], linestyle=(0, (1, 3.5)),
-                        linewidth=1.8, dash_capstyle='round', color=color,
-                        alpha=0.5, zorder=5)
-            if not on_target:
+            if _angular_sep(az, alt, target['az'],
+                            target['alt']) > self.TARGET_MIN_SEP_DEG:
                 self._draw_reticle(ax, t_theta, t_r, color)
 
         if st['tracking'] and not stale:
@@ -723,7 +709,7 @@ class RadarWidget(QWidget):
         else:
             dim = self.IDLE_ALPHA
         ax.scatter([theta], [r], s=120, c=['none'] if stale else [color],
-                   edgecolors=[self._mount_state_color(tel)], linewidths=1.8,
+                   edgecolors=[color], linewidths=1.8,
                    alpha=0.4 if stale else dim, zorder=9)
 
         if st['cover_state'] == self.COVER_CLOSED and not stale:
