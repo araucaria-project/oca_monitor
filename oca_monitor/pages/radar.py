@@ -19,7 +19,7 @@ from PyQt6.QtWidgets import QVBoxLayout, QWidget
 from matplotlib.backends.backend_qt5agg import FigureCanvasQTAgg as FigureCanvas
 from matplotlib.colors import to_rgba
 from matplotlib.figure import Figure
-from matplotlib.patches import Rectangle
+from matplotlib.patches import Circle, Rectangle
 from qasync import asyncSlot
 from serverish.base import dt_from_array
 from serverish.base.task_manager import create_task
@@ -31,12 +31,14 @@ from oca_monitor.widgets import chart_kit as ck
 logger = logging.getLogger(__name__.rsplit('.')[-1])
 
 
-# r = 90 - alt; below the horizon squeezed into the band up to R_MAX
+# r = 90 - alt; 90..R_DOME_TOP holds sunk bodies and the dome lanes, the ring
+# beyond it is left free for the wind arrow
 R_HORIZON = 90.0
-R_MAX = 112.0
-R_BELOW_SPAN = R_MAX - R_HORIZON
+R_DOME_TOP = 108.0
+R_MAX = 126.0
+R_BELOW_SPAN = R_DOME_TOP - R_HORIZON
 
-SKY_DAY = '#221e17'
+SKY_DAY = '#1f1c17'
 SKY_TWILIGHT = '#1d2130'
 SKY_NIGHT = ck.BG_AXES
 TWILIGHT_ALT_DEG = -18.0
@@ -135,14 +137,19 @@ class RadarWidget(QWidget):
     OB_BAR_W_PX = 46
     OB_BAR_H_PX = 5
 
-    DOME_WEDGE_DEG = 22.0
+    DOME_WEDGE_DEG = 10.0
     DOME_LANE_GAP = 1.0
-    WIND_ARROW_R0 = R_HORIZON - 2.0
-    WIND_ARROW_R1 = R_HORIZON - 20.0
-    WIND_LABEL_R = R_HORIZON - 27.0
+    WIND_ARROW_R0 = R_MAX - 1.0
+    WIND_ARROW_R1 = R_DOME_TOP + 6.0
+    WIND_LABEL_R = R_DOME_TOP + 2.5
     MOON_AVOID_DEFAULT_DEG = 30.0
+    OBS_MIN_ALT_DEFAULT_DEG = 35.0
     MOON_AVOID_CFG_PATH = ('config', 'site', 'global', 'obs_limits', 'ephem',
                            'full_moon_distance')
+    WIND_CFG_PATH = ('config', 'site', 'global', 'obs_limits',
+                     'weather_restrictions', 'wind')
+    MOUNT_CFG_PATH = ('config', 'telescopes', '{tel}', 'observatory',
+                      'components', 'mount')
 
     MOUNT_TELEMETRY = {'az': 'mount.azimuth', 'alt': 'mount.altitude'}
     DOME_TELEMETRY = {'dome_az': 'dome.azimuth'}
@@ -154,9 +161,10 @@ class RadarWidget(QWidget):
     def __init__(self, main_window, telescopes: Optional[List[str]] = None,
                  trail_seconds: Optional[float] = None,
                  subject: str = 'telemetry.weather.davis',
-                 wind_warn_ms: float = ck.WIND_WARN_MS,
-                 wind_danger_ms: float = ck.WIND_DANGER_MS,
+                 wind_warn_ms: Optional[float] = None,
+                 wind_danger_ms: Optional[float] = None,
                  moon_avoid_deg: Optional[float] = None,
+                 obs_min_alt_deg: Optional[float] = None,
                  vertical_screen: bool = False, **kwargs) -> None:
         super().__init__()
         self.main_window = main_window
@@ -164,9 +172,10 @@ class RadarWidget(QWidget):
         self.telescopes = self._resolve_telescopes(telescopes)
         self.trail_seconds = float(trail_seconds or self.TRAIL_SECONDS)
         self.subject = subject
-        self.wind_warn_ms = float(wind_warn_ms)
-        self.wind_danger_ms = float(wind_danger_ms)
-        self.moon_avoid_deg = None if moon_avoid_deg is None else float(moon_avoid_deg)
+        self.wind_warn_ms = _as_float(wind_warn_ms)
+        self.wind_danger_ms = _as_float(wind_danger_ms)
+        self.moon_avoid_deg = _as_float(moon_avoid_deg)
+        self.obs_min_alt_deg = _as_float(obs_min_alt_deg)
 
         self._state: Dict[str, Dict[str, Any]] = {
             tel: {
@@ -197,16 +206,43 @@ class RadarWidget(QWidget):
     def _tel_color(self, tel: str) -> str:
         return ck.telescope_color(self.main_window, tel)
 
+    def _cfg(self, path, default: Any = None) -> Any:
+        node = getattr(self.main_window, 'nats_cfg', None) or {}
+        try:
+            for key in path:
+                node = node[key]
+        except (LookupError, TypeError):
+            return default
+        return node
+
     def _moon_avoid(self) -> float:
         if self.moon_avoid_deg is not None:
             return self.moon_avoid_deg
-        node = getattr(self.main_window, 'nats_cfg', None) or {}
-        try:
-            for key in self.MOON_AVOID_CFG_PATH:
-                node = node[key]
-            return float(node)
-        except (LookupError, TypeError, ValueError):
-            return self.MOON_AVOID_DEFAULT_DEG
+        value = _as_float(self._cfg(self.MOON_AVOID_CFG_PATH))
+        return self.MOON_AVOID_DEFAULT_DEG if value is None else value
+
+    def _obs_min_alt(self) -> float:
+        if self.obs_min_alt_deg is not None:
+            return self.obs_min_alt_deg
+        limits = []
+        for tel in self.telescopes:
+            path = tuple(tel if k == '{tel}' else k for k in self.MOUNT_CFG_PATH)
+            value = _as_float(self._cfg(path + ('obs_min_alt',)))
+            if value is not None:
+                limits.append(value)
+        # most restrictive mount wins, so the ring promises no unreachable sky
+        return max(limits) if limits else self.OBS_MIN_ALT_DEFAULT_DEG
+
+    def _wind_limits(self) -> Tuple[float, float]:
+        cfg = self._cfg(self.WIND_CFG_PATH) or {}
+        warn = self.wind_warn_ms
+        if warn is None:
+            warn = _as_float(cfg.get('pointing') if isinstance(cfg, dict) else None)
+        danger = self.wind_danger_ms
+        if danger is None:
+            danger = _as_float(cfg.get('observation_stop') if isinstance(cfg, dict) else None)
+        return (ck.WIND_WARN_MS if warn is None else warn,
+                ck.WIND_DANGER_MS if danger is None else danger)
 
     def _init_ui(self) -> None:
         self.layout_root = QVBoxLayout(self)
@@ -458,13 +494,16 @@ class RadarWidget(QWidget):
         ax.grid(True, color=ck.GRID_MAJOR, linewidth=0.6, alpha=0.7)
         ax.spines['polar'].set_color(ck.SPINE)
 
-        ax.bar(0.0, R_BELOW_SPAN, width=2 * np.pi, bottom=R_HORIZON,
+        ax.bar(0.0, R_MAX - R_HORIZON, width=2 * np.pi, bottom=R_HORIZON,
                color='#0b0b0b', alpha=0.85, linewidth=0, zorder=0)
-        ax.bar(0.0, 20.0, width=2 * np.pi, bottom=R_HORIZON - 20.0,
-               color=ck.COLOR_DANGER, alpha=0.06, linewidth=0, zorder=0)
+        min_alt = self._obs_min_alt()
+        ax.bar(0.0, min_alt, width=2 * np.pi, bottom=R_HORIZON - min_alt,
+               color=ck.COLOR_DANGER, alpha=0.07, linewidth=0, zorder=0)
         ring = np.linspace(0.0, 2 * np.pi, 181)
         ax.plot(ring, np.full_like(ring, R_HORIZON), color='#7a7a7a',
                 linewidth=1.0, alpha=0.8, zorder=2)
+        ax.plot(ring, np.full_like(ring, R_HORIZON - min_alt), color=ck.COLOR_DANGER,
+                linewidth=0.9, linestyle='--', alpha=0.45, zorder=2)
 
         for alt in (30, 60):
             ax.text(np.radians(22.5), R_HORIZON - alt, f'{alt}°',
@@ -499,28 +538,32 @@ class RadarWidget(QWidget):
             self._draw_moon_zone(ax, moon)
             ax.scatter([theta], [r], s=120, c=[face], edgecolors=COLOR_MOON_LIT,
                        linewidths=0.8, alpha=1.0 if up else 0.4, zorder=7)
-            ax.annotate(f"{moon['phase'] * 100:.0f}%", (theta, r),
+            ax.annotate(f"MOON {moon['phase'] * 100:.0f}%", (theta, r),
                         textcoords='offset points', xytext=(0, -16), ha='center',
                         color=COLOR_MOON_LIT, fontsize=8, fontweight='bold',
                         alpha=0.85 if up else 0.5, zorder=11)
 
     def _draw_moon_zone(self, ax, moon: Dict[str, float]) -> None:
-        rho = math.radians(self._moon_avoid())
-        alt_m, az_m = math.radians(moon['alt']), math.radians(moon['az'])
-        if moon['alt'] < -self._moon_avoid():
+        avoid = self._moon_avoid()
+        if moon['alt'] < -avoid:
             return
-        # small circle of angular radius rho around the Moon, clamped at the
-        # horizon so the part below it collapses onto the rim
-        phi = np.linspace(0.0, 2 * np.pi, 181)
-        sin_alt = (math.sin(alt_m) * math.cos(rho)
-                   + math.cos(alt_m) * math.sin(rho) * np.cos(phi))
-        alt = np.arcsin(np.clip(sin_alt, -1.0, 1.0))
-        az = az_m + np.arctan2(
-            np.sin(phi) * math.sin(rho) * math.cos(alt_m),
-            math.cos(rho) - math.sin(alt_m) * np.sin(alt))
-        r = R_HORIZON - np.clip(np.degrees(alt), 0.0, 90.0)
-        ax.fill(az, r, color=COLOR_MOON_ZONE, alpha=0.10, linewidth=0, zorder=1)
-        ax.plot(az, r, color=COLOR_MOON_ZONE, alpha=0.30, linewidth=0.8, zorder=1)
+        try:
+            box = ax.get_window_extent()
+            px, py = ax.transData.transform((_theta(moon['az']), _radius(moon['alt'])))
+        except (ValueError, AttributeError, RuntimeError):
+            return
+        if not box.width or not box.height:
+            return
+        # a plain screen circle - the true small circle would come out a lens
+        f = 1.0 / box.width
+        radius = avoid * (box.width / 2.0) / R_MAX * f
+        zone = Circle(((px - box.x0) * f, (py - box.y0) / box.height), radius,
+                      transform=ax.transAxes, facecolor=COLOR_MOON_ZONE,
+                      edgecolor=COLOR_MOON_ZONE, linewidth=0.8, alpha=0.14,
+                      zorder=1)
+        zone.set_clip_path(Circle((0.5, 0.5), 0.5 * R_HORIZON / R_MAX,
+                                  transform=ax.transAxes))
+        ax.add_patch(zone)
 
     def _draw_telescope(self, ax, tel: str) -> None:
         st = self._state[tel]
@@ -603,29 +646,27 @@ class RadarWidget(QWidget):
         if shutter is None:
             return
         bottom, height = self._dome_lane(tel)
-        az = st['dome_az']
-        # pms publishes a null azimuth when the encoder is unavailable; then
-        # the whole lane is filled, so the shutter state still reads
+        # pms publishes a null dome azimuth when the encoder is unavailable, so
+        # fall back to the mount and dot the outline to mark it as assumed
+        az, inferred = st['dome_az'], False
         if az is None:
-            theta, width = 0.0, 2 * np.pi
-        else:
-            theta, width = _theta(az), math.radians(self.DOME_WEDGE_DEG)
+            az, inferred = st['az'], True
+        if az is None:
+            return
         color = self._tel_color(tel)
         closed = shutter == 1
-        full = az is None
-        if closed:
-            alpha = 0.3 if full else 0.6
-        else:
-            alpha = 0.7 if full else 0.95
-        ax.bar(theta, height, width=width, bottom=bottom,
-               facecolor=color if closed else 'none', edgecolor=color,
-               linewidth=1.4, linestyle='--' if shutter in (2, 3) else '-',
+        style = ':' if inferred else ('--' if shutter in (2, 3) else '-')
+        alpha = (0.4 if closed else 0.55) if inferred else (0.6 if closed else 0.95)
+        ax.bar(_theta(az), height, width=math.radians(self.DOME_WEDGE_DEG),
+               bottom=bottom, facecolor=color if closed else 'none',
+               edgecolor=color, linewidth=1.4, linestyle=style,
                alpha=alpha, zorder=2)
 
     def _wind_color(self, speed_ms: float) -> str:
-        if speed_ms < self.wind_warn_ms:
+        warn, danger = self._wind_limits()
+        if speed_ms < warn:
             return ck.COLOR_OK
-        if speed_ms < self.wind_danger_ms:
+        if speed_ms < danger:
             return ck.COLOR_WARN
         return ck.COLOR_DANGER
 
@@ -635,16 +676,15 @@ class RadarWidget(QWidget):
             return
         theta = _theta(direction)
         color = self._wind_color(speed)
-        # blows inward from the direction it comes from, as on the toi radar;
-        # annotate draws it in screen space, so the polar warp cannot bend it
+        # blows inward from where it comes from; annotate keeps it screen-straight
         ax.annotate('', xy=(theta, self.WIND_ARROW_R1), xytext=(theta, self.WIND_ARROW_R0),
                     arrowprops=dict(arrowstyle='-|>,head_width=0.28,head_length=0.6',
                                     color=color, linewidth=2.0, shrinkA=0, shrinkB=0,
                                     alpha=0.9), zorder=6)
         ax.text(theta, self.WIND_LABEL_R, f'{speed:.1f} m/s', color=color,
-                fontsize=8.5, fontweight='bold', ha='center', va='center',
+                fontsize=8, fontweight='bold', ha='center', va='center',
                 bbox=dict(facecolor='#101010', edgecolor=color,
-                          boxstyle='round,pad=0.25', alpha=0.55),
+                          boxstyle='round,pad=0.2', alpha=0.55),
                 zorder=12)
 
 
