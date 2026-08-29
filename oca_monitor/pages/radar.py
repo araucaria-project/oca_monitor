@@ -34,8 +34,8 @@ logger = logging.getLogger(__name__.rsplit('.')[-1])
 # r = 90 - alt; 90..R_DOME_TOP holds sunk bodies and the dome lanes, the ring
 # beyond it is left free for the wind arrow
 R_HORIZON = 90.0
-R_DOME_TOP = 99.0
-R_MAX = 113.0
+R_DOME_TOP = 97.0
+R_MAX = 107.0
 R_BELOW_SPAN = R_DOME_TOP - R_HORIZON
 
 SKY_DAY = '#1f1c17'
@@ -138,10 +138,10 @@ class RadarWidget(QWidget):
     OB_BAR_H_PX = 5
 
     DOME_WEDGE_DEG = 10.0
-    DOME_LANE_GAP = 1.0
+    DOME_LANE_GAP = 0.4
     WIND_ARROW_R0 = R_MAX - 1.0
-    WIND_ARROW_R1 = R_DOME_TOP + 6.5
-    WIND_LABEL_R = R_DOME_TOP + 2.5
+    WIND_ARROW_R1 = R_DOME_TOP + 1.0
+    WIND_LABEL_R = R_HORIZON - 5.0
     MOON_AVOID_DEFAULT_DEG = 30.0
     OBS_MIN_ALT_DEFAULT_DEG = 35.0
     MOON_AVOID_CFG_PATH = ('config', 'site', 'global', 'obs_limits', 'ephem',
@@ -678,13 +678,11 @@ class RadarWidget(QWidget):
         color = self._wind_color(speed)
         # blows inward from where it comes from; annotate keeps it screen-straight
         ax.annotate('', xy=(theta, self.WIND_ARROW_R1), xytext=(theta, self.WIND_ARROW_R0),
-                    arrowprops=dict(arrowstyle='-|>,head_width=0.28,head_length=0.6',
+                    arrowprops=dict(arrowstyle='-|>,head_width=0.25,head_length=0.5',
                                     color=color, linewidth=2.0, shrinkA=0, shrinkB=0,
                                     alpha=0.9), zorder=6)
         ax.text(theta, self.WIND_LABEL_R, f'{speed:.1f} m/s', color=color,
                 fontsize=8, fontweight='bold', ha='center', va='center',
-                bbox=dict(facecolor='#101010', edgecolor=color,
-                          boxstyle='round,pad=0.2', alpha=0.55),
                 zorder=12)
 
 
