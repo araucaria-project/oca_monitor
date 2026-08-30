@@ -208,7 +208,7 @@ class TelescopeOfp(QWidget):
 
                 foc_calc = await self.focus_model.predict(temp=temp_ws, hum=hum_ws)
                 if isinstance(foc_calc, float):
-                    _foc = f"{focus - foc_calc:.0f}"
+                    _foc = f"{foc_calc - focus:.0f}"
                 else:
                     _foc = "None"
 
