@@ -281,14 +281,14 @@ class TelescopeOfp(QWidget):
         display = ImageDisplay(
             name='telescope', images_dir=self.dir, image_display_clb=self.image_display,
             image_instance_clb=self.image_instance, images_prefix=self.PNG_FILE_NAME,
-            image_cascade_sec=0, image_pause_sec=0, refresh_list_sec=1, mode='update_files_show_once',
+            image_cascade_sec=0, image_pause_sec=0, refresh_list_sec=0.2, mode='update_files_show_once',
         )
         await display.display_init()
 
         lc = ImageDisplay(
             name='light curve', images_dir=self.dir, image_display_clb=self.lc_display,
             image_instance_clb=self.image_instance, images_prefix=self.LC_FILE_NAME,
-            image_cascade_sec=0, image_pause_sec=0, refresh_list_sec=1, mode='update_files_show_once',
+            image_cascade_sec=0, image_pause_sec=0, refresh_list_sec=0.2, mode='update_files_show_once',
         )
         await lc.display_init()
 
