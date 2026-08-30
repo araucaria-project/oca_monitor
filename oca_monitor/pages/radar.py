@@ -217,6 +217,7 @@ class RadarWidget(QWidget):
     # the risk, so a dangerous wind is legible from across the control room
     WIND_LABEL_FONTSIZES = (9.0, 11.0, 13.0)
     MOON_AVOID_DEFAULT_DEG = 30.0
+    MOON_ZONE_POINTS = 181
     OBS_MIN_ALT_DEFAULT_DEG = 35.0
     MOON_AVOID_CFG_PATH = ('config', 'site', 'global', 'obs_limits', 'ephem',
                            'full_moon_distance')
@@ -700,26 +701,31 @@ class RadarWidget(QWidget):
                               alpha=0.95 if up else 0.6, zorder=11)
 
     def _draw_moon_zone(self, ax, moon: Dict[str, float]) -> None:
+        """The avoidance zone as the small circle it really is.
+
+        A screen circle would lie: the radial scale is non-linear and the
+        azimuth spacing shrinks towards the zenith, so the true ``avoid``
+        degrees around the Moon project to a lens that widens as the Moon
+        sinks. Sampled on the sky, then pushed through the same
+        ``_theta``/``_radius`` used by every other mark on this page.
+        """
         avoid = self._moon_avoid()
         if moon['alt'] < -avoid:
             return
-        try:
-            box = ax.get_window_extent()
-            px, py = ax.transData.transform((_theta(moon['az']), self._radius(moon['alt'])))
-        except (ValueError, AttributeError, RuntimeError):
-            return
-        if not box.width or not box.height:
-            return
-        # a plain screen circle - the true small circle would come out a lens
-        f = 1.0 / box.width
-        radius = avoid * self._deg_scale() * (box.width / 2.0) / R_MAX * f
-        zone = Circle(((px - box.x0) * f, (py - box.y0) / box.height), radius,
-                      transform=ax.transAxes, facecolor=COLOR_MOON_ZONE,
-                      edgecolor=COLOR_MOON_ZONE, linewidth=0.8, alpha=0.18,
-                      zorder=1)
-        zone.set_clip_path(Circle((0.5, 0.5), 0.5 * R_HORIZON / R_MAX,
-                                  transform=ax.transAxes))
-        ax.add_patch(zone)
+        alt0, az0 = math.radians(moon['alt']), math.radians(moon['az'])
+        sep = math.radians(avoid)
+        # bearing around the Moon, walked once to close the ring
+        bearing = np.linspace(0.0, 2.0 * np.pi, self.MOON_ZONE_POINTS)
+        alt = np.arcsin(math.sin(alt0) * math.cos(sep)
+                        + math.cos(alt0) * math.sin(sep) * np.cos(bearing))
+        az = az0 + np.arctan2(
+            np.sin(bearing) * math.sin(sep) * math.cos(alt0),
+            math.cos(sep) - math.sin(alt0) * np.sin(alt))
+        # the part under the horizon is nobody's business: fold it onto the ring
+        r = np.minimum([self._radius(a) for a in np.degrees(alt)], R_HORIZON)
+        ax.add_patch(Polygon(np.column_stack((az, r)), closed=True,
+                             facecolor=COLOR_MOON_ZONE, edgecolor=COLOR_MOON_ZONE,
+                             linewidth=0.8, alpha=0.18, zorder=1))
 
     def _pt(self, px: float) -> float:
         """Pixels to points - annotation offsets are in points, every glyph
