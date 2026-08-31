@@ -46,10 +46,10 @@ R_BELOW_SPAN = R_DOME_TOP - R_HORIZON
 SKY_DAY = '#2b2620'
 SKY_TWILIGHT = '#262b3d'
 SKY_NIGHT = '#272727'
-COLOR_GRID = '#4d4d4d'
+COLOR_GRID = '#5c5c5c'
 # the compass spokes carry more of the reading than the altitude rings
 # do, so they are drawn a shade above them
-COLOR_GRID_AZ = '#5f5f5f'
+COLOR_GRID_AZ = '#6e6e6e'
 COLOR_GRID_TEXT = '#bcbcbc'
 COLOR_RING_BG = '#151515'
 COLOR_HORIZON = '#949494'
@@ -253,6 +253,12 @@ class RadarWidget(QWidget):
 
     PARKED_ALPHA = 0.6
     PARKED_LABEL_DY_PX = 14
+    # Mounts standing on the same spot cannot all show their marks at once, so
+    # the overlapping ones take turns, TEL_SHARE_PERIOD_S each. The separation
+    # is the width of the widest mark, the camera glyph: closer than that and
+    # one telescope's readings are drawn over another's.
+    TEL_SHARE_PERIOD_S = 3.0
+    TEL_SHARE_SEP_PX = 18.0
     LABEL_STEP_PX = 16.0
     LABEL_MAX_STEPS = 6
     CAM_DY_PX = 15.0
@@ -775,8 +781,9 @@ class RadarWidget(QWidget):
             self._draw_dome(ax, tel)
         self._draw_bodies(ax)
         self._draw_wind(ax)
+        covered = self._share_covered(ax)
         for tel in self.telescopes:
-            self._draw_telescope(ax, tel)
+            self._draw_telescope(ax, tel, tel in covered)
 
     def _draw_bodies(self, ax) -> None:
         # well below the horizon they say nothing worth the room they take in
@@ -1016,8 +1023,8 @@ class RadarWidget(QWidget):
             # rotation_mode='anchor' turns the text about the anchor after
             # aligning it, so va='bottom' leaves the words sitting on the line
             ax.annotate(text, (theta, r), textcoords='offset points',
-                        xytext=(0, 2), color=COLOR_GALACTIC, fontsize=7,
-                        alpha=0.75, ha='center', va='bottom', rotation=rot,
+                        xytext=(0, 2), color=COLOR_GALACTIC, fontsize=6,
+                        alpha=0.45, ha='center', va='bottom', rotation=rot,
                         rotation_mode='anchor', zorder=0.6)
         for theta, r, text in labels:
             # plain annotate, not _place_label: grid labels are scenery and
@@ -1081,7 +1088,51 @@ class RadarWidget(QWidget):
         return ((px - box.x0) * fx, (py - box.y0) * fy,
                 fx * scale, fy * scale)
 
-    def _draw_telescope(self, ax, tel: str) -> None:
+    def _share_covered(self, ax) -> set:
+        """The telescopes whose marks are another telescope's turn to show.
+
+        Labels can dodge each other, a dot cannot: two mounts on the same spot
+        would draw dot over dot, camera over camera, bar over bar, and the top
+        one would simply win. So an overlapping group shows one member at a
+        time, ``TEL_SHARE_PERIOD_S`` each, in a cycle keyed to the clock rather
+        than to the frame - every mount gets its seconds, and the order does
+        not change under the eye.
+
+        Overlap is judged in pixels: the radial scale is non-linear, so equal
+        angles on the sky are nothing like equal distances on the disc.
+        """
+        spots: Dict[str, Any] = {}
+        for tel in self.telescopes:
+            st = self._state[tel]
+            if st['az'] is None or st['alt'] is None:
+                continue
+            try:
+                spots[tel] = ax.transData.transform(
+                    (_theta(st['az']), self._radius(st['alt'])))
+            except (ValueError, AttributeError, RuntimeError):
+                return set()  # no usable transform yet: draw everything
+
+        groups: List[List[str]] = []
+        for tel, xy in spots.items():
+            for group in groups:
+                if any(math.hypot(*(xy - spots[other])) <= self.TEL_SHARE_SEP_PX
+                       for other in group):
+                    group.append(tel)
+                    break
+            else:
+                groups.append([tel])
+
+        slot = int(time.monotonic() / self.TEL_SHARE_PERIOD_S)
+        covered = set()
+        for group in groups:
+            if len(group) < 2:
+                continue
+            group.sort(key=self.telescopes.index)  # a fixed turn order
+            showing = group[slot % len(group)]
+            covered.update(tel for tel in group if tel != showing)
+        return covered
+
+    def _draw_telescope(self, ax, tel: str, covered: bool = False) -> None:
         st = self._state[tel]
         az, alt = st['az'], st['alt']
         if az is None or alt is None:
@@ -1117,17 +1168,20 @@ class RadarWidget(QWidget):
                             target['alt']) > self.TARGET_MIN_SEP_DEG:
                 self._draw_reticle(ax, t_theta, t_r, color)
 
-        if st['tracking'] and not stale:
+        if st['tracking'] and not stale and not covered:
             self._draw_ping(ax, theta, r, color)
 
         parked = self._is_parked(tel)
         dim = self.PARKED_ALPHA if parked else 1.0
-        ax.scatter([theta], [r], s=120, c=['none'] if stale else [color],
-                   edgecolors=[color], linewidths=1.8,
-                   alpha=0.4 if stale else dim, zorder=9)
+        # the dot and everything drawn onto it belong to whichever mount holds
+        # this spot right now; the label stays either way, it can step aside
+        if not covered:
+            ax.scatter([theta], [r], s=120, c=['none'] if stale else [color],
+                       edgecolors=[color], linewidths=1.8,
+                       alpha=0.4 if stale else dim, zorder=9)
 
-        if st['cover_state'] == self.COVER_CLOSED and not stale:
-            self._draw_cover_cross(ax, theta, r, dim)
+            if st['cover_state'] == self.COVER_CLOSED and not stale:
+                self._draw_cover_cross(ax, theta, r, dim)
 
         self._place_label(ax, (theta, r), tel, (0, self.TEL_LABEL_DY_PX),
                           ha='center', va='top', color=color, fontsize=8.5,
@@ -1147,9 +1201,9 @@ class RadarWidget(QWidget):
             self._place_label(ax, (label_theta, label_r), obj,
                               (0, self.OB_LABEL_DY_PX), ha='center', color=color,
                               fontsize=8.5, alpha=dim, zorder=11)
-        if active and progress is not None:
+        if active and progress is not None and not covered:
             self._draw_progress_bar(ax, label_theta, label_r, progress, color)
-        if st['camera_state'] == self.CAMERA_EXPOSING:
+        if st['camera_state'] == self.CAMERA_EXPOSING and not covered:
             self._draw_camera(ax, label_theta, label_r, dim,
                               self._filter_name(tel))
 
