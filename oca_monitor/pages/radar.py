@@ -64,9 +64,9 @@ COLOR_ICON = '#d8dde3'
 # eye, never to compete with a telescope, a target or the Moon zone
 COLOR_RADEC = '#4b5c99'
 COLOR_RADEC_TEXT = '#7c8cc9'
-# the galactic plane: lime, faint and dashed, so it reads as one more piece of
+# the galactic plane: cyan, faint and dashed, so it reads as one more piece of
 # scenery over the navy grid rather than as anything to be observed
-COLOR_GALACTIC = '#a6ff4d'
+COLOR_GALACTIC = '#22d3ee'
 COLOR_WIND_TRACK = '#4d4d4d'
 COLOR_COVER_CROSS = '#000000'
 
@@ -290,6 +290,12 @@ class RadarWidget(QWidget):
     # the galactic plane rides along with that grid, on the same cache
     GALACTIC_SAMPLE_DEG = 1.0
     GALACTIC_LABEL = 'galactic plane'
+    # a two-word name is far wider than an hour number, so it keeps its own,
+    # roomier distance from whatever is already written on the disc
+    GALACTIC_LABEL_SEP = 16.0
+    # how far up from the lowest point of the line the name may be slid to
+    # dodge a grid number and still count as lying at the bottom of the disc
+    GALACTIC_LABEL_SPAN = 12.0
 
     MOON_AVOID_CFG_PATH = ('config', 'site', 'global', 'obs_limits', 'ephem',
                            'full_moon_distance')
@@ -886,52 +892,78 @@ class RadarWidget(QWidget):
         return lines, labels
 
     def _build_galactic_plane(self, lst_deg: float, lat_deg: float,
-                             labels: List) -> Tuple[List, List]:
+                              labels: List) -> Tuple[List, List]:
         """The b = 0 great circle, sampled in galactic longitude and put
-        through the same horizon split as the grid curves."""
+        through the same visibility split as the grid curves."""
         lon = np.arange(0.0, 360.0 + self.GALACTIC_SAMPLE_DEG,
                         self.GALACTIC_SAMPLE_DEG)
         ra, dec = _radec_from_galactic(lon)
+        # only down to the obs limit: under that ring nothing is observable,
+        # so the plane there would be scenery over scenery
         lines = self._grid_polylines(
-            *_altaz_from_hadec(lst_deg - ra, dec, lat_deg))
+            *_altaz_from_hadec(lst_deg - ra, dec, lat_deg),
+            min_alt=self._obs_min_alt())
         return lines, self._galactic_label(lines, labels)
 
     def _galactic_label(self, lines: List, labels: List) -> List:
-        """The plane is named where it crosses the unusable band - out of the
-        busy middle of the disc, and where the Dec numbers already sit, so on
-        whichever of its two ends is clear of them."""
-        r_band = self._radius(self._obs_min_alt() / 2.0)
-        spots = []
-        for theta, r in lines:
-            i = int(np.argmin(np.abs(np.asarray(r) - r_band)))
-            spots.append((float(theta[i]), float(r[i])))
-        spots.sort(key=lambda p: abs(p[1] - r_band))
-        for theta, r in spots:
-            if self._label_clear(labels, theta, r):
-                return [(theta, r, self.GALACTIC_LABEL)]
-        # nothing clear: name it anyway on the end nearest the band, the plane
-        # is worth more than one grid number it may sit close to
-        return [(spots[0][0], spots[0][1], self.GALACTIC_LABEL)] if spots else []
+        """(theta, r, text, rotation) for the name, lying along its own line
+        near the bottom of the disc.
 
-    def _label_clear(self, labels: List, theta: float, r: float) -> bool:
-        """True when nothing already numbered sits within ``RADEC_LABEL_SEP``
-        of this spot - measured across the plot, not in polar coordinates,
-        where the same angle means very different distances."""
+        Bottom of the plot rather than any fixed sky coordinate: the plane
+        swings right round in a day, and the low edge is the one place a
+        two-word name is never across the observable middle. Rotation is taken
+        from the local tangent, in plot cartesian coordinates - the polar axes
+        are equal-aspect, so that angle is the display angle too.
+        """
+        cands: List = []
+        for theta, r in lines:
+            th, rr = np.asarray(theta), np.asarray(r)
+            x, y = rr * np.sin(th), rr * np.cos(th)
+            rot = np.degrees(np.arctan2(np.gradient(y), np.gradient(x)))
+            # keep the words reading left to right whichever way the line runs
+            rot = np.where(rot > 90.0, rot - 180.0, rot)
+            rot = np.where(rot < -90.0, rot + 180.0, rot)
+            cands.extend(zip(y.tolist(), th.tolist(), rr.tolist(), rot.tolist()))
+        if not cands:
+            return []
+        cands.sort(key=lambda c: c[0])
+        # anywhere in the lowest stretch of the line will do, so spend that
+        # freedom on the flattest spot in it - at the very end of the line the
+        # tangent stands the words nearly upright, which reads badly - and take
+        # the first one there that is clear of a grid number
+        floor = cands[0][0] + self.GALACTIC_LABEL_SPAN
+        low = [c for c in cands if c[0] <= floor]
+        low.sort(key=lambda c: abs(c[3]))
+        for y, theta, r, rot in low:
+            if self._label_clear(labels, theta, r, self.GALACTIC_LABEL_SEP):
+                return [(theta, r, self.GALACTIC_LABEL, rot)]
+        # nothing clear: the flattest low spot anyway, the plane outranks a number
+        y, theta, r, rot = low[0]
+        return [(theta, r, self.GALACTIC_LABEL, rot)]
+
+    def _label_clear(self, labels: List, theta: float, r: float,
+                     sep: Optional[float] = None) -> bool:
+        """True when nothing already numbered sits within ``sep`` (by default
+        ``RADEC_LABEL_SEP``) of this spot - measured across the plot, not in
+        polar coordinates, where the same angle means very different
+        distances."""
+        sep = self.RADEC_LABEL_SEP if sep is None else sep
         x, y = r * math.sin(theta), r * math.cos(theta)
         return all(math.hypot(x - rr * math.sin(th), y - rr * math.cos(th))
-                   >= self.RADEC_LABEL_SEP for th, rr, _ in labels)
+                   >= sep for th, rr, _ in labels)
 
-    def _grid_polylines(self, az, alt) -> List:
-        """A sampled sky curve as the runs of it that stay above the horizon.
+    def _grid_polylines(self, az, alt, min_alt: float = 0.0) -> List:
+        """A sampled sky curve as the runs of it that stay above ``min_alt`` -
+        the horizon for the grid, the observing limit for the galactic plane.
 
-        Split rather than clipped: a curve that dips below the horizon and
-        comes back would otherwise get a chord drawn straight across the disc.
+        Split rather than clipped: a curve that dips below the floor and comes
+        back would otherwise get a chord drawn straight across the disc.
         Azimuth is unwrapped first, or a curve crossing north would be drawn
         the long way round.
         """
         r = self._radius_arr(alt)
         theta = np.unwrap(np.radians(az))
-        visible = np.asarray(alt) >= 0.0
+        visible = np.asarray(alt) >= min_alt
         out: List = []
         start: Optional[int] = None
         for i, up in enumerate(visible):
@@ -978,12 +1010,15 @@ class RadarWidget(QWidget):
             ax.plot(theta, r, color=COLOR_RADEC, linewidth=0.7, alpha=0.30,
                     zorder=0.5)
         for theta, r in gal_lines:
-            ax.plot(theta, r, color=COLOR_GALACTIC, linewidth=0.9,
-                    linestyle=(0, (5, 4)), alpha=0.32, zorder=0.55)
-        for theta, r, text in gal_labels:
+            ax.plot(theta, r, color=COLOR_GALACTIC, linewidth=0.6,
+                    linestyle=(0, (5, 4)), alpha=0.40, zorder=0.55)
+        for theta, r, text, rot in gal_labels:
+            # rotation_mode='anchor' turns the text about the anchor after
+            # aligning it, so va='bottom' leaves the words sitting on the line
             ax.annotate(text, (theta, r), textcoords='offset points',
-                        xytext=(0, 3), color=COLOR_GALACTIC, fontsize=7,
-                        alpha=0.6, ha='center', va='bottom', zorder=0.6)
+                        xytext=(0, 2), color=COLOR_GALACTIC, fontsize=7,
+                        alpha=0.75, ha='center', va='bottom', rotation=rot,
+                        rotation_mode='anchor', zorder=0.6)
         for theta, r, text in labels:
             # plain annotate, not _place_label: grid labels are scenery and
             # must not shove a telescope or OB label out of its place
