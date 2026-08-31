@@ -64,6 +64,9 @@ COLOR_ICON = '#d8dde3'
 # eye, never to compete with a telescope, a target or the Moon zone
 COLOR_RADEC = '#4b5c99'
 COLOR_RADEC_TEXT = '#7c8cc9'
+# the galactic plane: lime, faint and dashed, so it reads as one more piece of
+# scenery over the navy grid rather than as anything to be observed
+COLOR_GALACTIC = '#a6ff4d'
 COLOR_WIND_TRACK = '#4d4d4d'
 COLOR_COVER_CROSS = '#000000'
 
@@ -163,6 +166,31 @@ def _boxes_overlap(a, b, pad: float = 2.0) -> bool:
                 or a[3] + pad < b[1] or b[3] + pad < a[1])
 
 
+# North galactic pole and the galactic longitude of the north celestial pole,
+# J2000 (Reid & Brunthaler 2004)
+GAL_POLE_RA = 192.85948
+GAL_POLE_DEC = 27.12825
+GAL_NCP_L = 122.93192
+
+
+def _radec_from_galactic(l_deg, b_deg=0.0):
+    """Galactic (l, b) to J2000 (RA, Dec), in degrees. Array-friendly.
+
+    J2000 rather than of the date on purpose: the plane is scenery, and the
+    precession since J2000 is a fraction of a pixel on the disc.
+    """
+    b = np.radians(np.asarray(b_deg, dtype=float))
+    dl = math.radians(GAL_NCP_L) - np.radians(np.asarray(l_deg, dtype=float))
+    pole = math.radians(GAL_POLE_DEC)
+    sin_dec = (np.sin(b) * math.sin(pole)
+               + np.cos(b) * math.cos(pole) * np.cos(dl))
+    dec = np.degrees(np.arcsin(np.clip(sin_dec, -1.0, 1.0)))
+    ra = GAL_POLE_RA + np.degrees(np.arctan2(
+        np.cos(b) * np.sin(dl),
+        np.sin(b) * math.cos(pole) - np.cos(b) * math.sin(pole) * np.cos(dl)))
+    return ra % 360.0, dec
+
+
 def _altaz_from_hadec(ha_deg, dec_deg, lat_deg: float):
     """Hour angle/declination to (azimuth from N through E, altitude), in
     degrees. Array-friendly: the equatorial grid pushes a few thousand points
@@ -259,6 +287,10 @@ class RadarWidget(QWidget):
     RADEC_RA_LABEL_MIN_ALT = 3.0
     RADEC_LABEL_SEP = 6.0
 
+    # the galactic plane rides along with that grid, on the same cache
+    GALACTIC_SAMPLE_DEG = 1.0
+    GALACTIC_LABEL = 'galactic plane'
+
     MOON_AVOID_CFG_PATH = ('config', 'site', 'global', 'obs_limits', 'ephem',
                            'full_moon_distance')
     SITE_GEO_CFG_PATH = ('config', 'site', 'global', 'geo_location')
@@ -319,7 +351,7 @@ class RadarWidget(QWidget):
         self._label_boxes: List[Any] = []
         self._min_alt: Optional[float] = None
         self._wind: Dict[str, Optional[float]] = {'ms': None, 'dir': None}
-        self._radec_cache: Optional[Tuple[float, Tuple[List, List]]] = None
+        self._radec_cache: Optional[Tuple[float, Tuple[List, List, List, List]]] = None
 
         self._init_ui()
         QtCore.QTimer.singleShot(0, self.async_init)
@@ -796,8 +828,9 @@ class RadarWidget(QWidget):
 
     # ---- Equatorial grid ----------------------------------------------------
 
-    def _radec_grid(self) -> Tuple[List, List]:
-        """(polylines, labels) of the RA/Dec grid in plot coordinates.
+    def _radec_grid(self) -> Tuple[List, List, List, List]:
+        """(polylines, labels, galactic polylines, galactic label) in plot
+        coordinates.
 
         Cached for ``RADEC_REFRESH_S`` - the sky turns slowly, and the cache
         also lets the grid pick up a latitude or an obs limit that only
@@ -812,8 +845,10 @@ class RadarWidget(QWidget):
                                     elevation=elev)
         except Exception as e:
             logger.warning(f'radar: no sidereal time, RA/Dec grid skipped: {e}')
-            return [], []
-        grid = self._build_radec_grid(lst, lat)
+            return [], [], [], []
+        lines, labels = self._build_radec_grid(lst, lat)
+        gal_lines, gal_labels = self._build_galactic_plane(lst, lat, labels)
+        grid = (lines, labels, gal_lines, gal_labels)
         self._radec_cache = (now, grid)
         return grid
 
@@ -849,6 +884,34 @@ class RadarWidget(QWidget):
                 if self._label_clear(labels, label[0], label[1]):
                     labels.append(label)
         return lines, labels
+
+    def _build_galactic_plane(self, lst_deg: float, lat_deg: float,
+                             labels: List) -> Tuple[List, List]:
+        """The b = 0 great circle, sampled in galactic longitude and put
+        through the same horizon split as the grid curves."""
+        lon = np.arange(0.0, 360.0 + self.GALACTIC_SAMPLE_DEG,
+                        self.GALACTIC_SAMPLE_DEG)
+        ra, dec = _radec_from_galactic(lon)
+        lines = self._grid_polylines(
+            *_altaz_from_hadec(lst_deg - ra, dec, lat_deg))
+        return lines, self._galactic_label(lines, labels)
+
+    def _galactic_label(self, lines: List, labels: List) -> List:
+        """The plane is named where it crosses the unusable band - out of the
+        busy middle of the disc, and where the Dec numbers already sit, so on
+        whichever of its two ends is clear of them."""
+        r_band = self._radius(self._obs_min_alt() / 2.0)
+        spots = []
+        for theta, r in lines:
+            i = int(np.argmin(np.abs(np.asarray(r) - r_band)))
+            spots.append((float(theta[i]), float(r[i])))
+        spots.sort(key=lambda p: abs(p[1] - r_band))
+        for theta, r in spots:
+            if self._label_clear(labels, theta, r):
+                return [(theta, r, self.GALACTIC_LABEL)]
+        # nothing clear: name it anyway on the end nearest the band, the plane
+        # is worth more than one grid number it may sit close to
+        return [(spots[0][0], spots[0][1], self.GALACTIC_LABEL)] if spots else []
 
     def _label_clear(self, labels: List, theta: float, r: float) -> bool:
         """True when nothing already numbered sits within ``RADEC_LABEL_SEP``
@@ -910,10 +973,17 @@ class RadarWidget(QWidget):
         return [(_theta(float(az)), float(self._radius_arr(alt)), text)]
 
     def _draw_radec_grid(self, ax) -> None:
-        lines, labels = self._radec_grid()
+        lines, labels, gal_lines, gal_labels = self._radec_grid()
         for theta, r in lines:
             ax.plot(theta, r, color=COLOR_RADEC, linewidth=0.7, alpha=0.30,
                     zorder=0.5)
+        for theta, r in gal_lines:
+            ax.plot(theta, r, color=COLOR_GALACTIC, linewidth=0.9,
+                    linestyle=(0, (5, 4)), alpha=0.32, zorder=0.55)
+        for theta, r, text in gal_labels:
+            ax.annotate(text, (theta, r), textcoords='offset points',
+                        xytext=(0, 3), color=COLOR_GALACTIC, fontsize=7,
+                        alpha=0.6, ha='center', va='bottom', zorder=0.6)
         for theta, r, text in labels:
             # plain annotate, not _place_label: grid labels are scenery and
             # must not shove a telescope or OB label out of its place
