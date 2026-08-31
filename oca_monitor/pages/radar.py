@@ -25,7 +25,9 @@ from serverish.base import dt_from_array
 from serverish.base.task_manager import create_task
 from serverish.messenger import get_reader
 
-from oca_monitor.utils.ephem_ocm import location
+from oca_monitor.utils.ephem_ocm import (OCM_ELEVATION_M, OCM_LATITUDE,
+                                         OCM_LONGITUDE, location,
+                                         sidereal_time_deg)
 from oca_monitor.widgets import chart_kit as ck
 
 logger = logging.getLogger(__name__.rsplit('.')[-1])
@@ -55,6 +57,10 @@ COLOR_MOON_LIT = '#eef2f7'
 COLOR_MOON_DARK = '#3a3f47'
 COLOR_MOON_ZONE = '#7fa8ff'
 COLOR_ICON = '#d8dde3'
+# the equatorial grid: navy, kept dim on purpose - it is there to orient the
+# eye, never to compete with a telescope, a target or the Moon zone
+COLOR_RADEC = '#4b5c99'
+COLOR_RADEC_TEXT = '#7c8cc9'
 COLOR_WIND_TRACK = '#4d4d4d'
 COLOR_COVER_CROSS = '#000000'
 
@@ -154,6 +160,22 @@ def _boxes_overlap(a, b, pad: float = 2.0) -> bool:
                 or a[3] + pad < b[1] or b[3] + pad < a[1])
 
 
+def _altaz_from_hadec(ha_deg, dec_deg, lat_deg: float):
+    """Hour angle/declination to (azimuth from N through E, altitude), in
+    degrees. Array-friendly: the equatorial grid pushes a few thousand points
+    through it at once."""
+    ha = np.radians(np.asarray(ha_deg, dtype=float))
+    dec = np.radians(np.asarray(dec_deg, dtype=float))
+    lat = math.radians(lat_deg)
+    sin_alt = (np.sin(dec) * math.sin(lat)
+               + np.cos(dec) * math.cos(lat) * np.cos(ha))
+    alt = np.degrees(np.arcsin(np.clip(sin_alt, -1.0, 1.0)))
+    az = np.degrees(np.arctan2(
+        -np.cos(dec) * np.sin(ha),
+        np.sin(dec) * math.cos(lat) - np.cos(dec) * math.sin(lat) * np.cos(ha)))
+    return az % 360.0, alt
+
+
 def _angular_sep(az1: float, alt1: float, az2: float, alt2: float) -> float:
     a1, a2 = math.radians(alt1), math.radians(alt2)
     d_az = math.radians(az1 - az2)
@@ -219,8 +241,21 @@ class RadarWidget(QWidget):
     MOON_AVOID_DEFAULT_DEG = 30.0
     MOON_ZONE_POINTS = 181
     OBS_MIN_ALT_DEFAULT_DEG = 35.0
+
+    # Equatorial grid. Sparse on purpose - hour circles every 3 h and
+    # parallels every 30 deg say which way the sky turns without turning the
+    # disc into graph paper. Rebuilt every RADEC_REFRESH_S: the sky drifts
+    # 0.25 deg/min, so a 10 s old grid is under 0.05 deg stale.
+    RADEC_RA_STEP_H = 3.0
+    RADEC_DEC_STEP_DEG = 30.0
+    RADEC_SAMPLE_DEG = 1.0
+    RADEC_REFRESH_S = 10.0
+    RADEC_RA_LABEL_MIN_ALT = 8.0
+    RADEC_DEC_LABEL_MIN_ALT = 15.0
+
     MOON_AVOID_CFG_PATH = ('config', 'site', 'global', 'obs_limits', 'ephem',
                            'full_moon_distance')
+    SITE_GEO_CFG_PATH = ('config', 'site', 'global', 'geo_location')
     WIND_CFG_PATH = ('config', 'site', 'global', 'obs_limits',
                      'weather_restrictions', 'wind')
     MOUNT_CFG_PATH = ('config', 'telescopes', '{tel}', 'observatory',
@@ -278,6 +313,7 @@ class RadarWidget(QWidget):
         self._label_boxes: List[Any] = []
         self._min_alt: Optional[float] = None
         self._wind: Dict[str, Optional[float]] = {'ms': None, 'dir': None}
+        self._radec_cache: Optional[Tuple[float, Tuple[List, List]]] = None
 
         self._init_ui()
         QtCore.QTimer.singleShot(0, self.async_init)
@@ -310,6 +346,19 @@ class RadarWidget(QWidget):
         value = _as_float(self._cfg(self.MOON_AVOID_CFG_PATH))
         return self.MOON_AVOID_DEFAULT_DEG if value is None else value
 
+    def _site_geo(self) -> Tuple[float, float, float]:
+        """(latitude, longitude, elevation) of the site, straight from the
+        observatory config - ``site.global.geo_location``. Falls back to the
+        OCM constants in ephem_ocm while the config has not arrived yet."""
+        geo = self._cfg(self.SITE_GEO_CFG_PATH)
+        geo = geo if isinstance(geo, dict) else {}
+        lat = _as_float(geo.get('lat'))
+        lon = _as_float(geo.get('lon'))
+        elev = _as_float(geo.get('elev'))
+        if lat is None or lon is None:
+            return OCM_LATITUDE, OCM_LONGITUDE, OCM_ELEVATION_M
+        return lat, lon, OCM_ELEVATION_M if elev is None else elev
+
     def _radius(self, alt_deg: float) -> float:
         """Altitude to plot radius - the single projection used everywhere.
 
@@ -325,6 +374,16 @@ class RadarWidget(QWidget):
         if alt_deg >= 0.0:
             return R_USEFUL + (R_HORIZON - R_USEFUL) * (min_alt - alt_deg) / max(1.0, min_alt)
         return R_HORIZON + R_BELOW_SPAN * min(1.0, -alt_deg / 90.0)
+
+    def _radius_arr(self, alt_deg):
+        """``_radius`` over a numpy array - same projection, one pass, for the
+        few thousand grid samples rebuilt on every grid refresh."""
+        alt = np.asarray(alt_deg, dtype=float)
+        min_alt = self._obs_min_alt()
+        above = R_USEFUL * (90.0 - alt) / max(1.0, 90.0 - min_alt)
+        wedge = R_USEFUL + (R_HORIZON - R_USEFUL) * (min_alt - alt) / max(1.0, min_alt)
+        below = R_HORIZON + R_BELOW_SPAN * np.minimum(1.0, -alt / 90.0)
+        return np.where(alt >= min_alt, above, np.where(alt >= 0.0, wedge, below))
 
     def _deg_scale(self) -> float:
         """Plot radius units per degree in the observable part of the sky."""
@@ -650,6 +709,7 @@ class RadarWidget(QWidget):
         r_min = self._radius(self._obs_min_alt())
         ax.bar(0.0, R_HORIZON - r_min, width=2 * np.pi, bottom=r_min,
                color=ck.COLOR_DANGER, alpha=0.09, linewidth=0, zorder=0)
+        self._draw_radec_grid(ax)
         ring = np.linspace(0.0, 2 * np.pi, 181)
         ax.plot(ring, np.full_like(ring, R_HORIZON), color=COLOR_HORIZON,
                 linewidth=1.1, alpha=0.9, zorder=2)
@@ -726,6 +786,100 @@ class RadarWidget(QWidget):
         ax.add_patch(Polygon(np.column_stack((az, r)), closed=True,
                              facecolor=COLOR_MOON_ZONE, edgecolor=COLOR_MOON_ZONE,
                              linewidth=0.8, alpha=0.18, zorder=1))
+
+    # ---- Equatorial grid ----------------------------------------------------
+
+    def _radec_grid(self) -> Tuple[List, List]:
+        """(polylines, labels) of the RA/Dec grid in plot coordinates.
+
+        Cached for ``RADEC_REFRESH_S`` - the sky turns slowly, and the cache
+        also lets the grid pick up a latitude or an obs limit that only
+        arrives with the config, a few seconds after the first paint.
+        """
+        now = time.monotonic()
+        if self._radec_cache is not None and now - self._radec_cache[0] < self.RADEC_REFRESH_S:
+            return self._radec_cache[1]
+        lat, lon, elev = self._site_geo()
+        try:
+            lst = sidereal_time_deg(_now_utc(), latitude=lat, longitude=lon,
+                                    elevation=elev)
+        except Exception as e:
+            logger.warning(f'radar: no sidereal time, RA/Dec grid skipped: {e}')
+            return [], []
+        grid = self._build_radec_grid(lst, lat)
+        self._radec_cache = (now, grid)
+        return grid
+
+    def _build_radec_grid(self, lst_deg: float, lat_deg: float) -> Tuple[List, List]:
+        lines: List = []
+        labels: List = []
+        step = self.RADEC_SAMPLE_DEG
+
+        # hour circles: pole to pole at fixed RA, labelled where they cross
+        # the celestial equator - the labels spread themselves along it
+        dec = np.arange(-90.0, 90.0 + step, step)
+        for hour in np.arange(0.0, 24.0, self.RADEC_RA_STEP_H):
+            ha = lst_deg - hour * 15.0
+            lines.extend(self._grid_polylines(*_altaz_from_hadec(ha, dec, lat_deg)))
+            labels.extend(self._grid_label(ha, 0.0, lat_deg, f'{hour:g}h',
+                                           self.RADEC_RA_LABEL_MIN_ALT))
+
+        # parallels: a full turn in hour angle at fixed Dec. They do not move
+        # with time at all - a parallel is a fixed circle in the horizon frame.
+        ha_full = np.arange(0.0, 360.0 + 2 * step, 2 * step)
+        d = self.RADEC_DEC_STEP_DEG
+        for dec_v in np.arange(-90.0 + d, 90.0, d):
+            lines.extend(self._grid_polylines(
+                *_altaz_from_hadec(ha_full, np.full_like(ha_full, dec_v), lat_deg)))
+            # on the meridian, where the parallel rides highest and is surest
+            # to be up at all
+            labels.extend(self._grid_label(
+                0.0, dec_v, lat_deg, f'{dec_v:+.0f}\u00b0' if dec_v else '0\u00b0',
+                self.RADEC_DEC_LABEL_MIN_ALT))
+        return lines, labels
+
+    def _grid_polylines(self, az, alt) -> List:
+        """A sampled sky curve as the runs of it that stay above the horizon.
+
+        Split rather than clipped: a curve that dips below the horizon and
+        comes back would otherwise get a chord drawn straight across the disc.
+        Azimuth is unwrapped first, or a curve crossing north would be drawn
+        the long way round.
+        """
+        r = self._radius_arr(alt)
+        theta = np.unwrap(np.radians(az))
+        visible = np.asarray(alt) >= 0.0
+        out: List = []
+        start: Optional[int] = None
+        for i, up in enumerate(visible):
+            if up and start is None:
+                start = i
+            elif not up and start is not None:
+                if i - start > 1:
+                    out.append((theta[start:i], r[start:i]))
+                start = None
+        if start is not None and len(visible) - start > 1:
+            out.append((theta[start:], r[start:]))
+        return out
+
+    def _grid_label(self, ha_deg: float, dec_deg: float, lat_deg: float,
+                    text: str, min_alt: float) -> List:
+        az, alt = _altaz_from_hadec(ha_deg, dec_deg, lat_deg)
+        if float(alt) < min_alt:
+            return []
+        return [(_theta(float(az)), float(self._radius_arr(alt)), text)]
+
+    def _draw_radec_grid(self, ax) -> None:
+        lines, labels = self._radec_grid()
+        for theta, r in lines:
+            ax.plot(theta, r, color=COLOR_RADEC, linewidth=0.7, alpha=0.30,
+                    zorder=0.5)
+        for theta, r, text in labels:
+            # plain annotate, not _place_label: grid labels are scenery and
+            # must not shove a telescope or OB label out of its place
+            ax.annotate(text, (theta, r), textcoords='offset points',
+                        xytext=(0, 3), color=COLOR_RADEC_TEXT, fontsize=7,
+                        alpha=0.55, ha='center', va='bottom', zorder=0.6)
 
     def _pt(self, px: float) -> float:
         """Pixels to points - annotation offsets are in points, every glyph
