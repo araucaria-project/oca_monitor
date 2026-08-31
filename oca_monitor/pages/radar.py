@@ -47,6 +47,9 @@ SKY_DAY = '#2b2620'
 SKY_TWILIGHT = '#262b3d'
 SKY_NIGHT = '#272727'
 COLOR_GRID = '#4d4d4d'
+# the compass spokes carry more of the reading than the altitude rings
+# do, so they are drawn a shade above them
+COLOR_GRID_AZ = '#5f5f5f'
 COLOR_GRID_TEXT = '#bcbcbc'
 COLOR_RING_BG = '#151515'
 COLOR_HORIZON = '#949494'
@@ -250,8 +253,11 @@ class RadarWidget(QWidget):
     RADEC_DEC_STEP_DEG = 30.0
     RADEC_SAMPLE_DEG = 1.0
     RADEC_REFRESH_S = 10.0
-    RADEC_RA_LABEL_MIN_ALT = 8.0
-    RADEC_DEC_LABEL_MIN_ALT = 15.0
+    # hour numbers ride the Dec -60 parallel, a compact RA scale around the
+    # pole; the Dec numbers sit out in the unusable band, east of the meridian
+    RADEC_RA_LABEL_DEC = -60.0
+    RADEC_RA_LABEL_MIN_ALT = 3.0
+    RADEC_LABEL_SEP = 6.0
 
     MOON_AVOID_CFG_PATH = ('config', 'site', 'global', 'obs_limits', 'ephem',
                            'full_moon_distance')
@@ -701,7 +707,8 @@ class RadarWidget(QWidget):
         ax.set_rticks([self._radius(a) for a in reversed(rings)])
         ax.set_yticklabels([])
         ax.tick_params(colors=COLOR_GRID_TEXT, labelsize=9, pad=-13)
-        ax.grid(True, color=COLOR_GRID, linewidth=0.7, alpha=0.85)
+        ax.grid(True, axis='y', color=COLOR_GRID, linewidth=0.7, alpha=0.85)
+        ax.grid(True, axis='x', color=COLOR_GRID_AZ, linewidth=0.9, alpha=1.0)
         ax.spines['polar'].set_color(ck.SPINE)
 
         ax.bar(0.0, R_MAX - R_HORIZON, width=2 * np.pi, bottom=R_HORIZON,
@@ -815,28 +822,41 @@ class RadarWidget(QWidget):
         labels: List = []
         step = self.RADEC_SAMPLE_DEG
 
-        # hour circles: pole to pole at fixed RA, labelled where they cross
-        # the celestial equator - the labels spread themselves along it
-        dec = np.arange(-90.0, 90.0 + step, step)
-        for hour in np.arange(0.0, 24.0, self.RADEC_RA_STEP_H):
-            ha = lst_deg - hour * 15.0
-            lines.extend(self._grid_polylines(*_altaz_from_hadec(ha, dec, lat_deg)))
-            labels.extend(self._grid_label(ha, 0.0, lat_deg, f'{hour:g}h',
-                                           self.RADEC_RA_LABEL_MIN_ALT))
-
         # parallels: a full turn in hour angle at fixed Dec. They do not move
         # with time at all - a parallel is a fixed circle in the horizon frame.
+        # Numbered first, so a moving hour number is the one that gives way.
         ha_full = np.arange(0.0, 360.0 + 2 * step, 2 * step)
         d = self.RADEC_DEC_STEP_DEG
         for dec_v in np.arange(-90.0 + d, 90.0, d):
             lines.extend(self._grid_polylines(
                 *_altaz_from_hadec(ha_full, np.full_like(ha_full, dec_v), lat_deg)))
-            # on the meridian, where the parallel rides highest and is surest
-            # to be up at all
-            labels.extend(self._grid_label(
-                0.0, dec_v, lat_deg, f'{dec_v:+.0f}\u00b0' if dec_v else '0\u00b0',
-                self.RADEC_DEC_LABEL_MIN_ALT))
+            labels.extend(self._dec_label(
+                dec_v, lat_deg, f'{dec_v:+.0f}°' if dec_v else '0°'))
+
+        # hour circles: pole to pole at fixed RA, numbered where they cross
+        # the RADEC_RA_LABEL_DEC parallel - on the plot that ring is wide
+        # enough to hold every number, and it keeps the scale in one place
+        dec = np.arange(-90.0, 90.0 + step, step)
+        for hour in np.arange(0.0, 24.0, self.RADEC_RA_STEP_H):
+            ha = lst_deg - hour * 15.0
+            lines.extend(self._grid_polylines(*_altaz_from_hadec(ha, dec, lat_deg)))
+            for label in self._grid_label(ha, self.RADEC_RA_LABEL_DEC, lat_deg,
+                                          f'{hour:g}h',
+                                          self.RADEC_RA_LABEL_MIN_ALT):
+                # the hour numbers ride the Dec parallel that carries a number
+                # of its own, so the two meet sooner or later - drop the hour,
+                # the scale still reads by counting the gap
+                if self._label_clear(labels, label[0], label[1]):
+                    labels.append(label)
         return lines, labels
+
+    def _label_clear(self, labels: List, theta: float, r: float) -> bool:
+        """True when nothing already numbered sits within ``RADEC_LABEL_SEP``
+        of this spot - measured across the plot, not in polar coordinates,
+        where the same angle means very different distances."""
+        x, y = r * math.sin(theta), r * math.cos(theta)
+        return all(math.hypot(x - rr * math.sin(th), y - rr * math.cos(th))
+                   >= self.RADEC_LABEL_SEP for th, rr, _ in labels)
 
     def _grid_polylines(self, az, alt) -> List:
         """A sampled sky curve as the runs of it that stay above the horizon.
@@ -861,6 +881,26 @@ class RadarWidget(QWidget):
         if start is not None and len(visible) - start > 1:
             out.append((theta[start:], r[start:]))
         return out
+
+    def _dec_label(self, dec_deg: float, lat_deg: float, text: str) -> List:
+        """A parallel is numbered where it crosses the unusable band, east of
+        the meridian.
+
+        Out of the busy middle of the disc, and self-spreading: every parallel
+        meets that altitude at an azimuth of its own, so the numbers walk round
+        the band instead of stacking up on the meridian.
+        """
+        alt = math.radians(self._obs_min_alt() / 2.0)  # mid of the band
+        lat, dec = math.radians(lat_deg), math.radians(dec_deg)
+        denom = math.cos(dec) * math.cos(lat)
+        if abs(denom) < 1e-9:
+            return []
+        cos_ha = (math.sin(alt) - math.sin(dec) * math.sin(lat)) / denom
+        if abs(cos_ha) > 1.0:
+            return []  # this parallel never reaches that altitude
+        # negative hour angle: east of the meridian, the right half of the disc
+        return self._grid_label(-math.degrees(math.acos(cos_ha)), dec_deg,
+                                lat_deg, text, -90.0)
 
     def _grid_label(self, ha_deg: float, dec_deg: float, lat_deg: float,
                     text: str, min_alt: float) -> List:
