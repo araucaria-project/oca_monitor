@@ -285,6 +285,12 @@ class RadarWidget(QWidget):
     # 0.25 deg/min, so a 10 s old grid is under 0.05 deg stale.
     RADEC_RA_STEP_H = 3.0
     RADEC_DEC_STEP_DEG = 30.0
+    # compass labels: (text, azimuth, dx px, dy px) measured from the rim.
+    # N and S sit clear of the meridian's ends, E and W ride above the
+    # horizontal spoke rather than straddling it
+    COMPASS_LABELS = (('N', 0.0, 0, -4), ('E', 90.0, -13, 7),
+                      ('S', 180.0, 0, 4), ('W', 270.0, 13, 7))
+
     RADEC_SAMPLE_DEG = 1.0
     RADEC_REFRESH_S = 10.0
     # hour numbers ride the Dec -60 parallel, a compact RA scale around the
@@ -745,8 +751,11 @@ class RadarWidget(QWidget):
         ax.set_theta_direction(-1)
         ax.set_ylim(0.0, R_MAX)
 
-        ax.set_xticks(np.radians(np.arange(0, 360, 45)))
-        ax.set_xticklabels(['N', 'NE', 'E', 'SE', 'S', 'SW', 'W', 'NW'])
+        # only the four cardinal spokes are drawn: the diagonals added lines
+        # without adding orientation, so the labels are placed by hand instead
+        # of as tick text, each nudged clear of its own spoke
+        ax.set_xticks(np.radians(np.arange(0, 360, 90)))
+        ax.set_xticklabels([])
         rings = [a for a in (30, 45, 60, 75) if a > self._obs_min_alt() + 3.0][-3:]
         ax.set_rticks([self._radius(a) for a in reversed(rings)])
         ax.set_yticklabels([])
@@ -754,6 +763,11 @@ class RadarWidget(QWidget):
         ax.grid(True, axis='y', color=COLOR_GRID, linewidth=0.7, alpha=0.85)
         ax.grid(True, axis='x', color=COLOR_GRID_AZ, linewidth=0.9, alpha=1.0)
         ax.spines['polar'].set_color(ck.SPINE)
+        for text, az, dx, dy in self.COMPASS_LABELS:
+            ax.annotate(text, xy=(np.radians(az), R_MAX), xycoords='data',
+                        xytext=(dx, dy), textcoords='offset points',
+                        color=COLOR_GRID_TEXT, fontsize=9,
+                        ha='center', va='center', zorder=3)
 
         ax.bar(0.0, R_MAX - R_HORIZON, width=2 * np.pi, bottom=R_HORIZON,
                color=COLOR_RING_BG, alpha=0.9, linewidth=0, zorder=0)
