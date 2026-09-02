@@ -261,6 +261,10 @@ class RadarWidget(QWidget):
     TEL_SHARE_SEP_PX = 15.0
     LABEL_STEP_PX = 16.0
     LABEL_MAX_STEPS = 6
+    # the telescope name, PARKED, the observed object and the filter are one
+    # family of readings around a mount's mark, so they share one size; SUN
+    # and MOON follow it too, the Moon a shade larger for its phase reading
+    MARK_FONTSIZE = 6.8
     CAM_DY_PX = 15.0
     CAM_W_PX = 13.6
     CAM_H_PX = 9.6
@@ -811,7 +815,8 @@ class RadarWidget(QWidget):
             ax.scatter([theta], [r], s=150, c=[COLOR_SUN], edgecolors='#8a6a12',
                        linewidths=0.8, alpha=1.0 if up else 0.45, zorder=7)
             self._place_label(ax, (theta, r), 'SUN', (0, -24), ha='center',
-                              color=COLOR_SUN, fontsize=8.5, alpha=0.95, zorder=11)
+                              color=COLOR_SUN, fontsize=self.MARK_FONTSIZE,
+                              alpha=0.95, zorder=11)
 
         moon = self._astro.get('moon')
         if moon is not None and moon['alt'] >= self.BODY_HIDE_ALT_DEG:
@@ -823,7 +828,8 @@ class RadarWidget(QWidget):
                        linewidths=0.8, alpha=1.0 if up else 0.4, zorder=7)
             self._place_label(ax, (theta, r), f"MOON {moon['phase'] * 100:.0f}%",
                               (0, -24), ha='center', color=COLOR_MOON_LIT,
-                              fontsize=9, fontweight='bold',
+                              fontsize=self.MARK_FONTSIZE + 0.4,
+                              fontweight='bold',
                               alpha=0.95 if up else 0.6, zorder=11)
 
     def _draw_moon_zone(self, ax, moon: Dict[str, float]) -> None:
@@ -1198,8 +1204,8 @@ class RadarWidget(QWidget):
                 self._draw_cover_cross(ax, theta, r, dim)
 
         self._place_label(ax, (theta, r), tel, (0, self.TEL_LABEL_DY_PX),
-                          ha='center', va='top', color=color, fontsize=8.5,
-                          fontweight='bold',
+                          ha='center', va='top', color=color,
+                          fontsize=self.MARK_FONTSIZE, fontweight='bold',
                           alpha=0.45 if stale else dim, zorder=11)
 
         if stale:
@@ -1207,14 +1213,15 @@ class RadarWidget(QWidget):
         if parked:
             self._place_label(ax, (theta, r), 'PARKED',
                               (0, self.PARKED_LABEL_DY_PX), ha='center',
-                              va='bottom', color=color, fontsize=8.5,
+                              va='bottom', color=color,
+                              fontsize=self.MARK_FONTSIZE,
                               fontweight='bold', alpha=dim, zorder=11)
 
         obj, progress, active = self._ob_progress(tel)
         if active and obj:
             self._place_label(ax, (label_theta, label_r), obj,
                               (0, self.OB_LABEL_DY_PX), ha='center', color=color,
-                              fontsize=8.5, alpha=dim, zorder=11)
+                              fontsize=self.MARK_FONTSIZE, alpha=dim, zorder=11)
         if active and progress is not None and not covered:
             self._draw_progress_bar(ax, label_theta, label_r, progress, color)
         if st['camera_state'] == self.CAMERA_EXPOSING and not covered:
@@ -1359,8 +1366,8 @@ class RadarWidget(QWidget):
             # in axes fractions like the icon itself, so the two stay aligned
             ax.text(x0 + (w + gap) * fx, y0 + 0.5 * h * fy, filter_name,
                     transform=ax.transAxes, ha='left', va='center',
-                    color=COLOR_ICON, fontsize=8.5, fontweight='bold',
-                    alpha=alpha, zorder=11, clip_on=False)
+                    color=COLOR_ICON, fontsize=self.MARK_FONTSIZE,
+                    fontweight='bold', alpha=alpha, zorder=11, clip_on=False)
 
     def _filter_name(self, tel: str) -> Optional[str]:
         pos = self._state[tel]['fw_position']
