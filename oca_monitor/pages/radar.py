@@ -258,16 +258,16 @@ class RadarWidget(QWidget):
     # is the width of the widest mark, the camera glyph: closer than that and
     # one telescope's readings are drawn over another's.
     TEL_SHARE_PERIOD_S = 3.0
-    TEL_SHARE_SEP_PX = 15.0
+    TEL_SHARE_SEP_PX = 16.5
     LABEL_STEP_PX = 16.0
     LABEL_MAX_STEPS = 6
     # the telescope name, PARKED, the observed object and the filter are one
     # family of readings around a mount's mark, so they share one size; SUN
     # and MOON follow it too, the Moon a shade larger for its phase reading
-    MARK_FONTSIZE = 6.8
+    MARK_FONTSIZE = 7.5
     CAM_DY_PX = 15.0
-    CAM_W_PX = 13.6
-    CAM_H_PX = 9.6
+    CAM_W_PX = 15.0
+    CAM_H_PX = 10.6
     RETICLE_R_PX = 7.0
     COVER_X_SIZE = 85.0
 
@@ -1345,12 +1345,12 @@ class RadarWidget(QWidget):
         hole = ck.BG_FIGURE
         ax.add_patch(FancyBboxPatch(
             (x0 + 0.22 * w * fx, y0 + 0.98 * h * fy), 0.32 * w * fx, 0.20 * h * fy,
-            boxstyle=f'round,pad=0,rounding_size={0.72 * fx}',
+            boxstyle=f'round,pad=0,rounding_size={0.79 * fx}',
             transform=ax.transAxes, facecolor=COLOR_ICON, edgecolor='none',
             alpha=alpha, zorder=10, clip_on=False))
         ax.add_patch(FancyBboxPatch(
             (x0, y0), w * fx, h * fy,
-            boxstyle=f'round,pad=0,rounding_size={1.76 * fx}',
+            boxstyle=f'round,pad=0,rounding_size={1.94 * fx}',
             transform=ax.transAxes, facecolor=COLOR_ICON, edgecolor='none',
             alpha=alpha, zorder=10, clip_on=False))
         ax.add_patch(Circle((x0 + 0.5 * w * fx, y0 + 0.48 * h * fy), 0.27 * w * fx,
