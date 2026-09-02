@@ -258,12 +258,12 @@ class RadarWidget(QWidget):
     # is the width of the widest mark, the camera glyph: closer than that and
     # one telescope's readings are drawn over another's.
     TEL_SHARE_PERIOD_S = 3.0
-    TEL_SHARE_SEP_PX = 18.0
+    TEL_SHARE_SEP_PX = 15.0
     LABEL_STEP_PX = 16.0
     LABEL_MAX_STEPS = 6
     CAM_DY_PX = 15.0
-    CAM_W_PX = 17.0
-    CAM_H_PX = 12.0
+    CAM_W_PX = 13.6
+    CAM_H_PX = 9.6
     RETICLE_R_PX = 7.0
     COVER_X_SIZE = 85.0
 
@@ -286,10 +286,10 @@ class RadarWidget(QWidget):
     RADEC_RA_STEP_H = 3.0
     RADEC_DEC_STEP_DEG = 30.0
     # compass labels: (text, azimuth, dx px, dy px) measured from the rim.
-    # N and S sit clear of the meridian's ends, E and W ride above the
-    # horizontal spoke rather than straddling it
-    COMPASS_LABELS = (('N', 0.0, 0, -4), ('E', 90.0, -13, 7),
-                      ('S', 180.0, 0, 4), ('W', 270.0, 13, 7))
+    # all four sit the same distance inside it, each slid sideways off its own
+    # spoke so no letter straddles a line
+    COMPASS_LABELS = (('N', 0.0, 7, -13), ('E', 90.0, -13, 7),
+                      ('S', 180.0, 7, 13), ('W', 270.0, 13, 7))
 
     RADEC_SAMPLE_DEG = 1.0
     RADEC_REFRESH_S = 10.0
@@ -1338,12 +1338,12 @@ class RadarWidget(QWidget):
         hole = ck.BG_FIGURE
         ax.add_patch(FancyBboxPatch(
             (x0 + 0.22 * w * fx, y0 + 0.98 * h * fy), 0.32 * w * fx, 0.20 * h * fy,
-            boxstyle=f'round,pad=0,rounding_size={0.9 * fx}',
+            boxstyle=f'round,pad=0,rounding_size={0.72 * fx}',
             transform=ax.transAxes, facecolor=COLOR_ICON, edgecolor='none',
             alpha=alpha, zorder=10, clip_on=False))
         ax.add_patch(FancyBboxPatch(
             (x0, y0), w * fx, h * fy,
-            boxstyle=f'round,pad=0,rounding_size={2.2 * fx}',
+            boxstyle=f'round,pad=0,rounding_size={1.76 * fx}',
             transform=ax.transAxes, facecolor=COLOR_ICON, edgecolor='none',
             alpha=alpha, zorder=10, clip_on=False))
         ax.add_patch(Circle((x0 + 0.5 * w * fx, y0 + 0.48 * h * fy), 0.27 * w * fx,
