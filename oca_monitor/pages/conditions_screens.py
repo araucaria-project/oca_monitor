@@ -3,7 +3,7 @@ import datetime
 from PyQt6.QtWidgets import QApplication, QWidget, QVBoxLayout,QHBoxLayout, QLabel
 from PyQt6.QtCore import QTimer
 from PyQt6 import QtGui
-from matplotlib.backends.backend_qt5agg import FigureCanvasQTAgg as FigureCanvas
+from matplotlib.backends.backend_qtagg import FigureCanvasQTAgg as FigureCanvas
 from matplotlib.figure import Figure
 import matplotlib.image as mpimg
 from qasync import asyncSlot

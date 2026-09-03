@@ -22,7 +22,7 @@ import numpy as np
 from PyQt6 import QtCore, QtGui  # imported before matplotlib so qt_compat picks PyQt6
 from PyQt6.QtWidgets import QFrame, QHBoxLayout, QLabel, QVBoxLayout, QWidget
 from astropy.time import Time as AstropyTime
-from matplotlib.backends.backend_qt5agg import FigureCanvasQTAgg as FigureCanvas
+from matplotlib.backends.backend_qtagg import FigureCanvasQTAgg as FigureCanvas
 from matplotlib.figure import Figure
 from qasync import asyncSlot
 from serverish.base import dt_ensure_datetime, dt_from_array

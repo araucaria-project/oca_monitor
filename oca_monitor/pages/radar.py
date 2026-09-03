@@ -16,7 +16,7 @@ from typing import Any, Deque, Dict, List, Optional, Tuple
 import numpy as np
 from PyQt6 import QtCore  # before matplotlib, so qt_compat picks PyQt6
 from PyQt6.QtWidgets import QVBoxLayout, QWidget
-from matplotlib.backends.backend_qt5agg import FigureCanvasQTAgg as FigureCanvas
+from matplotlib.backends.backend_qtagg import FigureCanvasQTAgg as FigureCanvas
 from matplotlib.colors import to_rgba
 from matplotlib.figure import Figure
 from matplotlib.patches import Circle, FancyBboxPatch, Polygon, Rectangle

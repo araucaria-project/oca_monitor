@@ -54,12 +54,53 @@ Edit oca_monit_telescopes.py and add new telescope name to the "telescopesList" 
 
 # Installing on Raspberry PI
 
-Usually installing oca monitor on RPi is a nightmare (poetry install cannot install several python libraries and it has
-to be done manually, which is also problematic) then it is much better to make a copy of a SD card of working RPi with
-oca_monitor already installed. A copy is available on a pendrive. Everything you have to do is to insert pendrive to
-some PC (or your laptop) with SD card slot. Insert also a new (or used but not needed) SD card and check in /dev/ what
-is the name of pendrive and SD card (disconnect pendrive list content of `/dev/` directory, and then connect it and see
-what appeard, it should be something like `/dev/sd...`, repeat the procedure for SD card). Then use the command:
+Raspberry Pi OS **Bookworm** has glibc 2.36, but the ARM64 PyQt6 wheels on PyPI
+are tagged `manylinux_2_39` (glibc >= 2.39), so poetry cannot install PyQt6 there
+-- it falls back to the source distribution and tries to build Qt, which never
+finishes. Instead, take the Qt bindings from the distro and let poetry handle
+everything else (all the remaining dependencies do have aarch64 wheels).
+
+`pyproject.toml` skips pyqt6 on ARM via a platform marker, so no flags or extras
+are needed -- `poetry install` does the right thing on both ARM and x86.
+
+1. Install the system bindings. The `qtsvg` package is **not** optional:
+   matplotlib imports `PyQt6.QtSvg` when it picks up the PyQt6 binding, and
+   Debian ships QtSvg separately from `python3-pyqt6` (which only carries
+   QtCore, QtGui, QtWidgets and QtNetwork).
+
+   ```bash
+   sudo apt install python3-pyqt6 python3-pyqt6.qtsvg python3-pyqt6.sip
+   python3 -c "from PyQt6 import QtCore, QtGui, QtWidgets, QtSvg, sip; print(QtCore.QT_VERSION_STR, QtCore.PYQT_VERSION_STR)"
+   ```
+
+   Bookworm ships PyQt6 6.4.2, which covers every Qt class this app uses.
+
+2. Let the project venv see those system packages. Keep this in the machine-wide
+   poetry config rather than `poetry config --local`, because `poetry.toml` is
+   tracked in git and the setting is only wanted on the Pi:
+
+   ```bash
+   poetry config virtualenvs.options.system-site-packages true
+   poetry env remove --all   # only if a .venv already exists
+   poetry install
+   ```
+
+3. Check that the charts can start:
+
+   ```bash
+   poetry run python -c "from PyQt6 import QtWidgets; from matplotlib.backends.backend_qtagg import FigureCanvasQTAgg; print('OK')"
+   ```
+
+Do not use `poetry install --sync` on the Pi: with `system-site-packages` enabled
+it may try to remove distro-managed packages.
+
+On Raspberry Pi OS **Trixie** (glibc 2.41) none of this is needed -- the PyPI
+wheels install normally, so a plain `poetry install` is enough.
+
+If you would rather not install anything, it is still possible to copy the SD
+card of a working RPi. A copy is available on a pendrive; insert both the
+pendrive and the target SD card into a PC, find their `/dev/sd...` names (list
+`/dev/` with the device disconnected, then connected, and compare), then:
 
 ```
 dd bs=4M if=/dev/pendrive_name of=/dev/sd_name status=progress

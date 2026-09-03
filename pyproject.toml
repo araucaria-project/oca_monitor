@@ -12,11 +12,13 @@ include = ["settings.toml", "oca_monitor/resources/icons/*"]
 python = "^3.11, <3.14"
 #paho-mqtt = "^1.6.1"
 
-# pyqy6 is optional, because there is no such package for ARM
-# to install it from PyPI on **other** platforms, use `poetry update --extras pyqt`
-# on ARM follwo the instruction from the manual
-#pyqt6 = {version="*",optional = true}
-pyqt6 = {version="*"}
+# PyQt6 wheels exist for ARM64 only from 6.8.0 up, and they are tagged
+# manylinux_2_39 -> glibc >= 2.39. Raspberry Pi OS Bookworm has glibc 2.36,
+# so pip/poetry would fall back to the sdist and try to build Qt (hopeless).
+# Hence: on ARM the marker skips pyqt6 (and pyqt6-qt6/pyqt6-sip with it) and
+# the app uses the distro bindings instead -- see "Installing on Raspberry PI"
+# in README.md. Everywhere else it installs from PyPI as usual.
+pyqt6 = {version = "^6.8", markers = "platform_machine != 'aarch64' and platform_machine != 'armv7l' and platform_machine != 'armv6l'"}
 opencv-python = "*"
 astropy = "^7.0"   # 6.x calls np.in1d which numpy 2.4+ removed
 matplotlib = "*"
@@ -32,16 +34,6 @@ numpy = [
 ]
 pyaraucaria = "^2.13.0"
 mloca = {git = "https://github.com/araucaria-project/mloca.git"}
-
-
-[tool.poetry.extras]
-pyqt = ["pyqt6"]
-
-[tool.poetry.group.pyqt]
-optional = true
-
-[tool.poetry.group.pyqt.dependencies]
-pyqt6 = "*"
 
 
 [tool.poetry.scripts]

@@ -3,7 +3,7 @@ import datetime
 from nats.errors import TimeoutError as NatsTimeoutError
 from PyQt6.QtWidgets import QApplication, QWidget, QGridLayout,QLabel,QProgressBar
 from PyQt6.QtCore import QTimer, Qt
-from matplotlib.backends.backend_qt5agg import FigureCanvasQTAgg as FigureCanvas
+from matplotlib.backends.backend_qtagg import FigureCanvasQTAgg as FigureCanvas
 from matplotlib.figure import Figure
 from matplotlib.dates import date2num
 from qasync import asyncSlot
