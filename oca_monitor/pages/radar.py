@@ -250,6 +250,12 @@ class RadarWidget(QWidget):
     PING_RINGS = 3
     PING_R0_PX = 8.0
     PING_GROW_PX = 24.0
+    PING_LW_PX = 2.2
+    PING_ALPHA = 0.85
+    # a ring at full brightness the moment it appears pops out of the marker,
+    # so it swells in over the first slice of its life and then fades on a
+    # square root, which holds it visible for most of the way out
+    PING_FADE_IN = 0.18
 
     PARKED_ALPHA = 0.6
     PARKED_LABEL_DY_PX = 14
@@ -1370,10 +1376,12 @@ class RadarWidget(QWidget):
         phase = (time.time() % self.PING_PERIOD_S) / self.PING_PERIOD_S
         for k in range(self.PING_RINGS):
             grow = (phase + k / self.PING_RINGS) % 1.0
+            fade = min(1.0, grow / self.PING_FADE_IN) * math.sqrt(1.0 - grow)
             ax.add_patch(Circle(
                 (cx, cy), (self.PING_R0_PX + self.PING_GROW_PX * grow) * fx,
                 transform=ax.transAxes, facecolor='none', edgecolor=color,
-                linewidth=1.3, alpha=0.50 * (1.0 - grow), zorder=3, clip_on=False))
+                linewidth=self.PING_LW_PX * (0.6 + 0.4 * fade),
+                alpha=self.PING_ALPHA * fade, zorder=3, clip_on=False))
 
     def _draw_camera(self, ax, theta: float, r: float, dim: float,
                      filter_name: Optional[str]) -> None:
