@@ -265,6 +265,15 @@ vertical_screen=1
 source = "satellite_animation"  # page source - page is defined in oca_monitor/pages/example.py
 vertical_screen=1
 
+[default.panels.00.Radar]
+#auto_interval = 10  # seconds, how long to show this page before auto switching to next page
+source = "radar"  # page source - page is defined in oca_monitor/pages/radar.py
+# telescopes drawn on the sky map; defaults to main_window.telescope_names
+telescopes = ["wk06", "zb08", "jk15", "iris"]
+# how long a mount leaves a fading trail behind it [s]
+trail_seconds = 20
+vertical_screen=1
+
 [kitchen.panels.10.Weather]
 #auto_interval = 10  # seconds, how long to show this page before auto switching to next page
 source = "weather"  # page source - page is defined in oca_monitor/pages/example.py
