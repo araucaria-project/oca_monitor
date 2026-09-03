@@ -240,7 +240,7 @@ class RadarWidget(QWidget):
 
     OB_LABEL_DY_PX = 40
     OB_BAR_DY_PX = 31
-    TEL_LABEL_DY_PX = -18
+    TEL_LABEL_DY_PX = -23
     OB_BAR_W_PX = 30
     OB_BAR_H_PX = 3
     OB_WARN_FACTOR = 1.0
