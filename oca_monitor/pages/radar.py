@@ -220,7 +220,7 @@ class RadarWidget(QWidget):
     ASTRO_REFRESH_S = 5.0
     ALMANAC_REFRESH_S = 60.0
 
-    TRAIL_SECONDS = 10.0
+    TRAIL_SECONDS = 20.0  # how long a mount leaves a fading trail behind it
     TRAIL_MIN_STEP_DEG = 0.03
     TRAIL_MAX_POINTS = 400
     TRAIL_DOT_SEP_PX = 13.0
@@ -320,6 +320,10 @@ class RadarWidget(QWidget):
                      'weather_restrictions', 'wind')
     MOUNT_CFG_PATH = ('config', 'telescopes', '{tel}', 'observatory',
                       'components', 'mount')
+    TELESCOPES_CFG_PATH = ('config', 'telescopes')
+    # observatory config flag that tells a real, observing telescope from a
+    # simulator or a decommissioned one ('dev', 'disabled')
+    PRODUCTION_FLAG = 'production'
 
     MOUNT_TELEMETRY = {'az': 'mount.azimuth', 'alt': 'mount.altitude'}
     DOME_TELEMETRY = {'dome_az': 'dome.azimuth'}
@@ -349,6 +353,9 @@ class RadarWidget(QWidget):
         self.main_window = main_window
         self.vertical = bool(vertical_screen)
         self.telescopes = self._resolve_telescopes(telescopes)
+        # an explicit list in settings.toml wins; with none, the observatory
+        # config decides once it arrives - see _resolve_telescopes_from_config
+        self._telescopes_pinned = bool(telescopes)
         self.trail_seconds = float(trail_seconds or self.TRAIL_SECONDS)
         self.subject = subject
         self.wind_warn_ms = _as_float(wind_warn_ms)
@@ -357,18 +364,7 @@ class RadarWidget(QWidget):
         self.obs_min_alt_deg = _as_float(obs_min_alt_deg)
 
         self._state: Dict[str, Dict[str, Any]] = {
-            tel: {
-                'az': None, 'alt': None, 'pos_dt': None,
-                'slewing': None, 'tracking': None, 'motors': None,
-                'atpark': None,
-                'dome_az': None, 'dome_shutter': None,
-                'camera_state': None, 'fw_position': None, 'cover_state': None,
-                'ob': None, 'plan': None,
-                'trail': deque(maxlen=self.TRAIL_MAX_POINTS),
-                'trail_done_t': None,
-            }
-            for tel in self.telescopes
-        }
+            tel: self._blank_state() for tel in self.telescopes}
         self._astro: Dict[str, Any] = {}
         self._label_boxes: List[Any] = []
         self._min_alt: Optional[float] = None
@@ -379,12 +375,60 @@ class RadarWidget(QWidget):
         QtCore.QTimer.singleShot(0, self.async_init)
         logger.info(f"RadarWidget init setup done for {', '.join(self.telescopes)}")
 
+    def _blank_state(self) -> Dict[str, Any]:
+        return {
+            'az': None, 'alt': None, 'pos_dt': None,
+            'slewing': None, 'tracking': None, 'motors': None,
+            'atpark': None,
+            'dome_az': None, 'dome_shutter': None,
+            'camera_state': None, 'fw_position': None, 'cover_state': None,
+            'ob': None, 'plan': None,
+            'trail': deque(maxlen=self.TRAIL_MAX_POINTS),
+            'trail_done_t': None,
+        }
+
     def _resolve_telescopes(self, telescopes: Optional[List[str]]) -> List[str]:
         if isinstance(telescopes, str):
             telescopes = [t.strip() for t in telescopes.split(',') if t.strip()]
         if telescopes:
             return list(telescopes)
         return list(getattr(self.main_window, 'telescope_names', []) or [])
+
+    async def _resolve_telescopes_from_config(self) -> None:
+        """Draw whatever the observatory config flags as ``production``.
+
+        The radar should not carry its own telescope list: mounts come and go
+        (wg25 is 'disabled', sim and dev are simulators) and the observatory
+        config is the one place that says which are real. Panels are built
+        during MainWindow.__init__, before its single_read on
+        ``tic.config.observatory`` returns, so the list cannot be known at
+        construction time - wait for the config here, the same way the charts
+        wait for their colours. Until then (or if it never arrives) the
+        fallback from _resolve_telescopes stands.
+        """
+        if self._telescopes_pinned:
+            return
+        for _ in range(120):  # ~60 s of patience, then give up
+            telescopes = self._cfg(self.TELESCOPES_CFG_PATH)
+            if isinstance(telescopes, dict) and telescopes:
+                break
+            await asyncio.sleep(0.5)
+        else:
+            logger.warning(f'radar: observatory config never arrived, keeping '
+                           f'{", ".join(self.telescopes) or "no telescopes"}')
+            return
+        production = [tel for tel, cfg in telescopes.items()
+                      if self.PRODUCTION_FLAG in
+                      ((cfg or {}).get('observatory') or {}).get('flags', ())]
+        if not production:
+            logger.warning(f'radar: no telescope flagged '
+                           f'{self.PRODUCTION_FLAG!r} in the observatory '
+                           f'config, keeping {", ".join(self.telescopes)}')
+            return
+        self.telescopes = production
+        self._state = {tel: self._blank_state() for tel in self.telescopes}
+        logger.info(f'radar: telescopes from observatory config '
+                    f'({self.PRODUCTION_FLAG}): {", ".join(self.telescopes)}')
 
     # ---- UI -----------------------------------------------------------------
 
@@ -495,6 +539,7 @@ class RadarWidget(QWidget):
 
     @asyncSlot()
     async def async_init(self) -> None:
+        await self._resolve_telescopes_from_config()
         for tel in self.telescopes:
             for key, suffix in self.MOUNT_TELEMETRY.items():
                 await create_task(
