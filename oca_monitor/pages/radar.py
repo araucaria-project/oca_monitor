@@ -250,8 +250,8 @@ class RadarWidget(QWidget):
     PING_RINGS = 3
     PING_R0_PX = 8.0
     PING_GROW_PX = 24.0
-    PING_LW_PX = 2.2
-    PING_ALPHA = 0.85
+    PING_LW_PX = 1.7
+    PING_ALPHA = 0.68
     # a ring at full brightness the moment it appears pops out of the marker,
     # so it swells in over the first slice of its life and then fades on a
     # square root, which holds it visible for most of the way out
