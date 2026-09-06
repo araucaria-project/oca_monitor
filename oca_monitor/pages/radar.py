@@ -17,7 +17,7 @@ import numpy as np
 from PyQt6 import QtCore  # before matplotlib, so qt_compat picks PyQt6
 from PyQt6.QtWidgets import QVBoxLayout, QWidget
 from matplotlib.backends.backend_qtagg import FigureCanvasQTAgg as FigureCanvas
-from matplotlib.colors import to_hex, to_rgb, to_rgba
+from matplotlib.colors import to_rgba
 from matplotlib.figure import Figure
 from matplotlib.patches import Circle, FancyBboxPatch, Polygon, Rectangle
 from qasync import asyncSlot
@@ -43,14 +43,14 @@ R_DOME_TOP = 97.0
 R_MAX = 103.0
 R_BELOW_SPAN = R_DOME_TOP - R_HORIZON
 
-# The disc takes its colour from the Sun's altitude, on one continuous ramp:
-# the neutral night grey holds until astronomical twilight, then lifts steadily
-# into a cool blue by sunrise and warms to a faint yellow as the Sun climbs.
-# Every stop stays this dark on purpose - the grid, the labels and the
-# telescope colours have to read the same at noon as they do at midnight.
+# The disc takes its colour from the Sun's altitude, in three flat steps:
+# the neutral night grey below astronomical twilight, a lighter blue through
+# twilight, a faint yellow once the Sun is up. All three stay this dark on
+# purpose - the grid, the labels and the telescope colours have to read the
+# same at noon as they do at midnight.
 SKY_NIGHT = '#272727'
-SKY_TWILIGHT = '#2f3441'
-SKY_DAY = '#403b2e'
+SKY_TWILIGHT = '#333a4a'
+SKY_DAY = '#413b2b'
 COLOR_GRID = '#5c5c5c'
 # the compass spokes carry more of the reading than the altitude rings
 # do, so they are drawn a shade above them
@@ -58,10 +58,9 @@ COLOR_GRID_AZ = '#6e6e6e'
 COLOR_GRID_TEXT = '#bcbcbc'
 COLOR_RING_BG = '#151515'
 COLOR_HORIZON = '#949494'
-# the two ends of that ramp: night below TWILIGHT_ALT_DEG, full daylight
-# colour once the Sun is DAY_FULL_ALT_DEG up, interpolated in between
+# where those steps fall: night below TWILIGHT_ALT_DEG, twilight up to a Sun
+# on the horizon, day above it
 TWILIGHT_ALT_DEG = -18.0
-DAY_FULL_ALT_DEG = 10.0
 
 COLOR_SUN = '#ffd24a'
 COLOR_MOON_LIT = '#eef2f7'
@@ -82,10 +81,6 @@ COLOR_COVER_CROSS = '#000000'
 def _theta(az_deg: float) -> float:
     return math.radians(az_deg % 360.0)
 
-
-def _lerp_color(c0: str, c1: str, f: float) -> str:
-    f = min(1.0, max(0.0, f))
-    return to_hex(tuple(a + (b - a) * f for a, b in zip(to_rgb(c0), to_rgb(c1))))
 
 
 def _as_bool(value: Any) -> Optional[bool]:
@@ -295,6 +290,8 @@ class RadarWidget(QWidget):
     WIND_ARROW_R0 = R_DOME_TOP + 1.6
     WIND_ARROW_R1 = R_HORIZON + 1.0
     WIND_LABEL_R = R_MAX - 2.0
+    # the reading is slid this far across the arrow, so it never lies on it
+    WIND_LABEL_OFFSET_PX = 15.0
     # calm, over the warn limit, over the danger limit: the reading grows with
     # the risk, so a dangerous wind is legible from across the control room
     WIND_LABEL_FONTSIZES = (9.0, 11.0, 13.0)
@@ -799,20 +796,18 @@ class RadarWidget(QWidget):
     def _sky_facecolor(self) -> str:
         """Background for the current Sun altitude.
 
-        Night keeps its grey; dawn brightens the disc gradually through
-        astronomical twilight instead of switching colour at one altitude, and
-        the risen Sun tints it faintly yellow. See SKY_NIGHT and friends.
+        Night below astronomical twilight, a lighter blue from there up to
+        sunrise, yellow with the Sun up. See SKY_NIGHT and friends.
         """
         sun = self._astro.get('sun')
         if sun is None:
             return SKY_NIGHT
         alt = sun['alt']
-        if alt <= TWILIGHT_ALT_DEG:
-            return SKY_NIGHT
-        if alt < 0.0:
-            return _lerp_color(SKY_NIGHT, SKY_TWILIGHT,
-                               1.0 - alt / TWILIGHT_ALT_DEG)
-        return _lerp_color(SKY_TWILIGHT, SKY_DAY, alt / DAY_FULL_ALT_DEG)
+        if alt >= 0.0:
+            return SKY_DAY
+        if alt > TWILIGHT_ALT_DEG:
+            return SKY_TWILIGHT
+        return SKY_NIGHT
 
     def _draw(self) -> None:
         self._draw_sky()
@@ -840,10 +835,13 @@ class RadarWidget(QWidget):
         ax.grid(True, axis='x', color=COLOR_GRID_AZ, linewidth=0.9, alpha=1.0)
         ax.spines['polar'].set_color(ck.SPINE)
         for text, az, dx, dy in self.COMPASS_LABELS:
-            ax.annotate(text, xy=(np.radians(az), R_MAX), xycoords='data',
-                        xytext=(dx, dy), textcoords='offset points',
-                        color=COLOR_GRID_TEXT, fontsize=9,
-                        ha='center', va='center', zorder=3)
+            ann = ax.annotate(text, xy=(np.radians(az), R_MAX), xycoords='data',
+                              xytext=(dx, dy), textcoords='offset points',
+                              color=COLOR_GRID_TEXT, fontsize=9,
+                              ha='center', va='center', zorder=3)
+            # a compass letter is fixed scenery: everything placed later gives
+            # way to it, the wind reading at the rim above all
+            self._take_box(ann)
 
         ax.bar(0.0, R_MAX - R_HORIZON, width=2 * np.pi, bottom=R_HORIZON,
                color=COLOR_RING_BG, alpha=0.9, linewidth=0, zorder=0)
@@ -914,9 +912,9 @@ class RadarWidget(QWidget):
         ``_theta``/``_radius`` used by every other mark on this page.
         """
         # with the Sun up nobody is observing, so the limit it stands for is
-        # not in force - the zone goes away with the rest of the night
+        # not in force - the zone goes away when the disc turns to day
         sun = self._astro.get('sun')
-        if sun is not None and sun['alt'] > 0.0:
+        if sun is not None and sun['alt'] >= 0.0:
             return
         avoid = self._moon_avoid()
         if moon['alt'] < -avoid:
@@ -1160,6 +1158,16 @@ class RadarWidget(QWidget):
         if box is not None:
             self._label_boxes.append(box)
         return ann
+
+    def _take_box(self, ann) -> Optional[Tuple[float, float, float, float]]:
+        """Claim the space an annotation occupies for this frame."""
+        try:
+            bb = ann.get_window_extent(self.canvas.get_renderer())
+        except (AttributeError, RuntimeError, ValueError):
+            return None
+        box = (bb.x0, bb.y0, bb.x1, bb.y1)
+        self._label_boxes.append(box)
+        return box
 
     def _keep_on_canvas(self, ann, margin_px: float = 3.0) -> None:
         """Slide an offset annotation back onto the canvas if its box hangs
@@ -1551,9 +1559,10 @@ class RadarWidget(QWidget):
                     arrowprops=dict(arrowstyle='-|>,head_width=0.25,head_length=0.5',
                                     color=color, linewidth=2.0, shrinkA=0, shrinkB=0,
                                     alpha=0.9), zorder=6)
-        # hung off the outer end of the arrow; the plate keeps it legible
-        # wherever it lands, and _keep_on_canvas keeps it whole when the wind
-        # comes from due east or west, where the rim touches the figure edge
+        # hung beside the outer end of the arrow, pushed clear of it away from
+        # the middle of the disc: up over the top half, down under the bottom
+        # one. The plate keeps the reading legible wherever it lands, and
+        # _keep_on_canvas keeps it whole where the rim meets the figure edge
         ann = ax.annotate(f'{speed:.1f} m/s', xy=(theta, self.WIND_LABEL_R),
                           textcoords='offset points', xytext=(0, 0),
                           color=color, fontsize=self.WIND_LABEL_FONTSIZES[level],
@@ -1561,7 +1570,61 @@ class RadarWidget(QWidget):
                           bbox=dict(facecolor=ck.BG_FIGURE, edgecolor='none',
                                     boxstyle='round,pad=0.2', alpha=0.65),
                           zorder=12)
-        self._keep_on_canvas(ann, 6.0)
+        for direction in self._wind_label_dirs(ax, theta):
+            self._dodge_along(ann, direction, self.WIND_LABEL_OFFSET_PX)
+            self._keep_on_canvas(ann, 6.0)
+            if not self._collides(ann):
+                break
+        self._take_box(ann)
+
+    def _wind_label_dirs(self, ax, theta: float) -> List[Tuple[float, float]]:
+        """Screen directions to try for the wind reading, best first.
+
+        Straight out of the disc first - up for a wind at the top or at the
+        sides, down for one at the bottom - which is what takes the reading off
+        the arrow. A north or south wind has no room to go that way, the rim
+        being a few pixels from the figure edge there, so the two ways along
+        the rim follow as fallbacks.
+        """
+        try:
+            cx, cy = ax.transData.transform((0.0, 0.0))
+            px, py = ax.transData.transform((theta, self.WIND_LABEL_R))
+        except (AttributeError, RuntimeError, ValueError):
+            return [(0.0, 1.0)]
+        rx, ry = px - cx, py - cy  # outward, along the arrow
+        norm = math.hypot(rx, ry) or 1.0
+        away = (0.0, -1.0) if ry < 0.0 else (0.0, 1.0)
+        tangent = (-ry / norm, rx / norm)
+        return [away, tangent, (-tangent[0], -tangent[1])]
+
+    def _collides(self, ann) -> bool:
+        try:
+            bb = ann.get_window_extent(self.canvas.get_renderer())
+        except (AttributeError, RuntimeError, ValueError):
+            return False
+        return any(_boxes_overlap((bb.x0, bb.y0, bb.x1, bb.y1), taken)
+                   for taken in self._label_boxes)
+
+    def _dodge_along(self, ann, direction: Tuple[float, float],
+                     base_px: float) -> None:
+        """Slide an offset annotation along a screen direction, starting
+        base_px out and stepping on while it lands on something already
+        placed - a compass letter, mostly."""
+        try:
+            renderer = self.canvas.get_renderer()
+        except (AttributeError, RuntimeError):
+            return
+        dx, dy = direction
+        for step in range(self.LABEL_MAX_STEPS):
+            out = base_px + step * self.LABEL_STEP_PX
+            ann.set_position((self._pt(dx * out), self._pt(dy * out)))
+            try:
+                bb = ann.get_window_extent(renderer)
+            except (RuntimeError, ValueError):
+                return
+            if not any(_boxes_overlap((bb.x0, bb.y0, bb.x1, bb.y1), taken)
+                       for taken in self._label_boxes):
+                return
 
 
 widget_class = RadarWidget
