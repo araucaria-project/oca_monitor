@@ -17,7 +17,7 @@ import numpy as np
 from PyQt6 import QtCore  # before matplotlib, so qt_compat picks PyQt6
 from PyQt6.QtWidgets import QVBoxLayout, QWidget
 from matplotlib.backends.backend_qtagg import FigureCanvasQTAgg as FigureCanvas
-from matplotlib.colors import to_rgba
+from matplotlib.colors import LinearSegmentedColormap, to_rgba
 from matplotlib.figure import Figure
 from matplotlib.patches import Circle, FancyBboxPatch, Polygon, Rectangle
 from qasync import asyncSlot
@@ -43,14 +43,20 @@ R_DOME_TOP = 97.0
 R_MAX = 103.0
 R_BELOW_SPAN = R_DOME_TOP - R_HORIZON
 
-# The disc takes its colour from the Sun's altitude, in three flat steps:
-# the neutral night grey below astronomical twilight, a lighter blue through
-# twilight, a faint yellow once the Sun is up. All three stay this dark on
-# purpose - the grid, the labels and the telescope colours have to read the
-# same at noon as they do at midnight.
+# The disc takes its colour from the Sun's altitude: the neutral night grey
+# below astronomical twilight, a lighter blue through twilight, and daylight
+# painted as the sky really looks - deep blue overhead, washing out to haze at
+# the horizon. SKY_DAY is the zenith end of that ramp and doubles as the flat
+# colour behind the rim band; SKY_DAY_GAMMA bends it, above 1 keeping the
+# light down near the horizon where nothing much is drawn, so the grid, the
+# labels and the telescope colours read at noon exactly as they do at midnight.
 SKY_NIGHT = '#272727'
 SKY_TWILIGHT = '#333a4a'
-SKY_DAY = '#413b2b'
+SKY_DAY = '#1b2a4a'
+SKY_DAY_HORIZON = '#52637f'
+SKY_DAY_GAMMA = 2.0
+SKY_DAY_CMAP = LinearSegmentedColormap.from_list(
+    'oca_sky_day', [SKY_DAY, SKY_DAY_HORIZON])
 COLOR_GRID = '#5c5c5c'
 # the compass spokes carry more of the reading than the altitude rings
 # do, so they are drawn a shade above them
@@ -295,6 +301,10 @@ class RadarWidget(QWidget):
     # calm, over the warn limit, over the danger limit: the reading grows with
     # the risk, so a dangerous wind is legible from across the control room
     WIND_LABEL_FONTSIZES = (9.0, 11.0, 13.0)
+    # the daylight gradient's mesh: fine enough radially for a smooth ramp,
+    # coarse enough in azimuth to stay a cheap redraw
+    SKY_GRADIENT_R = 129
+    SKY_GRADIENT_THETA = 91
     MOON_AVOID_DEFAULT_DEG = 30.0
     MOON_ZONE_POINTS = 181
     OBS_MIN_ALT_DEFAULT_DEG = 35.0
@@ -845,6 +855,7 @@ class RadarWidget(QWidget):
 
         ax.bar(0.0, R_MAX - R_HORIZON, width=2 * np.pi, bottom=R_HORIZON,
                color=COLOR_RING_BG, alpha=0.9, linewidth=0, zorder=0)
+        self._draw_sky_gradient(ax)
         r_min = self._radius(self._obs_min_alt())
         ax.bar(0.0, R_HORIZON - r_min, width=2 * np.pi, bottom=r_min,
                color=ck.COLOR_DANGER, alpha=0.09, linewidth=0, zorder=0)
@@ -872,6 +883,24 @@ class RadarWidget(QWidget):
         covered = self._share_covered(ax)
         for tel in self.telescopes:
             self._draw_telescope(ax, tel, tel in covered)
+
+    def _draw_sky_gradient(self, ax) -> None:
+        """Daylight over the disc: deep at the zenith, hazy at the horizon.
+
+        Night and twilight are flat colours - only the day gets the ramp, and
+        only inside the horizon: the band beyond it belongs to the domes.
+        """
+        sun = self._astro.get('sun')
+        if sun is None or sun['alt'] < 0.0:
+            return
+        theta = np.linspace(0.0, 2 * np.pi, self.SKY_GRADIENT_THETA)
+        r = np.linspace(0.0, R_HORIZON, self.SKY_GRADIENT_R)
+        mid = 0.5 * (r[:-1] + r[1:]) / R_HORIZON
+        shade = np.tile((mid ** SKY_DAY_GAMMA)[:, None], (1, theta.size - 1))
+        ylim = ax.get_ylim()  # the mesh reaches the horizon, the disc does not
+        ax.pcolormesh(theta, r, shade, cmap=SKY_DAY_CMAP, vmin=0.0, vmax=1.0,
+                      shading='flat', zorder=-0.5, rasterized=True)
+        ax.set_ylim(*ylim)
 
     def _draw_bodies(self, ax) -> None:
         # well below the horizon they say nothing worth the room they take in
