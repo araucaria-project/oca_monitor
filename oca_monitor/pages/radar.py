@@ -17,7 +17,7 @@ import numpy as np
 from PyQt6 import QtCore  # before matplotlib, so qt_compat picks PyQt6
 from PyQt6.QtWidgets import QVBoxLayout, QWidget
 from matplotlib.backends.backend_qtagg import FigureCanvasQTAgg as FigureCanvas
-from matplotlib.colors import to_rgba
+from matplotlib.colors import to_hex, to_rgb, to_rgba
 from matplotlib.figure import Figure
 from matplotlib.patches import Circle, FancyBboxPatch, Polygon, Rectangle
 from qasync import asyncSlot
@@ -43,9 +43,14 @@ R_DOME_TOP = 97.0
 R_MAX = 103.0
 R_BELOW_SPAN = R_DOME_TOP - R_HORIZON
 
-SKY_DAY = '#2b2620'
-SKY_TWILIGHT = '#262b3d'
+# The disc takes its colour from the Sun's altitude, on one continuous ramp:
+# the neutral night grey holds until astronomical twilight, then lifts steadily
+# into a cool blue by sunrise and warms to a faint yellow as the Sun climbs.
+# Every stop stays this dark on purpose - the grid, the labels and the
+# telescope colours have to read the same at noon as they do at midnight.
 SKY_NIGHT = '#272727'
+SKY_TWILIGHT = '#2f3441'
+SKY_DAY = '#403b2e'
 COLOR_GRID = '#5c5c5c'
 # the compass spokes carry more of the reading than the altitude rings
 # do, so they are drawn a shade above them
@@ -53,7 +58,10 @@ COLOR_GRID_AZ = '#6e6e6e'
 COLOR_GRID_TEXT = '#bcbcbc'
 COLOR_RING_BG = '#151515'
 COLOR_HORIZON = '#949494'
+# the two ends of that ramp: night below TWILIGHT_ALT_DEG, full daylight
+# colour once the Sun is DAY_FULL_ALT_DEG up, interpolated in between
 TWILIGHT_ALT_DEG = -18.0
+DAY_FULL_ALT_DEG = 10.0
 
 COLOR_SUN = '#ffd24a'
 COLOR_MOON_LIT = '#eef2f7'
@@ -73,6 +81,11 @@ COLOR_COVER_CROSS = '#000000'
 
 def _theta(az_deg: float) -> float:
     return math.radians(az_deg % 360.0)
+
+
+def _lerp_color(c0: str, c1: str, f: float) -> str:
+    f = min(1.0, max(0.0, f))
+    return to_hex(tuple(a + (b - a) * f for a, b in zip(to_rgb(c0), to_rgb(c1))))
 
 
 def _as_bool(value: Any) -> Optional[bool]:
@@ -298,8 +311,8 @@ class RadarWidget(QWidget):
     # compass labels: (text, azimuth, dx px, dy px) measured from the rim.
     # all four sit the same distance inside it, each slid sideways off its own
     # spoke so no letter straddles a line
-    COMPASS_LABELS = (('N', 0.0, 7, -13), ('E', 90.0, -13, 7),
-                      ('S', 180.0, 7, 13), ('W', 270.0, 13, 7))
+    COMPASS_LABELS = (('N', 0.0, 7, -8), ('E', 90.0, -8, 7),
+                      ('S', 180.0, 7, 8), ('W', 270.0, 8, 7))
 
     RADEC_SAMPLE_DEG = 1.0
     RADEC_REFRESH_S = 10.0
@@ -784,14 +797,22 @@ class RadarWidget(QWidget):
         return label, max(0.0, (time.time() - t0) / expected), True
 
     def _sky_facecolor(self) -> str:
+        """Background for the current Sun altitude.
+
+        Night keeps its grey; dawn brightens the disc gradually through
+        astronomical twilight instead of switching colour at one altitude, and
+        the risen Sun tints it faintly yellow. See SKY_NIGHT and friends.
+        """
         sun = self._astro.get('sun')
         if sun is None:
             return SKY_NIGHT
-        if sun['alt'] > 0.0:
-            return SKY_DAY
-        if sun['alt'] > TWILIGHT_ALT_DEG:
-            return SKY_TWILIGHT
-        return SKY_NIGHT
+        alt = sun['alt']
+        if alt <= TWILIGHT_ALT_DEG:
+            return SKY_NIGHT
+        if alt < 0.0:
+            return _lerp_color(SKY_NIGHT, SKY_TWILIGHT,
+                               1.0 - alt / TWILIGHT_ALT_DEG)
+        return _lerp_color(SKY_TWILIGHT, SKY_DAY, alt / DAY_FULL_ALT_DEG)
 
     def _draw(self) -> None:
         self._draw_sky()
@@ -892,6 +913,11 @@ class RadarWidget(QWidget):
         sinks. Sampled on the sky, then pushed through the same
         ``_theta``/``_radius`` used by every other mark on this page.
         """
+        # with the Sun up nobody is observing, so the limit it stands for is
+        # not in force - the zone goes away with the rest of the night
+        sun = self._astro.get('sun')
+        if sun is not None and sun['alt'] > 0.0:
+            return
         avoid = self._moon_avoid()
         if moon['alt'] < -avoid:
             return
@@ -1134,6 +1160,27 @@ class RadarWidget(QWidget):
         if box is not None:
             self._label_boxes.append(box)
         return ann
+
+    def _keep_on_canvas(self, ann, margin_px: float = 3.0) -> None:
+        """Slide an offset annotation back onto the canvas if its box hangs
+        off an edge.
+
+        The disc fills the whole figure, so anything written out at the rim
+        towards the left or the right runs off the side and gets cut in half.
+        Only the part that overhangs is taken back, so a label that already
+        fits does not move at all.
+        """
+        try:
+            renderer = self.canvas.get_renderer()
+            bb = ann.get_window_extent(renderer)
+        except (AttributeError, RuntimeError, ValueError):
+            return
+        w, h = self.figure.bbox.width, self.figure.bbox.height
+        dx = max(0.0, margin_px - bb.x0) - max(0.0, bb.x1 - (w - margin_px))
+        dy = max(0.0, margin_px - bb.y0) - max(0.0, bb.y1 - (h - margin_px))
+        if dx or dy:
+            x, y = ann.get_position()
+            ann.set_position((x + self._pt(dx), y + self._pt(dy)))
 
     def _is_parked(self, tel: str) -> bool:
         """The mount's own park flag from PMS, and nothing else.
@@ -1505,13 +1552,16 @@ class RadarWidget(QWidget):
                                     color=color, linewidth=2.0, shrinkA=0, shrinkB=0,
                                     alpha=0.9), zorder=6)
         # hung off the outer end of the arrow; the plate keeps it legible
-        # wherever it lands
-        ax.text(theta, self.WIND_LABEL_R, f'{speed:.1f} m/s', color=color,
-                fontsize=self.WIND_LABEL_FONTSIZES[level],
-                fontweight='bold', ha='center', va='center',
-                bbox=dict(facecolor=ck.BG_FIGURE, edgecolor='none',
-                          boxstyle='round,pad=0.2', alpha=0.65),
-                zorder=12)
+        # wherever it lands, and _keep_on_canvas keeps it whole when the wind
+        # comes from due east or west, where the rim touches the figure edge
+        ann = ax.annotate(f'{speed:.1f} m/s', xy=(theta, self.WIND_LABEL_R),
+                          textcoords='offset points', xytext=(0, 0),
+                          color=color, fontsize=self.WIND_LABEL_FONTSIZES[level],
+                          fontweight='bold', ha='center', va='center',
+                          bbox=dict(facecolor=ck.BG_FIGURE, edgecolor='none',
+                                    boxstyle='round,pad=0.2', alpha=0.65),
+                          zorder=12)
+        self._keep_on_canvas(ann, 6.0)
 
 
 widget_class = RadarWidget
