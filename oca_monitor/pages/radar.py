@@ -837,7 +837,7 @@ class RadarWidget(QWidget):
         # of as tick text, each nudged clear of its own spoke
         ax.set_xticks(np.radians(np.arange(0, 360, 90)))
         ax.set_xticklabels([])
-        rings = [a for a in (30, 45, 60, 75) if a > self._obs_min_alt() + 3.0][-3:]
+        rings = [a for a in (50, 65, 80) if a > self._obs_min_alt() + 3.0][-3:]
         ax.set_rticks([self._radius(a) for a in reversed(rings)])
         ax.set_yticklabels([])
         ax.tick_params(colors=COLOR_GRID_TEXT, labelsize=9, pad=-13)
