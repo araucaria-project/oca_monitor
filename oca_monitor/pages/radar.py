@@ -287,12 +287,12 @@ class RadarWidget(QWidget):
 
     PARKED_ALPHA = 0.6
     PARKED_LABEL_DY_PX = 14
-    # the safety cutoff is written on the next line under the telescope name,
-    # and blinks between that name's colour and the warning yellow, a second
-    # each. The phase comes off the clock, not off the frame, so every mount
-    # under a cutoff blinks in step and a 0.5 s redraw still catches both ends.
+    # the safety cutoff is written on the line immediately under the telescope
+    # name, and blinks between that name's colour and the warning yellow, a
+    # second each. The phase comes off the clock, not off the frame, so every
+    # mount under a cutoff blinks in step, and a 0.5 s redraw catches both ends.
     SAFETY_LABEL = 'safety cutoff'
-    SAFETY_LABEL_DY_PX = -35
+    SAFETY_LABEL_GAP_PX = 1.0
     SAFETY_BLINK_S = 1.0
     # Mounts standing on the same spot cannot all show their marks at once, so
     # the overlapping ones take turns, TEL_SHARE_PERIOD_S each. The separation
@@ -1192,6 +1192,10 @@ class RadarWidget(QWidget):
         size in this page is in pixels."""
         return px * 0.72
 
+    def _px(self, pt: float) -> float:
+        """Points back to pixels - the inverse of _pt."""
+        return pt / 0.72
+
     def _place_label(self, ax, xy, text: str, offset, **kwargs):
         """Annotation that steps away from the anchor until it stops colliding
         with the labels already placed in this frame."""
@@ -1368,20 +1372,16 @@ class RadarWidget(QWidget):
             if st['cover_state'] == self.COVER_CLOSED and not stale:
                 self._draw_cover_cross(ax, theta, r, dim)
 
-        self._place_label(ax, (theta, r), tel, (0, self.TEL_LABEL_DY_PX),
-                          ha='center', va='top', color=color,
-                          fontsize=self.MARK_FONTSIZE, fontweight='bold',
-                          alpha=0.45 if stale else dim, zorder=11)
+        name = self._place_label(ax, (theta, r), tel, (0, self.TEL_LABEL_DY_PX),
+                                 ha='center', va='top', color=color,
+                                 fontsize=self.MARK_FONTSIZE, fontweight='bold',
+                                 alpha=0.45 if stale else dim, zorder=11)
 
         # the cutoff comes off the access grantor, not off the mount, so it is
         # written at full strength whether or not the position under it has
         # gone stale or this mount is another's turn to show its marks
         if st['safety_cutoff']:
-            self._place_label(ax, (theta, r), self.SAFETY_LABEL,
-                              (0, self.SAFETY_LABEL_DY_PX), ha='center',
-                              va='top', color=self._cutoff_color(color),
-                              fontsize=self.MARK_FONTSIZE, fontweight='bold',
-                              zorder=11)
+            self._draw_cutoff_label(ax, theta, r, color, name)
 
         if stale:
             return
@@ -1402,6 +1402,31 @@ class RadarWidget(QWidget):
         if st['camera_state'] == self.CAMERA_EXPOSING and not covered:
             self._draw_camera(ax, label_theta, label_r, dim,
                               self._filter_name(tel))
+
+    def _draw_cutoff_label(self, ax, theta: float, r: float, color: str,
+                           name_ann) -> None:
+        """The safety cutoff warning, on the line right under the mount's name.
+
+        It hangs off the name's own box rather than off a fixed offset, so it
+        stays tight under the name wherever _place_label had to step that name
+        to clear its neighbours. Placed directly for the same reason: sent
+        through _place_label it would read as a collision with the very label
+        it belongs to, and get pushed a line further down.
+        """
+        dy = self._px(name_ann.get_position()[1])
+        try:
+            dy -= name_ann.get_window_extent(self.canvas.get_renderer()).height
+        except (AttributeError, RuntimeError, ValueError):
+            # no renderer yet: fall back to the nominal height of one line
+            dy -= self._px(self.MARK_FONTSIZE)
+        ann = ax.annotate(self.SAFETY_LABEL, (theta, r),
+                          textcoords='offset points',
+                          xytext=(0, self._pt(dy - self.SAFETY_LABEL_GAP_PX)),
+                          ha='center', va='top', fontweight='bold',
+                          color=self._cutoff_color(color),
+                          fontsize=self.MARK_FONTSIZE, zorder=11)
+        self._keep_on_canvas(ann)
+        self._take_box(ann)
 
     def _cutoff_color(self, color: str) -> str:
         """Which end of the blink the safety cutoff is on right now: the
