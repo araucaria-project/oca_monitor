@@ -1,7 +1,8 @@
 """Sky radar: telescope dots with motion trails, slew targets, Sun and Moon.
 
 Data straight off NATS: tic.telemetry.{tel}.mount.azimuth|altitude,
-tic.status.{tel}.mount.slewing|tracking|motorstatus, tic.status.{tel}.toi.ob|plan.
+tic.status.{tel}.mount.slewing|tracking|motorstatus, tic.status.{tel}.toi.ob|plan,
+tic.status.{tel}.access_grantor.safety_cutoff_state.
 """
 from __future__ import annotations
 
@@ -113,6 +114,19 @@ def _as_float(value: Any) -> Optional[float]:
         return float(value)
     except (TypeError, ValueError):
         return None
+
+
+def _cutoff_engaged(value: Any) -> Optional[bool]:
+    """The engaged flag out of an access_grantor.safety_cutoff_state reading.
+
+    The measurement is a mapping - the flag, plus the commands the cutoff
+    blocks while it holds - rather than a scalar like the rest of the status
+    readings. TIC publishes it as null across a gap and repeats the last good
+    value beside it, so a null reads here as nothing to say and leaves the
+    state that stood."""
+    if isinstance(value, dict):
+        return _as_bool(value.get('engaged'))
+    return None
 
 
 def _meta_dt(meta) -> Optional[datetime.datetime]:
@@ -273,6 +287,13 @@ class RadarWidget(QWidget):
 
     PARKED_ALPHA = 0.6
     PARKED_LABEL_DY_PX = 14
+    # the safety cutoff is written on the next line under the telescope name,
+    # and blinks between that name's colour and the warning yellow, a second
+    # each. The phase comes off the clock, not off the frame, so every mount
+    # under a cutoff blinks in step and a 0.5 s redraw still catches both ends.
+    SAFETY_LABEL = 'safety cutoff'
+    SAFETY_LABEL_DY_PX = -35
+    SAFETY_BLINK_S = 1.0
     # Mounts standing on the same spot cannot all show their marks at once, so
     # the overlapping ones take turns, TEL_SHARE_PERIOD_S each. The separation
     # is the width of the widest mark, the camera glyph: closer than that and
@@ -359,6 +380,9 @@ class RadarWidget(QWidget):
                     # not published today; read anyway, so the park state stops
                     # being guessed the moment TIC starts forwarding it
                     'atpark': 'mount.atpark'}
+    # the access grantor's cutoff reads as a mapping rather than a scalar, so
+    # it stands apart from the bool and int status groups above
+    CUTOFF_STATUS = {'safety_cutoff': 'access_grantor.safety_cutoff_state'}
     INT_STATUS = {'dome_shutter': 'dome.shutterstatus',
                   'cover_state': 'covercalibrator.coverstate',
                   'camera_state': 'camera.camerastate',
@@ -408,6 +432,7 @@ class RadarWidget(QWidget):
             'atpark': None,
             'dome_az': None, 'dome_shutter': None,
             'camera_state': None, 'fw_position': None, 'cover_state': None,
+            'safety_cutoff': None,
             'ob': None, 'plan': None,
             'trail': deque(maxlen=self.TRAIL_MAX_POINTS),
             'trail_done_t': None,
@@ -581,6 +606,11 @@ class RadarWidget(QWidget):
                 await create_task(
                     self._measurement_reader(f'tic.status.{tel}.{suffix}', tel, key,
                                              f'{tel}.{suffix}', _as_bool),
+                    f'radar_{tel}_{key}')
+            for key, suffix in self.CUTOFF_STATUS.items():
+                await create_task(
+                    self._measurement_reader(f'tic.status.{tel}.{suffix}', tel, key,
+                                             f'{tel}.{suffix}', _cutoff_engaged),
                     f'radar_{tel}_{key}')
             for key, suffix in self.INT_STATUS.items():
                 await create_task(
@@ -1343,6 +1373,16 @@ class RadarWidget(QWidget):
                           fontsize=self.MARK_FONTSIZE, fontweight='bold',
                           alpha=0.45 if stale else dim, zorder=11)
 
+        # the cutoff comes off the access grantor, not off the mount, so it is
+        # written at full strength whether or not the position under it has
+        # gone stale or this mount is another's turn to show its marks
+        if st['safety_cutoff']:
+            self._place_label(ax, (theta, r), self.SAFETY_LABEL,
+                              (0, self.SAFETY_LABEL_DY_PX), ha='center',
+                              va='top', color=self._cutoff_color(color),
+                              fontsize=self.MARK_FONTSIZE, fontweight='bold',
+                              zorder=11)
+
         if stale:
             return
         if parked:
@@ -1362,6 +1402,12 @@ class RadarWidget(QWidget):
         if st['camera_state'] == self.CAMERA_EXPOSING and not covered:
             self._draw_camera(ax, label_theta, label_r, dim,
                               self._filter_name(tel))
+
+    def _cutoff_color(self, color: str) -> str:
+        """Which end of the blink the safety cutoff is on right now: the
+        telescope's own colour or the warning yellow, SAFETY_BLINK_S each."""
+        return (color, ck.COLOR_WARN)[
+            int(time.time() / self.SAFETY_BLINK_S) % 2]
 
     def _arc_trail(self, trail):
         """Sampled positions densified along great-circle arcs. The mount only
