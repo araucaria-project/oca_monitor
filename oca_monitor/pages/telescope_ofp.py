@@ -37,7 +37,7 @@ class TelescopeOfp(QWidget):
     FOCUS_COEF = {
         'jk15': {'temp': -10.890872, 'hum': -0.364425, 'intercept': 25474.446194},
         'zb08': {'temp': -7.224958, 'hum': -0.609259, 'intercept': 15497.403565},
-        'wk06': {'temp': -4.636257, 'hum': -0.589260, 'intercept': 21310.862008},
+        'wk06': {'temp': -5.019173, 'hum': -0.595964, 'intercept': 21310.179660},
     }
 
     # You can use just def __init__(self, **kwargs) if you don't want to bother with the arguments
