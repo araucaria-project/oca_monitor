@@ -35,7 +35,7 @@ class TelescopeOfp(QWidget):
     OBSERV_AGO_BAD_TIME = 3600
     OBSERV_AGO_BAD_COLOR = 'red'
     FOCUS_COEF = {
-        'jk15': {'temp': -9.071449, 'hum': -0.288137, 'intercept': 25448.052783},
+        'jk15': {'temp': -10.905791, 'hum': 3.102583, 'intercept': 25400.897608},
         'zb08': {'temp': -7.224958, 'hum': -0.609259, 'intercept': 15497.403565},
         'wk06': {'temp': -4.636257, 'hum': -0.589260, 'intercept': 21310.862008},
     }
