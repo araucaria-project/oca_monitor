@@ -35,7 +35,7 @@ class TelescopeOfp(QWidget):
     OBSERV_AGO_BAD_TIME = 3600
     OBSERV_AGO_BAD_COLOR = 'red'
     FOCUS_COEF = {
-        'jk15': {'temp': -9.704617, 'hum': -0.341801, 'intercept': 25457.72},
+        'jk15': {'temp': -10.024116, 'hum': -0.302976, 'intercept': 25462.3},
         'zb08': {'temp': -7.224958, 'hum': -0.609259, 'intercept': 15497.403565},
         'wk06': {'temp': -4.636257, 'hum': -0.589260, 'intercept': 21310.862008},
     }
@@ -203,10 +203,11 @@ class TelescopeOfp(QWidget):
                 temp_ws = content["temp_ws"]
                 hum_ws = content["hum_ws"]
 
-                # foc_calc = (self.FOCUS_COEF[self.tel]['temp'] * temp_ws) + \
-                #            (self.FOCUS_COEF[self.tel]['hum'] * hum_ws) + self.FOCUS_COEF[self.tel]['intercept']
+                foc_calc = (self.FOCUS_COEF[self.tel]['temp'] * temp_ws) + \
+                           (self.FOCUS_COEF[self.tel]['hum'] * hum_ws) + self.FOCUS_COEF[self.tel]['intercept']
 
-                foc_calc = await self.focus_model.predict(temp=temp_ws, hum=hum_ws)
+                # foc_calc = await self.focus_model.predict(temp=temp_ws, hum=hum_ws)
+
                 if isinstance(foc_calc, float):
                     _foc = f"{foc_calc - focus:.0f}"
                 else:
