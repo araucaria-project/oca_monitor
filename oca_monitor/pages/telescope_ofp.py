@@ -203,10 +203,10 @@ class TelescopeOfp(QWidget):
                 temp_ws = content["temp_ws"]
                 hum_ws = content["hum_ws"]
 
-                # foc_calc = (self.FOCUS_COEF[self.tel]['temp'] * temp_ws) + \
-                #            (self.FOCUS_COEF[self.tel]['hum'] * hum_ws) + self.FOCUS_COEF[self.tel]['intercept']
+                foc_calc = (self.FOCUS_COEF[self.tel]['temp'] * temp_ws) + \
+                           (self.FOCUS_COEF[self.tel]['hum'] * hum_ws) + self.FOCUS_COEF[self.tel]['intercept']
 
-                foc_calc = await self.focus_model.predict(temp=temp_ws, hum=hum_ws)
+                # foc_calc = await self.focus_model.predict(temp=temp_ws, hum=hum_ws)
                 if isinstance(foc_calc, float):
                     _foc = f"{foc_calc - focus:.0f}"
                 else:
