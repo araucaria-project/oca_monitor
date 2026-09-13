@@ -182,18 +182,31 @@ def next_moon_event(now_utc: datetime.datetime,
 # Sidereal time
 # ---------------------------------------------------------------------------
 
-def sidereal_time_str(now_utc: Optional[datetime.datetime] = None) -> str:
-    """Local apparent sidereal time at OCM, formatted ``HH:MM:SS``."""
+def sidereal_time_deg(now_utc: Optional[datetime.datetime] = None,
+                      latitude: Optional[float] = None,
+                      longitude: Optional[float] = None,
+                      elevation: Optional[float] = None) -> float:
+    """Local apparent sidereal time in decimal degrees.
+
+    Defaults to OCM; the site can be given explicitly by a caller that
+    already holds coordinates of its own (the observatory config, say).
+    Degrees rather than a clock string, because that is what an
+    hour-angle computation needs: ``HA = LST - RA``.
+    """
     t = now_utc if now_utc is not None else datetime.datetime.now(
         datetime.timezone.utc)
-    # pyaraucaria returns sidereal time in decimal degrees.
-    deg = site_sidereal_time(
-        longitude=OCM_LONGITUDE,
-        latitude=OCM_LATITUDE,
-        elevation=OCM_ELEVATION_M,
+    return float(site_sidereal_time(
+        longitude=OCM_LONGITUDE if longitude is None else longitude,
+        latitude=OCM_LATITUDE if latitude is None else latitude,
+        elevation=OCM_ELEVATION_M if elevation is None else elevation,
         time=t,
-    )
-    hours = deg / 15.0
+    ))
+
+
+def sidereal_time_str(now_utc: Optional[datetime.datetime] = None) -> str:
+    """Local apparent sidereal time at OCM, formatted ``HH:MM:SS``."""
+    # pyaraucaria returns sidereal time in decimal degrees.
+    hours = sidereal_time_deg(now_utc) / 15.0
     h = int(hours) % 24
     m_full = (hours - int(hours)) * 60.0
     m = int(m_full)

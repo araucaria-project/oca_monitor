@@ -1,21 +1,24 @@
 # oca_monitor
 
-Program with GUI to monitor different systems (telescopes, weather, environement, electricity, etc.) at Observatorio
+Program with GUI to monitor different systems (telescopes, weather, environment, electricity, etc.) at Observatorio
 Cerro Murphy.
 
 Requirements:
-* python 3
-* PyQt6
-* astropy
-* matplotlib
+* python 3.11 - 3.13
+* poetry
+* PyQt6 (from PyPI on x86, from the distro on Raspberry Pi -- see below)
+
+Everything else (astropy, matplotlib, numpy, opencv, serverish, ...) is installed by `poetry install`.
 
 # Running
 
 ```bash
-poetry run ocam --env <envname>
+poetry run ocam --env kitchen
 ```
 
-where `<envname>` is the name of the settings section (e.g. `kitchen`)
+`--env` selects a section of `settings.toml` (`kitchen`, `tvroom`, `aux`, `touch_controlroom`, ...); it can also be
+given as the `OCAMONITOR_ENV` environment variable. Without it, `[default]` is used. `--log-level DEBUG` raises the
+logging level.
 
 # Chart overlays — FWHM and Photometric Zero
 
@@ -44,31 +47,61 @@ red when poor. The white trend line itself sits above the per-telescope
 scatter at high opacity so it reads as the headline signal of the panel
 without being thick enough to obscure individual points.
 
-# Adding/modifying tabs
+# Adding/modifying panels and tabs
 
-Edit oca_monit_tabs.py and add new tab name to the "tabList" (the and of the file)
+The window is a grid of panels, each panel a stack of tabs, all of it driven by `settings.toml` -- no code change is
+needed to rearrange a screen. Grid size comes from `panel_rows` / `panel_columns`, and each tab is one section:
 
-# Adding/modifying telescopes
+```toml
+[kitchen.panels.10.Weather]     # row 1, column 0, tab labelled "Weather"
+source = "weather"              # the page class lives in oca_monitor/pages/weather.py
+auto_interval = 10              # seconds before auto-switching to the next tab in this panel
+```
 
-Edit oca_monit_telescopes.py and add new telescope name to the "telescopesList" (the and of the file)
+`source` is imported as `oca_monitor.pages.<source>`, which must define `widget_class`; every other key in the section
+is passed to its constructor as a keyword argument. Existing pages are in `oca_monitor/pages/`, `pages/example.py`
+being the minimal template.
+
+(The top-level `oca_monit*.py` files are the old, pre-`oca_monitor/` application, still reachable as `ocam_old`. Tabs
+and telescopes there are listed at the end of `oca_monit_tabs.py` and `oca_monit_telescopes.py`.)
 
 # Installing on Raspberry PI
 
-Usually installing oca monitor on RPi is a nightmare (poetry install cannot install several python libraries and it has
-to be done manually, which is also problematic) then it is much better to make a copy of a SD card of working RPi with
-oca_monitor already installed. A copy is available on a pendrive. Everything you have to do is to insert pendrive to
-some PC (or your laptop) with SD card slot. Insert also a new (or used but not needed) SD card and check in /dev/ what
-is the name of pendrive and SD card (disconnect pendrive list content of `/dev/` directory, and then connect it and see
-what appeard, it should be something like `/dev/sd...`, repeat the procedure for SD card). Then use the command:
+Poetry does not install PyQt6 on ARM: the ARM64 wheels on PyPI require glibc >= 2.39 and Raspberry Pi OS Bookworm has
+2.36, so pip would fall back to the source distribution and try to build Qt. `pyproject.toml` therefore skips `pyqt6`
+on ARM via a platform marker -- take the bindings from the distro instead. No extras or flags needed.
 
-```
-dd bs=4M if=/dev/pendrive_name of=/dev/sd_name status=progress
-```
+1. System Qt bindings. `qtsvg` is **required** (matplotlib imports `PyQt6.QtSvg`, and Debian ships it separately from
+   `python3-pyqt6`):
 
-Wait about 10 minutes. When it is ready you can insert SD card to RPi and boot. Now you just have to change the host
-name (in Raspberry Menu>Preferences>Raspberry Pi Configuration). Then make sure that the mac address of the new RPi is
-different from already existing in the network (it has to be different, but make sure :)). Now your RPi is configured
-and you can run oca monitor.
+   ```bash
+   sudo apt install python3-pyqt6 python3-pyqt6.qtsvg python3-pyqt6.sip
+   ```
+
+2. Let the project venv see them, then install the rest:
+
+   ```bash
+   poetry config virtualenvs.options.system-site-packages true
+   poetry env remove --all   # only if a .venv already exists
+   poetry install
+   ```
+
+3. Check and run:
+
+   ```bash
+   poetry run python -c "from PyQt6 import QtWidgets, QtSvg; from matplotlib.backends.backend_qtagg import FigureCanvasQTAgg; print('OK')"
+   poetry run ocam --env kitchen
+   ```
+
+Notes:
+* Bookworm ships PyQt6 6.4.2, which covers every Qt class this app uses.
+* Do not run `poetry install --sync` here -- with `system-site-packages` it may try to remove distro packages.
+* `poetry config` is used without `--local` on purpose: `poetry.toml` is tracked in git and this setting is wanted
+  only on the Pi.
+* On Raspberry Pi OS **Trixie** (glibc 2.41) none of this applies -- a plain `poetry install` pulls PyQt6 from PyPI.
+* Last resort: clone the SD card of a working RPi (a copy is on a pendrive) with
+  `dd bs=4M if=/dev/pendrive_name of=/dev/sd_name status=progress`, then change the hostname in
+  Raspberry Menu > Preferences > Raspberry Pi Configuration and make sure the MAC address is unique in the network.
 
 # Adding application icon to the menu
 
@@ -78,5 +111,5 @@ The desktop files are located in the `desktop` directory of the project.
 The command to do this is e.g:
 
 ```bash
-ln -s /src/oca_monitor/desktop/tvroom.desktop ~/.local/share/applications/ocam.desktop
+ln -s ~/src/oca_monitor/desktop/tvroom.desktop ~/.local/share/applications/ocam.desktop
 ```

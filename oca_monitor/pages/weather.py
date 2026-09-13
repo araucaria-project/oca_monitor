@@ -22,7 +22,7 @@ import numpy as np
 from PyQt6 import QtCore, QtGui  # imported before matplotlib so qt_compat picks PyQt6
 from PyQt6.QtWidgets import QFrame, QHBoxLayout, QLabel, QVBoxLayout, QWidget
 from astropy.time import Time as AstropyTime
-from matplotlib.backends.backend_qt5agg import FigureCanvasQTAgg as FigureCanvas
+from matplotlib.backends.backend_qtagg import FigureCanvasQTAgg as FigureCanvas
 from matplotlib.figure import Figure
 from qasync import asyncSlot
 from serverish.base import dt_ensure_datetime, dt_from_array
@@ -1145,6 +1145,9 @@ class _FwhmPanel(_PerTelescopeScatterPanel):
 
     OVERLAY_ROTATE_SEC = 3.0           # round-robin cadence
     OVERLAY_FRESH_WINDOW_SEC = 15 * 60.0  # max arrival skew vs newest sample
+    SMOOTH_SIGMA = {'default': 5.0, 'zb08': 8.0}
+    MAX_SEGMENT_GAP_HOURS = 0.5
+    MIN_SEGMENT_POINTS = 3
 
     def __init__(self, main_window, telescopes: Sequence[str]) -> None:
         super().__init__(main_window, telescopes)
@@ -1153,17 +1156,28 @@ class _FwhmPanel(_PerTelescopeScatterPanel):
         # or system-clock adjustments.
         self._latest: Dict[str, Tuple[float, float]] = {}
         self._rr_idx: int = 0
+        self._smooth_lines: Dict[str, Any] = {}
 
     title_side = 'right'   # title pinned where there's daytime gap, no data
 
     def init_axes(self, ax) -> None:
         super().init_axes(ax)
+        for tel in self.telescopes:
+            color = ck.telescope_color(self.main_window, tel)
+            if tel in self._lines:
+                self._lines[tel].set_markersize(2.7)
+                self._lines[tel].set_alpha(0.37)
+            self._smooth_lines[tel], = ax.plot(
+                [], [], '-', color=color, linewidth=1.4, alpha=0.95,
+                zorder=7)
         self._overlay = ck.big_overlay(ax)
         QtCore.QTimer.singleShot(int(self.OVERLAY_ROTATE_SEC * 1000),
                                  self._do_rotate)
 
     def restamp_telescope_colors(self) -> None:
         super().restamp_telescope_colors()
+        for tel, line in self._smooth_lines.items():
+            line.set_color(ck.telescope_color(self.main_window, tel))
         # Re-apply the blended colour to the overlay in case nats_cfg
         # arrived after init.
         self._refresh_overlay()
@@ -1181,6 +1195,45 @@ class _FwhmPanel(_PerTelescopeScatterPanel):
         arcsec = fwhm * scale
         self._append(tel, hour, arcsec)
         self._latest[tel] = (arcsec, time.monotonic())
+        self._refresh_smoothed(tel)
+
+    def _refresh_smoothed(self, tel: str) -> None:
+        line = self._smooth_lines.get(tel)
+        if line is None:
+            return
+        hours, vals = self._series.get(tel, ([], []))
+        if not hours:
+            line.set_data([], [])
+            return
+
+        idx = np.argsort(np.asarray(hours, dtype=float))
+        x_sorted = np.asarray(hours, dtype=float)[idx]
+        y_sorted = np.asarray(vals, dtype=float)[idx]
+
+        if x_sorted.size > 1:
+            cuts = np.where(np.diff(x_sorted) > self.MAX_SEGMENT_GAP_HOURS)[0] + 1
+            seg_x = np.split(x_sorted, cuts)
+            seg_y = np.split(y_sorted, cuts)
+        else:
+            seg_x = [x_sorted]
+            seg_y = [y_sorted]
+
+        out_x: List[float] = []
+        out_y: List[float] = []
+        if tel in self.SMOOTH_SIGMA.keys():
+            smooth_sigma = self.SMOOTH_SIGMA[tel]
+        else:
+            smooth_sigma = self.SMOOTH_SIGMA['default']
+        for sx, sy in zip(seg_x, seg_y):
+            if sx.size < self.MIN_SEGMENT_POINTS:
+                continue
+            sy_smooth = ck.gaussian_filter1d(sy, sigma=smooth_sigma)
+            if out_x:
+                out_x.append(np.nan)
+                out_y.append(np.nan)
+            out_x.extend(sx.tolist())
+            out_y.extend(sy_smooth.tolist())
+        line.set_data(out_x, out_y)
 
     def _eligible(self) -> List[str]:
         """Telescopes within the freshness window, in canonical order.
@@ -1229,6 +1282,8 @@ class _FwhmPanel(_PerTelescopeScatterPanel):
 
     def on_session_reset(self) -> None:
         super().on_session_reset()
+        for line in self._smooth_lines.values():
+            line.set_data([], [])
         self._latest.clear()
         self._rr_idx = 0
         if self._overlay is not None:
@@ -1282,11 +1337,11 @@ class _PhotZeroPanel(_Panel):
     title = 'Photometric Zero  [mag]'
     title_side = 'right'   # falls into the daytime gap, doesn't cover data
 
-    GREEN_THRESHOLD = -0.05
-    YELLOW_THRESHOLD = -0.10
-    SMOOTH_SIGMA = 3.0
+    GREEN_THRESHOLD = -0.1
+    YELLOW_THRESHOLD = -0.2
+    SMOOTH_SIGMA = 5.0
     Y_MAX = 0.05    # fixed scale top
-    Y_MIN = -0.125  # fixed scale bottom — outliers clip rather than rescaling
+    Y_MIN = -0.25  # fixed scale bottom — outliers clip rather than rescaling
     # Constant colour for the site-wide trend line. Pure white is unused
     # elsewhere in the chart palette, so it visually flags "average across
     # telescopes" without colliding with any telescope or filter colour.
@@ -1305,13 +1360,8 @@ class _PhotZeroPanel(_Panel):
         super().__init__()
         self.main_window = main_window
         self.telescopes = list(telescopes)
-        # Per-tel parallel lists: (hours_utc, zps, filters, t_arrival_monotonic).
-        # ``t_arrival`` is the ground truth for "which sample is newest" —
-        # ``hours_utc`` wraps at 00:00 UTC and would otherwise order the
-        # post-midnight half of the night BEFORE the pre-midnight half.
-        self._series: Dict[str, Tuple[List[float], List[float], List[str],
-                                       List[float]]] = {
-            t: ([], [], [], []) for t in self.telescopes
+        self._series: Dict[str, Tuple[List[float], List[float], List[str]]] = {
+            t: ([], [], []) for t in self.telescopes
         }
         self._scatters: Dict[str, Any] = {}
         self._line_smoothed = None
@@ -1330,8 +1380,8 @@ class _PhotZeroPanel(_Panel):
                    color=ck.COLOR_DANGER, alpha=0.20, linewidth=0, zorder=0)
         for tel in self.telescopes:
             color = ck.telescope_color(self.main_window, tel)
-            self._scatters[tel] = ax.scatter([], [], s=10, c=color,
-                                             alpha=0.50, edgecolors='none',
+            self._scatters[tel] = ax.scatter([], [], s=7, c=color,
+                                             alpha=0.37, edgecolors='none',
                                              linewidths=0, zorder=4, label=tel)
         # Combined smoothed trend across all telescopes — the headline
         # signal of the panel ("site-wide photometric quality"). Bright
@@ -1340,7 +1390,7 @@ class _PhotZeroPanel(_Panel):
         # scatter beneath stays legible. White is unused elsewhere in
         # the chart palette, marking this line as "not a telescope".
         self._line_smoothed, = ax.plot([], [], '-', color=self.MEAN_LINE_COLOR,
-                                       linewidth=1.6, alpha=0.95, zorder=8)
+                                       linewidth=1.4, alpha=0.95, zorder=8)
         self._overlay_avg = ck.big_overlay(ax)
 
     def restamp_telescope_colors(self) -> None:
@@ -1366,11 +1416,10 @@ class _PhotZeroPanel(_Panel):
         if not _math.isfinite(zp):
             return
         flt = str(data.get('filter', '') or '')
-        hours, zps, fls, tss = self._series[tel]
+        hours, zps, fls = self._series[tel]
         hours.append(hour); zps.append(zp); fls.append(flt)
-        tss.append(time.monotonic())
         if len(hours) > 4000:
-            del hours[:1000]; del zps[:1000]; del fls[:1000]; del tss[:1000]
+            del hours[:1000]; del zps[:1000]; del fls[:1000]
         edge = [ck.PHOT_FILTER_COLORS.get(f, '#888888') for f in fls]
         self._scatters[tel].set_offsets(np.column_stack((hours, zps)))
         self._scatters[tel].set_edgecolors(edge)
@@ -1379,42 +1428,27 @@ class _PhotZeroPanel(_Panel):
     def _refresh_smoothed_and_scale(self) -> None:
         all_x: List[float] = []
         all_y: List[float] = []
-        all_t: List[float] = []
-        for _tel, (xs, ys, _, tss) in self._series.items():
+        for _tel, (xs, ys, _) in self._series.items():
             all_x.extend(xs)
             all_y.extend(ys)
-            all_t.extend(tss)
         if not all_x:
             if self._line_smoothed is not None:
                 self._line_smoothed.set_data([], [])
             return
-        # Sort by arrival time, NOT by hour-of-day. The night straddles
-        # 00:00 UTC, so sorting by ``hour`` would place post-midnight
-        # samples (x≈0..8) before pre-midnight ones (x≈22..24), making
-        # the smoothed-line tip — and the overlay value — track the
-        # oldest sample of the night instead of the newest.
-        idx = np.argsort(np.asarray(all_t))
+        idx = np.argsort(np.asarray(all_x))
         x_sorted = np.asarray(all_x, dtype=float)[idx]
         y_sorted = np.asarray(all_y, dtype=float)[idx]
-        t_sorted = np.asarray(all_t, dtype=float)[idx]
+        if datetime.datetime.now(datetime.timezone.utc).hour < 18.0:
+            rem_after_18 = x_sorted < 18.0
+            x_sorted = x_sorted[rem_after_18]
+            y_sorted = y_sorted[rem_after_18]
 
-        # Split into segments on TWO independent gap conditions, both
-        # measured between consecutive time-ordered samples:
-        #   * real-time silence > MAX_SEGMENT_GAP_HOURS — the trend
-        #     never connects across hours of no data (cloud-out, downtime);
-        #   * |Δx| > MAX_SEGMENT_GAP_HOURS — catches the UTC-midnight
-        #     wrap (x jumps 23.x → 0.x in a few minutes of real time),
-        #     so the line doesn't draw a long horizontal stroke back
-        #     across the chart.
-        # Smooth each segment independently with sigma=SMOOTH_SIGMA,
-        # then concatenate with NaN separators (matplotlib breaks the
-        # line at NaN).
+        # Split into segments at gaps wider than MAX_SEGMENT_GAP_HOURS so
+        # the trend never connects across hours of silence. Smooth each
+        # segment independently with sigma=SMOOTH_SIGMA, then concatenate
+        # with NaN separators (matplotlib breaks the line at NaN).
         if x_sorted.size > 1:
-            dt_h = np.diff(t_sorted) / 3600.0   # monotonic seconds → hours
-            dx_h = np.abs(np.diff(x_sorted))
-            gap = (dt_h > self.MAX_SEGMENT_GAP_HOURS) | \
-                  (dx_h > self.MAX_SEGMENT_GAP_HOURS)
-            cuts = np.where(gap)[0] + 1
+            cuts = np.where(np.diff(x_sorted) > self.MAX_SEGMENT_GAP_HOURS)[0] + 1
             seg_x = np.split(x_sorted, cuts)
             seg_y = np.split(y_sorted, cuts)
         else:
@@ -1450,7 +1484,7 @@ class _PhotZeroPanel(_Panel):
 
     def on_session_reset(self) -> None:
         for tel in self.telescopes:
-            self._series[tel] = ([], [], [], [])
+            self._series[tel] = ([], [], [])
             if tel in self._scatters:
                 self._scatters[tel].set_offsets(np.zeros((0, 2)))
         if self._line_smoothed is not None:
@@ -1719,7 +1753,7 @@ class WeatherDataWidget(QWidget):
         total_ms = (_time.perf_counter() - t0) * 1000.0
         if total_ms > 10.0 or per_panel:
             details = ", ".join(f"{name}={dt:.0f}ms" for name, dt in per_panel)
-            logger.info(f"[render] {total_ms:.0f}ms total" +
+            logger.debug(f"[render] {total_ms:.0f}ms total" +
                         (f" ({details})" if details else ""))
 
     def _schedule_next_sunset_reset(self) -> None:
@@ -1921,7 +1955,7 @@ class WeatherDataWidget(QWidget):
                 if not caught_up and (now - ts).total_seconds() < 30.0:
                     elapsed = _time.perf_counter() - t_start
                     other = max(0.0, elapsed - sum_wait - sum_hook)
-                    logger.info(
+                    logger.debug(
                         f"[hydration] {subject} caught up after {n_msgs} msgs "
                         f"({n_yest} yesterday + {n_today} today) in {elapsed:.1f}s "
                         f"— wait={sum_wait:.1f}s hook={sum_hook:.1f}s other={other:.1f}s")
@@ -1929,7 +1963,7 @@ class WeatherDataWidget(QWidget):
                 if n_msgs - last_log_n >= 250:
                     now_perf = _time.perf_counter()
                     rate = (n_msgs - last_log_n) / (now_perf - last_log_t)
-                    logger.info(
+                    logger.debug(
                         f"[hydration] {subject} {n_msgs} msgs "
                         f"({n_yest}y/{n_today}t), last ts={ts.isoformat()}, "
                         f"recent rate={rate:.0f} msg/s, "

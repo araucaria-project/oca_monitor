@@ -4,12 +4,13 @@ import logging
 import os.path
 from typing import Any, Optional
 import json
+import mloca
 
 from serverish.base import create_task
 from serverish.base.iterators import AsyncDictItemsIter
 
 from oca_monitor.utils import get_time_ago_text
-from PyQt6.QtWidgets import QWidget, QVBoxLayout, QLabel, QTextEdit, QLineEdit
+from PyQt6.QtWidgets import QWidget, QVBoxLayout, QLabel, QTextEdit, QLineEdit, QSizePolicy
 from PyQt6 import QtCore, QtGui
 from PyQt6.QtCore import Qt
 from qasync import asyncSlot
@@ -34,9 +35,9 @@ class TelescopeOfp(QWidget):
     OBSERV_AGO_BAD_TIME = 3600
     OBSERV_AGO_BAD_COLOR = 'red'
     FOCUS_COEF = {
-        'jk15': {'temp': -9.071449, 'hum': -0.288137, 'intercept': 25448.052783},
+        'jk15': {'temp': -10.890872, 'hum': -0.364425, 'intercept': 25474.446194},
         'zb08': {'temp': -7.224958, 'hum': -0.609259, 'intercept': 15497.403565},
-        'wk06': {'temp': -4.636257, 'hum': -0.589260, 'intercept': 21310.862008},
+        'wk06': {'temp': -5.019173, 'hum': -0.595964, 'intercept': 21310.179660},
     }
 
     # You can use just def __init__(self, **kwargs) if you don't want to bother with the arguments
@@ -52,6 +53,7 @@ class TelescopeOfp(QWidget):
         self.main_window = main_window
         self.info_e_txt: str = ''
         self.info_e_last_date_obs: Optional[datetime.datetime] = None
+        self.focus_model = mloca.FocusModel(telescope_id=tel)
         super().__init__()
         self.initUI()
         logger.info(f"TelescopeOfp {self.tel} init setup done")
@@ -76,6 +78,7 @@ class TelescopeOfp(QWidget):
             color = 'black'
 
         self.fits_pic = QLabel()
+        self.fits_pic.setSizePolicy(QSizePolicy.Policy.Ignored, QSizePolicy.Policy.Ignored)
 
         self.curve_pix = QLabel()
         self.curve_pix.setFixedHeight(self.LC_HEIGHT)
@@ -88,7 +91,7 @@ class TelescopeOfp(QWidget):
         self.info_e.setStyleSheet(f"background-color: {color}; color: white")
         # self.set_pix_maps()
 
-        self.layout.addWidget(self.fits_pic)
+        self.layout.addWidget(self.fits_pic, 1)
         self.layout.addWidget(self.info_e)
         self.layout.addWidget(self.curve_pix)
 
@@ -158,30 +161,43 @@ class TelescopeOfp(QWidget):
             try:
                 date = content["date_obs"]
                 obj = content["object"]
-                type = content["imagetyp"]
+                _type = content["imagetyp"]
                 filter_ = content["filter"]
                 n = content["loop"]
                 n_dit = content["nloops"]
                 exptime = content["exptime"]
+                if exptime is not None:
+                    _exptime = round(exptime, 1)
+                    expt = float(exptime)
+                else:
+                    _exptime = ""
+                    expt = 0
 
-                txt = txt + f"<i>{type}</i> <b>{obj}</b>"
-                txt = txt + f" | {n}/{n_dit} <b>{filter_}</b>  <b>{exptime:.1f}</b>s |<br>"
-            except (ValueError, LookupError) as e:
+                txt = txt + f"<i>{_type}</i> <b>{obj}</b>"
+                txt = txt + f" | {n}/{n_dit} <b>{filter_}</b>  <b>{_exptime}</b>s |<br>"
+            except (ValueError, LookupError, TypeError) as e:
                 logger.warning(f"Can not parse data: {e}")
                 return
             try:
-                self.info_e_last_date_obs = datetime.datetime.fromisoformat(date).replace(tzinfo=datetime.timezone.utc)
+                self.info_e_last_date_obs = datetime.datetime.fromisoformat(date).replace(
+                    tzinfo=datetime.timezone.utc
+                ) + datetime.timedelta(seconds=expt)
             except (ValueError, TypeError):
                 return
 
             try:
-                fwhm_x = content["fwhm_x"]
-                fwhm_y = content["fwhm_y"]
+                scale = content["scale"]
+                fwhm_x = round(content["fwhm_x"] * scale, 1)
+                fwhm_y = round(content["fwhm_y"] * scale, 1)
+            except (ValueError, LookupError, TypeError):
+                fwhm_x = ""
+                fwhm_y = ""
+
+            try:
                 arr_min = content["min"]
                 arr_max = content["max"]
                 mean = content["mean"]
                 median = content["median"]
-                scale = content["scale"]
                 alt_tel = content["alt_tel"]
                 focus = content["focus"]
                 temp_ws = content["temp_ws"]
@@ -190,28 +206,21 @@ class TelescopeOfp(QWidget):
                 foc_calc = (self.FOCUS_COEF[self.tel]['temp'] * temp_ws) + \
                            (self.FOCUS_COEF[self.tel]['hum'] * hum_ws) + self.FOCUS_COEF[self.tel]['intercept']
 
+                # foc_calc = await self.focus_model.predict(temp=temp_ws, hum=hum_ws)
+
+                if isinstance(foc_calc, float):
+                    _foc = f"{foc_calc - focus:.0f}"
+                else:
+                    _foc = "None"
+
                 txt = txt + (
-                    f'<font size="3">| fwhm x:{fwhm_x * scale:.1f} y:{fwhm_y * scale:.1f} alt:{alt_tel:.0f}'
+                    f'<font size="3">| fwhm x:{fwhm_x} y:{fwhm_y} alt:{alt_tel:.0f}'
                     f' min:{arr_min:.0f} max:{arr_max:.0f} mean:{mean:.0f} med:{median:.0f}'
-                    f' focus:{focus:.0f}({focus - foc_calc:.0f})</font>|<br>'
+                    f' focus:{focus:.0f}({_foc})</font>|<br>'
                 )
 
-            except (ValueError, LookupError) as e:
-                arr_min = content["min"]
-                arr_max = content["max"]
-                mean = content["mean"]
-                median = content["median"]
-                focus = content["focus"]
-                temp_ws = content["temp_ws"]
-                hum_ws = content["hum_ws"]
-
-                foc_calc = (self.FOCUS_COEF[self.tel]['temp'] * temp_ws) + \
-                           (self.FOCUS_COEF[self.tel]['hum'] * hum_ws) + self.FOCUS_COEF[self.tel]['intercept']
-
-                txt = txt + (
-                    f'<font size="3">| min:{arr_min:.0f}'
-                    f' max:{arr_max:.0f} mean:{mean:.0f} median:{median:.0f}'
-                    f' focus:{focus:.0f}({focus - foc_calc:.0f})</font>|<br>')
+            except (ValueError, LookupError, TypeError) as e:
+                pass
 
             try:
                 if len(content["objects"]) > 0:
@@ -223,7 +232,7 @@ class TelescopeOfp(QWidget):
                         txt = txt + (f' <font size="3"><b>{obj_name}</b>'
                                      f' max-adu:{adu_max:.0f} moon-dist:{moon_sep:.0f} </font>|')
 
-            except (ValueError, LookupError) as e:
+            except (ValueError, LookupError, TypeError) as e:
                 pass
 
             txt = txt + f" </p>"
@@ -244,7 +253,7 @@ class TelescopeOfp(QWidget):
         if object_to_display:
             self.fits_pic.setPixmap(
                 object_to_display.scaled(
-                    self.info_e.width(),
+                    self.fits_pic.width(),
                     height,
                     QtCore.Qt.AspectRatioMode.KeepAspectRatio,
                     QtCore.Qt.TransformationMode.SmoothTransformation
@@ -253,19 +262,16 @@ class TelescopeOfp(QWidget):
 
     async def lc_display(self, object_to_display: QPixmap) -> None:
 
-        self.curve_pix.setPixmap(
-            object_to_display.scaled(
-                self.info_e.width(),
-                self.LC_HEIGHT,
-                QtCore.Qt.AspectRatioMode.IgnoreAspectRatio,
-                QtCore.Qt.TransformationMode.SmoothTransformation
-        ))
+        scaled = object_to_display.scaledToWidth(
+            self.curve_pix.width(), QtCore.Qt.TransformationMode.SmoothTransformation)
+        self.curve_pix.setFixedHeight(scaled.height())
+        self.curve_pix.setPixmap(scaled)
         # self.curve_pix.setAlignment(QtCore.Qt.AlignmentFlag.AlignCenter)
 
 
     @asyncSlot()
     async def async_init(self) -> None:
-
+        await self.focus_model.load_model()
         im_on_init = await self.image_instance(image_path=os.path.join(self.dir, self.PNG_FILE_NAME))
         await self.image_display(object_to_display=im_on_init)
         lc_on_init = await self.image_instance(image_path=os.path.join(self.dir, self.LC_FILE_NAME))
@@ -276,14 +282,14 @@ class TelescopeOfp(QWidget):
         display = ImageDisplay(
             name='telescope', images_dir=self.dir, image_display_clb=self.image_display,
             image_instance_clb=self.image_instance, images_prefix=self.PNG_FILE_NAME,
-            image_cascade_sec=0, image_pause_sec=0, refresh_list_sec=1, mode='update_files_show_once',
+            image_cascade_sec=0, image_pause_sec=0, refresh_list_sec=0.2, mode='update_files_show_once',
         )
         await display.display_init()
 
         lc = ImageDisplay(
             name='light curve', images_dir=self.dir, image_display_clb=self.lc_display,
             image_instance_clb=self.image_instance, images_prefix=self.LC_FILE_NAME,
-            image_cascade_sec=0, image_pause_sec=0, refresh_list_sec=1, mode='update_files_show_once',
+            image_cascade_sec=0, image_pause_sec=0, refresh_list_sec=0.2, mode='update_files_show_once',
         )
         await lc.display_init()
 
