@@ -329,6 +329,9 @@ class RadarWidget(QWidget):
     # family of readings around a mount's mark, so they share one size; SUN
     # and MOON follow it too, the Moon a shade larger for its phase reading
     MARK_FONTSIZE = 7.5
+    # the altitude numbers on the rings, and the scale the plan numbers take
+    # their size from
+    RING_FONTSIZE = 8.0
     CAM_DY_PX = 15.0
     CAM_W_PX = 15.0
     CAM_H_PX = 10.6
@@ -341,6 +344,11 @@ class RadarWidget(QWidget):
     PLAN_STAR_SIZE = 26.0
     PLAN_STAR_ALPHA_FIRST = 0.99
     PLAN_STAR_ALPHA_LAST = 0.30
+    # each star carries its place in the queue, 1 for the object due next.
+    # Deliberately smaller than the altitude numbers it sits among - a queue
+    # position is read once, when the eye is already on its star
+    PLAN_NUM_FONTSIZE_FACTOR = 0.7
+    PLAN_NUM_OFFSET_PX = (4.5, 3.0)
     # a night's plan runs to hundreds of entries; past this many the stars say
     # nothing more than 'the plan goes on', and the fade would have run out
     PLAN_STAR_MAX = 80
@@ -771,14 +779,17 @@ class RadarWidget(QWidget):
                 break
         return ahead
 
-    def _plan_star_points(self, tel: str) -> List[Tuple[float, float, float]]:
-        """(theta, radius, alpha) for the queued objects of one telescope.
+    def _plan_star_points(self, tel: str) -> List[Tuple[float, float, float, int]]:
+        """(theta, radius, alpha, queue place) for the queued objects of one
+        telescope.
 
         Positions are where those objects stand *now*: the plan's own
         ``meta.az``/``meta.alt`` are the same thing computed by toi, and serve
         as the fallback when the coordinates themselves will not parse.
         Alpha runs PLAN_STAR_ALPHA_FIRST down to PLAN_STAR_ALPHA_LAST across
-        the queue, so the next object is the brightest star of the set.
+        the queue, so the next object is the brightest star of the set. The
+        queue place counts the plan, not the stars drawn from it: an object
+        currently under the horizon still takes its number with it.
         """
         ahead = self._plan_ahead(tel)
         if not ahead:
@@ -787,7 +798,7 @@ class RadarWidget(QWidget):
         lat = self._site_geo()[0]
         first, last = self.PLAN_STAR_ALPHA_FIRST, self.PLAN_STAR_ALPHA_LAST
         span = max(1, len(ahead) - 1)
-        points: List[Tuple[float, float, float]] = []
+        points: List[Tuple[float, float, float, int]] = []
         for i, entry in enumerate(ahead):
             radec = _ob_radec_deg(entry.get('ob') or {})
             if radec is not None and lst is not None:
@@ -804,7 +815,7 @@ class RadarWidget(QWidget):
             if alt < 0.0:
                 continue
             points.append((_theta(az), self._radius(alt),
-                           first + (last - first) * i / span))
+                           first + (last - first) * i / span, i + 1))
         return points
 
     def _program_target(self, tel: str) -> Optional[Dict[str, Any]]:
@@ -1004,12 +1015,12 @@ class RadarWidget(QWidget):
 
         for alt in rings:
             ax.text(np.radians(22.5), self._radius(alt), f'{alt}°',
-                    color=COLOR_GRID_TEXT, fontsize=8, alpha=0.85,
-                    ha='center', va='center', zorder=3)
+                    color=COLOR_GRID_TEXT, fontsize=self.RING_FONTSIZE,
+                    alpha=0.85, ha='center', va='center', zorder=3)
         # the observing limit is the one ring that moves with the config, so it
         # says which altitude it stands for rather than leaving it to be guessed
         ax.text(np.radians(22.5), r_min, f'{self._obs_min_alt():g}°',
-                color=ck.COLOR_DANGER, fontsize=8, alpha=0.95,
+                color=ck.COLOR_DANGER, fontsize=self.RING_FONTSIZE, alpha=0.95,
                 ha='center', va='center', zorder=3)
 
         for tel in self.telescopes:
@@ -1645,7 +1656,10 @@ class RadarWidget(QWidget):
 
         Drawn straight from the plan document, so they stand whether or not
         the mount itself is reporting - they are what toi intends to observe,
-        not a reading off the telescope.
+        not a reading off the telescope. Each star is numbered with its place
+        in the queue. Neither the stars nor their numbers take part in the
+        label dodging: they are the background the night is read against, and
+        a mount, its name or its object may cover them freely.
         """
         points = self._plan_star_points(tel)
         if not points:
@@ -1656,6 +1670,13 @@ class RadarWidget(QWidget):
         rgba = np.array([to_rgba(color, alpha=p[2]) for p in points])
         ax.scatter(thetas, radii, marker='*', s=self.PLAN_STAR_SIZE, c=rgba,
                    edgecolors='none', zorder=5)
+        dx, dy = self.PLAN_NUM_OFFSET_PX
+        for theta, r, alpha, place in points:
+            ax.annotate(str(place), (theta, r), textcoords='offset points',
+                        xytext=(self._pt(dx), self._pt(dy)),
+                        ha='left', va='bottom', color=color, alpha=alpha,
+                        fontsize=self.RING_FONTSIZE * self.PLAN_NUM_FONTSIZE_FACTOR,
+                        zorder=5)
 
     def _draw_cover_cross(self, ax, theta: float, r: float,
                           dim: float) -> None:
