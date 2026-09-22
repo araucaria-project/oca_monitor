@@ -26,6 +26,8 @@ from serverish.base import dt_from_array
 from serverish.base.task_manager import create_task
 from serverish.messenger import get_reader
 
+from pyaraucaria.coordinates import deg_to_decimal_deg, hourangle_to_decimal_deg
+
 from oca_monitor.utils.ephem_ocm import (OCM_ELEVATION_M, OCM_LATITUDE,
                                          OCM_LONGITUDE, location,
                                          sidereal_time_deg)
@@ -170,6 +172,27 @@ def _program_object(program: Optional[str]) -> str:
     return ' '.join(parts[:2])
 
 
+def _ob_command(ob: Any) -> str:
+    """The command a plan entry's OB carries - OBJECT, FOCUS, ZERO, WAIT...
+
+    TOI writes it as ``command_name`` today and as ``type`` in the plans its
+    older parser produced; both spellings turn up in a live plan document.
+    """
+    if not isinstance(ob, dict):
+        return ''
+    return str(ob.get('command_name') or ob.get('type') or '').upper()
+
+
+def _ob_radec_deg(ob: Any) -> Optional[Tuple[float, float]]:
+    """(RA, Dec) of a plan entry's OB in degrees, or None when it carries
+    none that parse - sexagesimal or decimal, as written in the plan."""
+    try:
+        return (hourangle_to_decimal_deg(str(ob['ra'])),
+                deg_to_decimal_deg(str(ob['dec'])))
+    except (LookupError, TypeError, ValueError):
+        return None
+
+
 def _slerp_altaz(az0: float, alt0: float, az1: float, alt1: float,
                  f: float) -> Tuple[float, float]:
     """Point a fraction ``f`` along the great circle between two horizontal
@@ -306,10 +329,29 @@ class RadarWidget(QWidget):
     # family of readings around a mount's mark, so they share one size; SUN
     # and MOON follow it too, the Moon a shade larger for its phase reading
     MARK_FONTSIZE = 7.5
+    # the altitude numbers on the rings, and the scale the plan numbers take
+    # their size from
+    RING_FONTSIZE = 8.0
     CAM_DY_PX = 15.0
     CAM_W_PX = 15.0
     CAM_H_PX = 10.6
     RETICLE_R_PX = 7.0
+    # The plan ahead: every OBJECT still queued gets a small star in its
+    # telescope's colour, standing where that object is right now rather than
+    # where it will be when its turn comes - the radar is a picture of the sky
+    # as it is. The queue reads off the fade: the object due next is all but
+    # solid, the far end of the plan barely there.
+    PLAN_STAR_SIZE = 26.0
+    PLAN_STAR_ALPHA_FIRST = 0.99
+    PLAN_STAR_ALPHA_LAST = 0.30
+    # each star carries its place in the queue, 1 for the object due next.
+    # Deliberately smaller than the altitude numbers it sits among - a queue
+    # position is read once, when the eye is already on its star
+    PLAN_NUM_FONTSIZE_FACTOR = 0.7
+    PLAN_NUM_OFFSET_PX = (4.5, 3.0)
+    # a night's plan runs to hundreds of entries; past this many the stars say
+    # nothing more than 'the plan goes on', and the fade would have run out
+    PLAN_STAR_MAX = 80
     COVER_X_SIZE = 85.0
 
     DOME_WEDGE_DEG = 16.0
@@ -420,6 +462,7 @@ class RadarWidget(QWidget):
         self._min_alt: Optional[float] = None
         self._wind: Dict[str, Optional[float]] = {'ms': None, 'dir': None}
         self._radec_cache: Optional[Tuple[float, Tuple[List, List, List, List]]] = None
+        self._lst_cache: Optional[Tuple[float, float]] = None
 
         self._init_ui()
         QtCore.QTimer.singleShot(0, self.async_init)
@@ -701,6 +744,80 @@ class RadarWidget(QWidget):
             return items[idx]
         return None
 
+    def _plan_ahead(self, tel: str) -> List[Dict[str, Any]]:
+        """The OBJECT entries still queued, the one due next first.
+
+        Everything the queue has already passed is behind ``current_i``, and
+        with nothing running ``next_i`` says where it would pick up; with
+        neither set the plan is done and nothing is ahead. Only OBJECT entries
+        count - a FOCUS or a ZERO has nowhere on the sky to be drawn - and
+        only entries the runner would actually reach: the ones it would skip
+        are dropped the same way ``toi``'s own check_next_i drops them.
+        """
+        plan = self._state[tel].get('plan') or {}
+        items = plan.get('plan') or []
+        if not items:
+            return []
+        current = plan.get('current_i', -1)
+        following = plan.get('next_i', -1)
+        if isinstance(current, int) and current >= 0:
+            start = current + 1
+        elif isinstance(following, int) and following >= 0:
+            start = following
+        else:
+            return []
+        ahead: List[Dict[str, Any]] = []
+        for entry in items[start:]:
+            ob = (entry or {}).get('ob') or {}
+            meta = (entry or {}).get('meta') or {}
+            if _ob_command(ob) != 'OBJECT':
+                continue
+            if meta.get('skip') or meta.get('skip_alt') or meta.get('ok') is False:
+                continue
+            ahead.append(entry)
+            if len(ahead) >= self.PLAN_STAR_MAX:
+                break
+        return ahead
+
+    def _plan_star_points(self, tel: str) -> List[Tuple[float, float, float, int]]:
+        """(theta, radius, alpha, queue place) for the queued objects of one
+        telescope.
+
+        Positions are where those objects stand *now*: the plan's own
+        ``meta.az``/``meta.alt`` are the same thing computed by toi, and serve
+        as the fallback when the coordinates themselves will not parse.
+        Alpha runs PLAN_STAR_ALPHA_FIRST down to PLAN_STAR_ALPHA_LAST across
+        the queue, so the next object is the brightest star of the set. The
+        queue place counts the plan, not the stars drawn from it: an object
+        currently under the horizon still takes its number with it.
+        """
+        ahead = self._plan_ahead(tel)
+        if not ahead:
+            return []
+        lst = self._lst_deg()
+        lat = self._site_geo()[0]
+        first, last = self.PLAN_STAR_ALPHA_FIRST, self.PLAN_STAR_ALPHA_LAST
+        span = max(1, len(ahead) - 1)
+        points: List[Tuple[float, float, float, int]] = []
+        for i, entry in enumerate(ahead):
+            radec = _ob_radec_deg(entry.get('ob') or {})
+            if radec is not None and lst is not None:
+                az, alt = _altaz_from_hadec(lst - radec[0], radec[1], lat)
+                az, alt = float(az), float(alt)
+            else:
+                meta = entry.get('meta') or {}
+                az, alt = _as_float(meta.get('az')), _as_float(meta.get('alt'))
+                if az is None or alt is None:
+                    continue
+            # below the horizon an object is not on this disc: the band out
+            # there belongs to the domes, and a plan star in it would only say
+            # 'later tonight', which the fade says already
+            if alt < 0.0:
+                continue
+            points.append((_theta(az), self._radius(alt),
+                           first + (last - first) * i / span, i + 1))
+        return points
+
     def _program_target(self, tel: str) -> Optional[Dict[str, Any]]:
         """Where the running program points, or None when none is running.
 
@@ -898,18 +1015,20 @@ class RadarWidget(QWidget):
 
         for alt in rings:
             ax.text(np.radians(22.5), self._radius(alt), f'{alt}°',
-                    color=COLOR_GRID_TEXT, fontsize=8, alpha=0.85,
-                    ha='center', va='center', zorder=3)
+                    color=COLOR_GRID_TEXT, fontsize=self.RING_FONTSIZE,
+                    alpha=0.85, ha='center', va='center', zorder=3)
         # the observing limit is the one ring that moves with the config, so it
         # says which altitude it stands for rather than leaving it to be guessed
         ax.text(np.radians(22.5), r_min, f'{self._obs_min_alt():g}°',
-                color=ck.COLOR_DANGER, fontsize=8, alpha=0.95,
+                color=ck.COLOR_DANGER, fontsize=self.RING_FONTSIZE, alpha=0.95,
                 ha='center', va='center', zorder=3)
 
         for tel in self.telescopes:
             self._draw_dome(ax, tel)
         self._draw_bodies(ax)
         self._draw_wind(ax)
+        for tel in self.telescopes:
+            self._draw_plan_stars(ax, tel)
         covered = self._share_covered(ax)
         for tel in self.telescopes:
             self._draw_telescope(ax, tel, tel in covered)
@@ -995,6 +1114,27 @@ class RadarWidget(QWidget):
 
     # ---- Equatorial grid ----------------------------------------------------
 
+    def _lst_deg(self) -> Optional[float]:
+        """Local sidereal time in degrees, cached for ``RADEC_REFRESH_S``.
+
+        Everything drawn from RA/Dec - the equatorial grid, the galactic
+        plane, the plan stars - hangs off this one number, and building it
+        goes through astropy, which is far too slow for a 2 Hz redraw. The
+        sky turns 0.04 deg in a second, so a cached one costs nothing.
+        """
+        now = time.monotonic()
+        if self._lst_cache is not None and now - self._lst_cache[0] < self.RADEC_REFRESH_S:
+            return self._lst_cache[1]
+        lat, lon, elev = self._site_geo()
+        try:
+            lst = sidereal_time_deg(_now_utc(), latitude=lat, longitude=lon,
+                                    elevation=elev)
+        except Exception as e:
+            logger.warning(f'radar: no sidereal time, RA/Dec marks skipped: {e}')
+            return None
+        self._lst_cache = (now, float(lst))
+        return self._lst_cache[1]
+
     def _radec_grid(self) -> Tuple[List, List, List, List]:
         """(polylines, labels, galactic polylines, galactic label) in plot
         coordinates.
@@ -1006,13 +1146,10 @@ class RadarWidget(QWidget):
         now = time.monotonic()
         if self._radec_cache is not None and now - self._radec_cache[0] < self.RADEC_REFRESH_S:
             return self._radec_cache[1]
-        lat, lon, elev = self._site_geo()
-        try:
-            lst = sidereal_time_deg(_now_utc(), latitude=lat, longitude=lon,
-                                    elevation=elev)
-        except Exception as e:
-            logger.warning(f'radar: no sidereal time, RA/Dec grid skipped: {e}')
+        lst = self._lst_deg()
+        if lst is None:
             return [], [], [], []
+        lat = self._site_geo()[0]
         lines, labels = self._build_radec_grid(lst, lat)
         gal_lines, gal_labels = self._build_galactic_plane(lst, lat, labels)
         grid = (lines, labels, gal_lines, gal_labels)
@@ -1513,6 +1650,33 @@ class RadarWidget(QWidget):
                     [cy + dy * 0.4 * rad * fy, cy + dy * 1.8 * rad * fy],
                     transform=ax.transAxes, color=color, linewidth=1.3,
                     alpha=0.9, zorder=8, clip_on=False)
+
+    def _draw_plan_stars(self, ax, tel: str) -> None:
+        """The queued OBJECTs of one telescope, as small stars in its colour.
+
+        Drawn straight from the plan document, so they stand whether or not
+        the mount itself is reporting - they are what toi intends to observe,
+        not a reading off the telescope. Each star is numbered with its place
+        in the queue. Neither the stars nor their numbers take part in the
+        label dodging: they are the background the night is read against, and
+        a mount, its name or its object may cover them freely.
+        """
+        points = self._plan_star_points(tel)
+        if not points:
+            return
+        color = self._tel_color(tel)
+        thetas = [p[0] for p in points]
+        radii = [p[1] for p in points]
+        rgba = np.array([to_rgba(color, alpha=p[2]) for p in points])
+        ax.scatter(thetas, radii, marker='*', s=self.PLAN_STAR_SIZE, c=rgba,
+                   edgecolors='none', zorder=5)
+        dx, dy = self.PLAN_NUM_OFFSET_PX
+        for theta, r, alpha, place in points:
+            ax.annotate(str(place), (theta, r), textcoords='offset points',
+                        xytext=(self._pt(dx), self._pt(dy)),
+                        ha='left', va='bottom', color=color, alpha=alpha,
+                        fontsize=self.RING_FONTSIZE * self.PLAN_NUM_FONTSIZE_FACTOR,
+                        zorder=5)
 
     def _draw_cover_cross(self, ax, theta: float, r: float,
                           dim: float) -> None:
