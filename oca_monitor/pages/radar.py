@@ -344,10 +344,14 @@ class RadarWidget(QWidget):
     PLAN_STAR_SIZE = 26.0
     PLAN_STAR_ALPHA_FIRST = 0.99
     PLAN_STAR_ALPHA_LAST = 0.30
-    # each star carries its place in the queue, 1 for the object due next.
-    # Deliberately smaller than the altitude numbers it sits among - a queue
-    # position is read once, when the eye is already on its star
+    # the first few stars carry their place in the queue, 1 for the object due
+    # next. Deliberately smaller than the altitude numbers they sit among - a
+    # queue position is read once, when the eye is already on its star - and
+    # only the near end of the plan is numbered at all: past PLAN_NUM_MAX the
+    # exact place says nothing the fade does not, and the digits would crowd
+    # the disc for nothing.
     PLAN_NUM_FONTSIZE_FACTOR = 0.7
+    PLAN_NUM_MAX = 5
     PLAN_NUM_OFFSET_PX = (4.5, 3.0)
     # a night's plan runs to hundreds of entries; past this many the stars say
     # nothing more than 'the plan goes on', and the fade would have run out
@@ -1672,6 +1676,8 @@ class RadarWidget(QWidget):
                    edgecolors='none', zorder=5)
         dx, dy = self.PLAN_NUM_OFFSET_PX
         for theta, r, alpha, place in points:
+            if place > self.PLAN_NUM_MAX:
+                continue
             ax.annotate(str(place), (theta, r), textcoords='offset points',
                         xytext=(self._pt(dx), self._pt(dy)),
                         ha='left', va='bottom', color=color, alpha=alpha,
