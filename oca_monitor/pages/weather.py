@@ -1162,7 +1162,7 @@ class _FwhmPanel(_PerTelescopeScatterPanel):
 
     def init_axes(self, ax) -> None:
         super().init_axes(ax)
-        ax.set_yticks(np.arange(self.y_min, self.y_max + 1e-9, 0.5))
+        ax.set_yticks(np.arange(self.y_min, self.y_max - 1e-9, 0.5))
         for tel in self.telescopes:
             color = ck.telescope_color(self.main_window, tel)
             if tel in self._lines:
@@ -1376,7 +1376,7 @@ class _PhotZeroPanel(_Panel):
         super().init_axes(ax)
         ax.set_ylim(self.Y_MIN, self.Y_MAX)
         # Ticks every 0.05 mag from 0 downward (nothing above zero).
-        ax.set_yticks(np.arange(0.0, self.Y_MIN - 1e-9, -0.05))
+        ax.set_yticks(np.arange(0.0, self.Y_MIN + 1e-9, -0.05))
         # Threshold zone bands — drawn behind data so colour shifts read
         # as background quality state.
         ax.axhspan(self.GREEN_THRESHOLD, 1.0,
