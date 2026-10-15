@@ -1540,8 +1540,22 @@ _OCM_LOCAL_NOON_UTC_HOUR = 16
 
 
 def _current_night_start_utc() -> datetime.datetime:
-    """Most recent OCM local-noon (16:00 UTC), as a tz-aware UTC datetime."""
+    """Start of the observing night currently shown, as a tz-aware UTC datetime.
+
+    Must match the runtime reset, which wipes pipeline panels at sunset
+    (``_do_sunset_reset``): until tonight's sunset the panels keep showing
+    last night. So history replay starts at the most recent sunset —
+    approximated as next sunset minus one day, minus a margin to absorb
+    the day-to-day drift of sunset time. Falls back to the most recent
+    local noon (16:00 UTC) if the ephemeris is unavailable.
+    """
     now = datetime.datetime.now(datetime.timezone.utc)
+    try:
+        sunset = next_sun_alt_event(now, 0.0, 'setting')
+    except Exception:
+        sunset = None
+    if sunset is not None:
+        return sunset - datetime.timedelta(days=1, minutes=30)
     local_noon = now.replace(hour=_OCM_LOCAL_NOON_UTC_HOUR,
                              minute=0, second=0, microsecond=0)
     if local_noon > now:
