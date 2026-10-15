@@ -1162,6 +1162,7 @@ class _FwhmPanel(_PerTelescopeScatterPanel):
 
     def init_axes(self, ax) -> None:
         super().init_axes(ax)
+        ax.set_yticks(np.arange(self.y_min, self.y_max + 1e-9, 0.5))
         for tel in self.telescopes:
             color = ck.telescope_color(self.main_window, tel)
             if tel in self._lines:
@@ -1348,7 +1349,7 @@ class _PhotZeroPanel(_Panel):
     MEAN_LINE_COLOR = '#ffffff'
     # ±1σ confidence band around the trend line: local Gaussian-weighted
     # scatter (same sigma as the trend), drawn as a barely-visible white fill.
-    BAND_ALPHA = 0.20
+    BAND_ALPHA = 0.15
     # Maximum hour-of-day gap between consecutive samples that still counts
     # as "the same segment" of the trend curve. Anything wider gets a NaN
     # break so the line doesn't connect islands of points across hours of
@@ -1374,6 +1375,8 @@ class _PhotZeroPanel(_Panel):
     def init_axes(self, ax) -> None:
         super().init_axes(ax)
         ax.set_ylim(self.Y_MIN, self.Y_MAX)
+        # Ticks every 0.05 mag from 0 downward (nothing above zero).
+        ax.set_yticks(np.arange(0.0, self.Y_MIN - 1e-9, -0.05))
         # Threshold zone bands — drawn behind data so colour shifts read
         # as background quality state.
         ax.axhspan(self.GREEN_THRESHOLD, 1.0,
