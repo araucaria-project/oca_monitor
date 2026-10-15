@@ -1138,7 +1138,7 @@ class _FwhmPanel(_PerTelescopeScatterPanel):
 
     needs_faststat = True
     title = 'FWHM  [arcsec]'
-    y_min = 0.5   # sub-arcsec is exceptional; tighten the floor so 1–3" reads clearly
+    y_min = 0.4   # sub-arcsec is exceptional; tighten the floor so 1–3" reads clearly
     y_max = 3.0   # frames above 3" are exceptional — don't waste vertical space
     marker = 'o'
     line_style = ''  # markers only — frames arrive irregularly
@@ -1162,7 +1162,7 @@ class _FwhmPanel(_PerTelescopeScatterPanel):
 
     def init_axes(self, ax) -> None:
         super().init_axes(ax)
-        ax.set_yticks(np.arange(self.y_min, self.y_max - 1e-9, 0.5))
+        ax.set_yticks(np.arange(0.5, self.y_max - 1e-9, 0.5))
         for tel in self.telescopes:
             color = ck.telescope_color(self.main_window, tel)
             if tel in self._lines:
@@ -1377,6 +1377,9 @@ class _PhotZeroPanel(_Panel):
         ax.set_ylim(self.Y_MIN, self.Y_MAX)
         # Ticks every 0.05 mag from 0 downward (nothing above zero).
         ax.set_yticks(np.arange(0.0, self.Y_MIN + 1e-9, -0.05))
+        # Drop the leading zero ("-.05") — the label is clipped at the edge anyway.
+        ax.yaxis.set_major_formatter(
+            lambda v, _pos: '0' if abs(v) < 1e-9 else f'{v:.2f}'.replace('0.', '.', 1))
         # Threshold zone bands — drawn behind data so colour shifts read
         # as background quality state.
         ax.axhspan(self.GREEN_THRESHOLD, 1.0,
