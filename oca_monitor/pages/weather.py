@@ -1555,7 +1555,7 @@ def _current_night_start_utc() -> datetime.datetime:
     except Exception:
         sunset = None
     if sunset is not None:
-        return sunset - datetime.timedelta(days=1, minutes=30)
+        return sunset - datetime.timedelta(days=1, minutes=5)
     local_noon = now.replace(hour=_OCM_LOCAL_NOON_UTC_HOUR,
                              minute=0, second=0, microsecond=0)
     if local_noon > now:
