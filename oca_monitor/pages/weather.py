@@ -1346,6 +1346,9 @@ class _PhotZeroPanel(_Panel):
     # elsewhere in the chart palette, so it visually flags "average across
     # telescopes" without colliding with any telescope or filter colour.
     MEAN_LINE_COLOR = '#ffffff'
+    # ±1σ confidence band around the trend line: local Gaussian-weighted
+    # scatter (same sigma as the trend), drawn as a barely-visible white fill.
+    BAND_ALPHA = 0.05
     # Maximum hour-of-day gap between consecutive samples that still counts
     # as "the same segment" of the trend curve. Anything wider gets a NaN
     # break so the line doesn't connect islands of points across hours of
@@ -1365,6 +1368,7 @@ class _PhotZeroPanel(_Panel):
         }
         self._scatters: Dict[str, Any] = {}
         self._line_smoothed = None
+        self._band = None
         self._overlay_avg = None
 
     def init_axes(self, ax) -> None:
@@ -1426,6 +1430,7 @@ class _PhotZeroPanel(_Panel):
         self._refresh_smoothed_and_scale()
 
     def _refresh_smoothed_and_scale(self) -> None:
+        self._set_band([], [], [])
         all_x: List[float] = []
         all_y: List[float] = []
         for _tel, (xs, ys, _) in self._series.items():
@@ -1457,17 +1462,22 @@ class _PhotZeroPanel(_Panel):
 
         out_x: List[float] = []
         out_y: List[float] = []
+        out_sd: List[float] = []
         last_smoothed: Optional[float] = None
         for sx, sy in zip(seg_x, seg_y):
             if sx.size == 0:
                 continue
             if sx.size >= self.MIN_SEGMENT_POINTS:
                 sy_smooth = ck.gaussian_filter1d(sy, sigma=self.SMOOTH_SIGMA)
+                sy2_smooth = ck.gaussian_filter1d(sy * sy, sigma=self.SMOOTH_SIGMA)
+                sd = np.sqrt(np.clip(sy2_smooth - sy_smooth ** 2, 0.0, None))
                 if out_x:
                     out_x.append(np.nan)
                     out_y.append(np.nan)
+                    out_sd.append(np.nan)
                 out_x.extend(sx.tolist())
                 out_y.extend(sy_smooth.tolist())
+                out_sd.extend(sd.tolist())
                 last_smoothed = float(sy_smooth[-1])
             # Segments shorter than MIN_SEGMENT_POINTS are intentionally
             # not added to the trend line — the per-telescope scatter
@@ -1476,11 +1486,26 @@ class _PhotZeroPanel(_Panel):
 
         if self._line_smoothed is not None:
             self._line_smoothed.set_data(out_x, out_y)
+        self._set_band(out_x, out_y, out_sd)
         if self._overlay_avg is not None and last_smoothed is not None:
             self._overlay_avg.set_text(f"{last_smoothed:+.3f} mag")
             self._overlay_avg.set_color(self._color_for(last_smoothed))
         elif self._overlay_avg is not None:
             self._overlay_avg.set_text('')
+
+    def _set_band(self, xs, ys, sds) -> None:
+        """Redraw the ±1σ band; NaN separators split it into segments."""
+        if self._band is not None:
+            self._band.remove()
+            self._band = None
+        if self.ax is None or not xs:
+            return
+        x = np.asarray(xs, dtype=float)
+        y = np.asarray(ys, dtype=float)
+        sd = np.asarray(sds, dtype=float)
+        self._band = self.ax.fill_between(
+            x, y - sd, y + sd, color=self.MEAN_LINE_COLOR,
+            alpha=self.BAND_ALPHA, linewidth=0, zorder=7)
 
     def on_session_reset(self) -> None:
         for tel in self.telescopes:
@@ -1489,6 +1514,7 @@ class _PhotZeroPanel(_Panel):
                 self._scatters[tel].set_offsets(np.zeros((0, 2)))
         if self._line_smoothed is not None:
             self._line_smoothed.set_data([], [])
+        self._set_band([], [], [])
         if self._overlay_avg is not None:
             self._overlay_avg.set_text('')
 
