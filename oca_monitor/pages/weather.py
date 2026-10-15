@@ -1348,7 +1348,7 @@ class _PhotZeroPanel(_Panel):
     MEAN_LINE_COLOR = '#ffffff'
     # ±1σ confidence band around the trend line: local Gaussian-weighted
     # scatter (same sigma as the trend), drawn as a barely-visible white fill.
-    BAND_ALPHA = 0.05
+    BAND_ALPHA = 0.20
     # Maximum hour-of-day gap between consecutive samples that still counts
     # as "the same segment" of the trend curve. Anything wider gets a NaN
     # break so the line doesn't connect islands of points across hours of
