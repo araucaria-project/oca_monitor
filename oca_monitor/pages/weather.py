@@ -1394,6 +1394,11 @@ class _PhotZeroPanel(_Panel):
                    color=ck.COLOR_WARN, alpha=0.15, linewidth=0, zorder=0)
         ax.axhspan(-100.0, self.YELLOW_THRESHOLD,
                    color=ck.COLOR_DANGER, alpha=0.20, linewidth=0, zorder=0)
+        # Reference line at ZP = 0 (nominal transparency). Thin, half-alpha
+        # green: clearly separates from the faint green zone band behind it
+        # without competing with the scatter or the white trend line.
+        ax.axhline(0.0, color=ck.COLOR_OK, alpha=0.45,
+                   linewidth=0.8, zorder=1)
         for tel in self.telescopes:
             color = ck.telescope_color(self.main_window, tel)
             self._scatters[tel] = ax.scatter([], [], s=7, c=color,
