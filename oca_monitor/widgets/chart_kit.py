@@ -6,11 +6,14 @@ later — colors, alert thresholds and inline-title positioning translate
 """
 from __future__ import annotations
 
+import colorsys
 import logging
 import math
 from typing import List, Optional, Sequence, Tuple
 
+import matplotlib.colors as mcolors
 import numpy as np
+from matplotlib.artist import Artist
 from matplotlib.axes import Axes
 from matplotlib.figure import Figure
 from matplotlib.ticker import MaxNLocator
@@ -19,11 +22,16 @@ logger = logging.getLogger(__name__.rsplit('.')[-1])
 
 
 # ---- Alert thresholds (mirrored across halina) -----------------------------
+# WIND_WARN_MS and WIND_DANGER_MS are fallbacks used only until
+# tic.config.observatory arrives (or if config is missing).
 WIND_WARN_MS = 11.0
 WIND_DANGER_MS = 14.0
 
 HUMIDITY_WARN_PCT = 70.0
 HUMIDITY_DANGER_PCT = 80.0
+
+WIND_SPEED_KEYS = ('observation_stop', 'pointing')  # m/s keys of obs_limits.weather_restrictions.wind
+WIND_ZONE_ALPHA = 0.18
 
 
 # ---- Dark-theme palette ----------------------------------------------------
@@ -44,6 +52,7 @@ COLOR_WARN = '#f6ce46'
 COLOR_DANGER = '#ea4d3d'
 COLOR_WIND_WARN = COLOR_WARN
 COLOR_WIND_DANGER = COLOR_DANGER
+COLOR_WIND_ORANGE = '#f59e0b'
 COLOR_HUMIDITY = '#6ed0a8'
 COLOR_HUMIDITY_WARN = COLOR_WARN
 COLOR_HUMIDITY_DANGER = COLOR_DANGER
@@ -383,11 +392,131 @@ def time_smooth_bins(values, sigma_minutes: float,
 
 # ---- Zone bands ------------------------------------------------------------
 
-def wind_zone_bands(ax: Axes, *, top: float = 35.0) -> None:
-    ax.axhspan(WIND_WARN_MS, WIND_DANGER_MS,
-               color=COLOR_WIND_WARN, alpha=0.18, linewidth=0, zorder=0)
-    ax.axhspan(WIND_DANGER_MS, top,
-               color=COLOR_WIND_DANGER, alpha=0.22, linewidth=0, zorder=0)
+def wind_speed_thresholds(nats_cfg: dict) -> list[float]:
+    """Sorted, de-duplicated wind-speed limits of all telescopes in ``tic.config.observatory``."""
+    if not isinstance(nats_cfg, dict):
+        return [WIND_WARN_MS, WIND_DANGER_MS]
+
+    cfg = nats_cfg.get('config')
+    if not isinstance(cfg, dict):
+        return [WIND_WARN_MS, WIND_DANGER_MS]
+
+    # Global defaults
+    global_wind: dict = {}
+    site = cfg.get('site')
+    if isinstance(site, dict):
+        site_global = site.get('global')
+        if isinstance(site_global, dict):
+            obs_limits = site_global.get('obs_limits')
+            if isinstance(obs_limits, dict):
+                wr = obs_limits.get('weather_restrictions')
+                if isinstance(wr, dict):
+                    w = wr.get('wind')
+                    if isinstance(w, dict):
+                        global_wind = w
+
+    telescopes = cfg.get('telescopes')
+    raw_values: list[float] = []
+
+    def _collect_from(source_name: str, wind_dict: dict) -> None:
+        for key in WIND_SPEED_KEYS:
+            if key not in wind_dict:
+                continue
+            val = wind_dict[key]
+            if isinstance(val, bool):
+                logger.warning(
+                    f"Invalid wind speed limit for {source_name}.{key}: {val!r}")
+                continue
+            try:
+                fval = float(val)
+            except (TypeError, ValueError):
+                logger.warning(
+                    f"Invalid wind speed limit for {source_name}.{key}: {val!r}")
+                continue
+            if not (math.isfinite(fval) and fval > 0):
+                logger.warning(
+                    f"Invalid wind speed limit for {source_name}.{key}: {val!r}")
+                continue
+            raw_values.append(fval)
+
+    if isinstance(telescopes, dict) and telescopes:
+        for tel, tel_cfg in telescopes.items():
+            tel_wind: dict = {}
+            if isinstance(tel_cfg, dict):
+                obs = tel_cfg.get('observatory')
+                if isinstance(obs, dict):
+                    lim = obs.get('obs_limits')
+                    if isinstance(lim, dict):
+                        wr = lim.get('weather_restrictions')
+                        if isinstance(wr, dict):
+                            w = wr.get('wind')
+                            if isinstance(w, dict):
+                                tel_wind = w
+            effective_wind = dict(global_wind)
+            effective_wind.update(tel_wind)
+            _collect_from(str(tel), effective_wind)
+    else:
+        _collect_from('global', global_wind)
+
+    if not raw_values:
+        return [WIND_WARN_MS, WIND_DANGER_MS]
+
+    thresholds = sorted(set(round(v, 2) for v in raw_values))
+    return thresholds
+
+
+def wind_zone_colors(n: int) -> list[str]:
+    """Colours for the ``n + 1`` zones formed by ``n`` wind-speed thresholds."""
+    if n <= 0:
+        return []
+    palette = mcolors.LinearSegmentedColormap.from_list(
+        'wind_zones', [COLOR_OK, COLOR_WIND_ORANGE, COLOR_DANGER]
+    )
+    cols = [mcolors.to_hex(palette(0.0))]
+    for i in range(n - 1):
+        cols.append(mcolors.to_hex(palette((i + 1) / n)))
+    cols.append(mcolors.to_hex(palette(1.0)))
+    return cols
+
+
+def zone_boundary_color(band_color) -> tuple[float, float, float]:
+    """Same hue as the band, more saturated and lighter, so the edge reads on the dark theme."""
+    h, l, s = colorsys.rgb_to_hls(*mcolors.to_rgb(band_color))
+    return colorsys.hls_to_rgb(h, min(l + 0.15, 0.85), max(s, 0.85))
+
+
+def wind_zone_bands(ax: Axes, thresholds: Sequence[float], *, top: float = 35.0) -> list[Artist]:
+    """Draw green → … → red zones with boundary lines; return the artists so they can be redrawn."""
+    if not thresholds:
+        return []
+    t = sorted(thresholds)
+    n = len(t)
+    colors = wind_zone_colors(n)
+    effective_top = max(top, 2.0 * t[-1])
+    artists: list[Artist] = []
+
+    # Zone 0: [0, t[0])
+    artists.append(
+        ax.axhspan(0.0, t[0], color=colors[0], alpha=WIND_ZONE_ALPHA, linewidth=0, zorder=0)
+    )
+    # Intermediate zones i = 0 .. n-2: [t[i], t[i+1])
+    for i in range(n - 1):
+        artists.append(
+            ax.axhspan(t[i], t[i + 1], color=colors[i + 1], alpha=WIND_ZONE_ALPHA, linewidth=0, zorder=0)
+        )
+    # Red zone: [t[-1], effective_top)
+    artists.append(
+        ax.axhspan(t[-1], effective_top, color=colors[-1], alpha=WIND_ZONE_ALPHA, linewidth=0, zorder=0)
+    )
+
+    # Boundary lines at each threshold
+    for i in range(n):
+        line_color = zone_boundary_color(colors[i + 1])
+        artists.append(
+            ax.axhline(t[i], color=line_color, linewidth=1.0, alpha=0.8, zorder=1)
+        )
+
+    return artists
 
 
 def humidity_zone_bands(ax: Axes) -> None:

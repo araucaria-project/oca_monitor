@@ -331,28 +331,61 @@ class _SimpleSeriesPanel(_Panel):
 class _WindPanel(_SimpleSeriesPanel):
     """Wind speed + direction-arrow strip along the bottom."""
 
-    def __init__(self, *, warn_ms: float = ck.WIND_WARN_MS,
-                 danger_ms: float = ck.WIND_DANGER_MS) -> None:
+    def __init__(self) -> None:
         super().__init__(
             measurement_key='wind_10min_ms',
             y_label='Wind  [m/s]',
             today_color=ck.COLOR_TODAY,
             y_min=0.0, y_max=None,
-            reject_above=danger_ms * 3.0,
+            reject_above=ck.WIND_DANGER_MS * 3.0,
             reject_below=0.0,
-            zone_drawer=ck.wind_zone_bands,
+            zone_drawer=None,
             sigma_minutes=1.0,   # wind: keep gusts; only smooth out reading noise
-            warn_above=warn_ms,
-            danger_above=danger_ms,
         )
+        self.thresholds: list[float] = [ck.WIND_WARN_MS, ck.WIND_DANGER_MS]
+        self._zone_artists: list[Any] = []
         self._dir_x: List[float] = []
         self._dir_d: List[float] = []
         self._quiver = None
 
+    def _clear_zone_artists(self) -> None:
+        for artist in self._zone_artists:
+            try:
+                artist.remove()
+            except (ValueError, AttributeError):
+                pass
+        self._zone_artists.clear()
+
     def init_axes(self, ax) -> None:
         super().init_axes(ax)
-        ax.set_ylim(0, max(15.0, self.danger_above * 1.4))
+        self._clear_zone_artists()
+        self._zone_artists = ck.wind_zone_bands(ax, self.thresholds)
+        ax.set_ylim(0, max(15.0, self.thresholds[-1] * 1.4))
         self._add_overlay(ax)
+
+    def on_observatory_config(self, nats_cfg: dict) -> None:
+        self.thresholds = ck.wind_speed_thresholds(nats_cfg)
+        if self.ax is not None:
+            self._clear_zone_artists()
+            self._zone_artists = ck.wind_zone_bands(self.ax, self.thresholds)
+            self.ax.set_ylim(0, max(15.0, self.thresholds[-1] * 1.4))
+            if self._dir_x:
+                self._refresh_arrows()
+
+    def alert_color(self, msm: dict) -> Optional[str]:
+        try:
+            v = float(msm[self.measurement_key])
+        except (KeyError, TypeError, ValueError):
+            return None
+        if not _math.isfinite(v):
+            return None
+        if not self.thresholds or v < self.thresholds[0]:
+            return None
+        colors = ck.wind_zone_colors(len(self.thresholds))
+        for i in range(len(self.thresholds) - 1, -1, -1):
+            if v >= self.thresholds[i]:
+                return colors[i + 1]
+        return None
 
     def format_overlay(self, msm):
         wind = float(msm['wind_10min_ms'])
@@ -1551,8 +1584,6 @@ class WeatherDataWidget(QWidget):
                  vertical_screen: bool = False,
                  charts: Optional[Sequence[str]] = None,
                  dome_danger_zone_deg: float = 30.0,
-                 wind_warn_ms: float = ck.WIND_WARN_MS,
-                 wind_danger_ms: float = ck.WIND_DANGER_MS,
                  humidity_warn_pct: float = 70.0,
                  humidity_danger_pct: float = 75.0,
                  temperature_danger_c: float = 0.0,
@@ -1565,8 +1596,6 @@ class WeatherDataWidget(QWidget):
         self.power_subject = power_subject
         self.vertical = bool(vertical_screen)
         self.dome_danger_zone_deg = float(dome_danger_zone_deg)
-        self.wind_warn_ms = float(wind_warn_ms)
-        self.wind_danger_ms = float(wind_danger_ms)
         self.humidity_warn_pct = float(humidity_warn_pct)
         self.humidity_danger_pct = float(humidity_danger_pct)
         self.temperature_danger_c = float(temperature_danger_c)
@@ -1601,8 +1630,7 @@ class WeatherDataWidget(QWidget):
         panels: List[_Panel] = []
         for key in self.chart_keys:
             if key == 'wind':
-                panels.append(_WindPanel(warn_ms=self.wind_warn_ms,
-                                         danger_ms=self.wind_danger_ms))
+                panels.append(_WindPanel())
             elif key == 'humidity_pressure':
                 panels.append(_HumidityPressurePanel(
                     warn_pct=self.humidity_warn_pct,
@@ -1792,7 +1820,7 @@ class WeatherDataWidget(QWidget):
 
     @asyncSlot()
     async def async_init(self):
-        await create_task(self._color_resolver(), 'weather_color_resolver')
+        await create_task(self._observatory_config_resolver(), 'weather_config_resolver')
         if any(p.needs_weather_history for p in self.panels):
             await create_task(self._weather_history_loop(), 'weather_history_reader')
         if any(p.needs_power_history for p in self.panels):
@@ -1839,34 +1867,38 @@ class WeatherDataWidget(QWidget):
 
     # ---- readers ------------------------------------------------------------
 
-    async def _color_resolver(self):
-        """One-shot watcher: re-stamp telescope colours once nats_cfg arrives.
+    async def _observatory_config_resolver(self):
+        """One-shot watcher: re-stamp telescope colours and wind zones once nats_cfg arrives.
 
         Panels are constructed synchronously during MainWindow.__init__ —
         before MainWindow.async_init has finished its single_read on
         ``tic.config.observatory`` — so the first paint uses
-        chart_kit fallback colours. This task polls until the live config
-        is available, then re-applies the published ``style.color`` to
-        every per-telescope artist exactly once.
+        chart_kit fallback colours and thresholds. This task polls until
+        the live config is available, then applies the published config
+        to every panel that defines a config or restamp hook.
         """
         import asyncio
         for _ in range(120):  # ~60 s of patience, then give up
             cfg = getattr(self.main_window, 'nats_cfg', None) or {}
-            if cfg.get('config', {}).get('telescopes'):
+            if cfg.get('config', {}).get('telescopes') or cfg.get('config', {}).get('site'):
                 break
             await asyncio.sleep(0.5)
         else:
             logger.warning('nats_cfg never arrived — sticking with fallback colours')
             return
-        restamped = 0
+        updated = 0
         for p in self.panels:
-            fn = getattr(p, 'restamp_telescope_colors', None)
-            if callable(fn):
-                fn()
-                restamped += 1
-        if restamped:
+            fn_cfg = getattr(p, 'on_observatory_config', None)
+            if callable(fn_cfg):
+                fn_cfg(cfg)
+                updated += 1
+            fn_col = getattr(p, 'restamp_telescope_colors', None)
+            if callable(fn_col):
+                fn_col()
+                updated += 1
+        if updated:
             self._schedule_draw()
-            logger.info(f'Restamped telescope colours on {restamped} panel(s)')
+            logger.info(f'Applied observatory config on {updated} panel action(s)')
 
     async def _weather_history_loop(self):
         await self._dual_day_history_loop(
