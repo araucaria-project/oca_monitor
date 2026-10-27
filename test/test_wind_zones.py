@@ -1,5 +1,6 @@
 import colorsys
-import math
+import logging
+
 import matplotlib
 matplotlib.use('Agg')
 import matplotlib.colors as mcolors
@@ -8,386 +9,138 @@ import pytest
 
 from oca_monitor.widgets import chart_kit as ck
 
+FALLBACK = [ck.WIND_WARN_MS, ck.WIND_DANGER_MS]
+
+
+def _limits(**wind) -> dict:
+    return {'obs_limits': {'weather_restrictions': {'wind': wind}}}
+
+
+def _cfg(global_wind: dict = None, **telescopes: dict) -> dict:
+    """``tic.config.observatory`` payload: ``global_wind`` plus ``tel=wind dict`` (``None`` = no obs_limits)."""
+    site = {'global': _limits(**global_wind)} if global_wind is not None else {}
+    tels = {tel: {'observatory': _limits(**wind) if wind is not None else {}}
+            for tel, wind in telescopes.items()}
+    return {'config': {'site': site, 'telescopes': tels}}
+
 
 @pytest.fixture
-def production_cfg():
-    return {
-        'config': {
-            'site': {
-                'global': {
-                    'obs_limits': {
-                        'weather_restrictions': {
-                            'wind': {
-                                'observation_stop': 14,
-                                'pointing': 11,
-                                'restricted_pointing_wind_angle': 45,
-                            }
-                        }
-                    }
-                }
-            },
-            'telescopes': {
-                'wk06': {
-                    'observatory': {
-                        'obs_limits': {
-                            'weather_restrictions': {
-                                'wind': {
-                                    'observation_stop': 14,
-                                    'pointing': 6,
-                                }
-                            }
-                        }
-                    }
-                },
-                'zb08': {
-                    'observatory': {
-                        'obs_limits': {
-                            'weather_restrictions': {
-                                'wind': {
-                                    'observation_stop': 14,
-                                    'pointing': 11,
-                                }
-                            }
-                        }
-                    }
-                },
-                'jk15': {
-                    'observatory': {
-                        'obs_limits': {
-                            'weather_restrictions': {
-                                'wind': {
-                                    'observation_stop': 16,
-                                    'pointing': 14,
-                                }
-                            }
-                        }
-                    }
-                },
-                'wg25': {
-                    'observatory': {
-                        'obs_limits': {
-                            'weather_restrictions': {
-                                'wind': {
-                                    'observation_stop': 16,
-                                    'pointing': 14,
-                                }
-                            }
-                        }
-                    }
-                },
-            }
-        }
-    }
+def production_cfg() -> dict:
+    """Shape and values published since 2026-10-24 (oca-problems#273)."""
+    angle = {'restricted_pointing_wind_angle': 30.0}
+    cfg = _cfg(
+        {'observation_stop': 14.0, 'pointing': 11.0, **angle},
+        wk06={'observation_stop': 14.0, 'pointing': 6.0, **angle},
+        zb08={'observation_stop': 14.0, 'pointing': 11.0, **angle},
+        jk15={'observation_stop': 16.0, 'pointing': 14.0, **angle},
+        wg25={'observation_stop': 16.0, 'pointing': 14.0, **angle},
+        iris=None, sim=None, dev=None,
+    )
+    # service-tree entries that ride along in `telescopes` without being telescopes
+    cfg['config']['telescopes']['global'] = {'services': ['ephemeris']}
+    cfg['config']['telescopes']['tmmt'] = {'services': ['executor'], 'observatory': {'protocol': 'nats'}}
+    return cfg
 
 
-def test_production_config_thresholds(production_cfg):
-    thresholds = ck.wind_speed_thresholds(production_cfg)
-    assert thresholds == [6.0, 11.0, 14.0, 16.0]
+# ---- wind_speed_thresholds -------------------------------------------------
+
+def test_production_config(production_cfg):
+    assert ck.wind_speed_thresholds(production_cfg) == [6.0, 11.0, 14.0, 16.0]
 
 
-def test_telescope_inheritance_and_partial_override():
-    cfg = {
-        'config': {
-            'site': {
-                'global': {
-                    'obs_limits': {
-                        'weather_restrictions': {
-                            'wind': {
-                                'observation_stop': 14,
-                                'pointing': 11,
-                            }
-                        }
-                    }
-                }
-            },
-            'telescopes': {
-                # Telescope with no obs_limits inherits global
-                'tel_no_limits': {
-                    'observatory': {}
-                },
-                # Telescope with partial override (only pointing) keeps global observation_stop
-                'tel_partial': {
-                    'observatory': {
-                        'obs_limits': {
-                            'weather_restrictions': {
-                                'wind': {
-                                    'pointing': 7,
-                                }
-                            }
-                        }
-                    }
-                },
-            }
-        }
-    }
-    thresholds = ck.wind_speed_thresholds(cfg)
-    # tel_no_limits has (14, 11); tel_partial has (14, 7)
-    assert thresholds == [7.0, 11.0, 14.0]
+def test_telescope_without_limits_inherits_global():
+    cfg = _cfg({'observation_stop': 15, 'pointing': 9}, plain=None)
+    assert ck.wind_speed_thresholds(cfg) == [9.0, 15.0]
 
 
-def test_restricted_pointing_wind_angle_never_collected():
-    cfg = {
-        'config': {
-            'site': {
-                'global': {
-                    'obs_limits': {
-                        'weather_restrictions': {
-                            'wind': {
-                                'observation_stop': 14,
-                                'pointing': 11,
-                                'restricted_pointing_wind_angle': 45,
-                            }
-                        }
-                    }
-                }
-            },
-            'telescopes': {
-                'tel1': {
-                    'observatory': {
-                        'obs_limits': {
-                            'weather_restrictions': {
-                                'wind': {
-                                    'restricted_pointing_wind_angle': 90,
-                                }
-                            }
-                        }
-                    }
-                }
-            }
-        }
-    }
-    thresholds = ck.wind_speed_thresholds(cfg)
-    assert 45 not in thresholds
-    assert 45.0 not in thresholds
-    assert 90 not in thresholds
-    assert 90.0 not in thresholds
-    assert thresholds == [11.0, 14.0]
+def test_partial_override_keeps_other_global_keys():
+    cfg = _cfg({'observation_stop': 14, 'pointing': 11}, tel={'pointing': 8})
+    assert ck.wind_speed_thresholds(cfg) == [8.0, 14.0]
 
 
-def test_bad_values_skipped(caplog):
-    cfg = {
-        'config': {
-            'site': {
-                'global': {
-                    'obs_limits': {
-                        'weather_restrictions': {
-                            'wind': {
-                                'observation_stop': 14,
-                                'pointing': 'abc',
-                            }
-                        }
-                    }
-                }
-            },
-            'telescopes': {
-                'tel_bad': {
-                    'observatory': {
-                        'obs_limits': {
-                            'weather_restrictions': {
-                                'wind': {
-                                    'observation_stop': -5,
-                                    'pointing': None,
-                                }
-                            }
-                        }
-                    }
-                },
-                'tel_nan': {
-                    'observatory': {
-                        'obs_limits': {
-                            'weather_restrictions': {
-                                'wind': {
-                                    'observation_stop': float('nan'),
-                                    'pointing': 0,
-                                }
-                            }
-                        }
-                    }
-                },
-                'tel_bool': {
-                    'observatory': {
-                        'obs_limits': {
-                            'weather_restrictions': {
-                                'wind': {
-                                    'observation_stop': True,
-                                    'pointing': False,
-                                }
-                            }
-                        }
-                    }
-                },
-                'tel_good': {
-                    'observatory': {
-                        'obs_limits': {
-                            'weather_restrictions': {
-                                'wind': {
-                                    'pointing': 8,
-                                }
-                            }
-                        }
-                    }
-                }
-            }
-        }
-    }
-    with caplog.at_level('WARNING'):
-        thresholds = ck.wind_speed_thresholds(cfg)
-    # Only valid values: tel_good has pointing: 8 and inherits observation_stop: 14
-    assert thresholds == [8.0, 14.0]
-    # Check that warnings were logged naming telescopes and keys
-    warnings = [r.message for r in caplog.records if r.levelname == 'WARNING']
-    assert any('tel_bad' in w for w in warnings)
-    assert any('tel_nan' in w for w in warnings)
-    assert any('tel_bool' in w for w in warnings)
+def test_global_value_overridden_everywhere_is_dropped():
+    cfg = _cfg({'observation_stop': 14, 'pointing': 11}, a={'observation_stop': 16, 'pointing': 12})
+    assert ck.wind_speed_thresholds(cfg) == [12.0, 16.0]
 
 
-def test_empty_or_missing_config_fallback():
-    assert ck.wind_speed_thresholds({}) == [ck.WIND_WARN_MS, ck.WIND_DANGER_MS]
-    assert ck.wind_speed_thresholds(None) == [ck.WIND_WARN_MS, ck.WIND_DANGER_MS]
-    assert ck.wind_speed_thresholds({'config': {}}) == [ck.WIND_WARN_MS, ck.WIND_DANGER_MS]
-    assert ck.wind_speed_thresholds('invalid') == [ck.WIND_WARN_MS, ck.WIND_DANGER_MS]
+def test_no_telescopes_uses_global_alone():
+    assert ck.wind_speed_thresholds(_cfg({'observation_stop': 14, 'pointing': 11})) == [11.0, 14.0]
 
 
-def test_duplicates_across_telescopes_collapse():
-    cfg = {
-        'config': {
-            'site': {
-                'global': {
-                    'obs_limits': {
-                        'weather_restrictions': {
-                            'wind': {
-                                'observation_stop': 14.004,
-                                'pointing': 10.0,
-                            }
-                        }
-                    }
-                }
-            },
-            'telescopes': {
-                't1': {
-                    'observatory': {
-                        'obs_limits': {
-                            'weather_restrictions': {
-                                'wind': {
-                                    'observation_stop': 14.001,
-                                    'pointing': 10.0,
-                                }
-                            }
-                        }
-                    }
-                },
-                't2': {
-                    'observatory': {
-                        'obs_limits': {
-                            'weather_restrictions': {
-                                'wind': {
-                                    'observation_stop': 14.0,
-                                    'pointing': 10.002,
-                                }
-                            }
-                        }
-                    }
-                }
-            }
-        }
-    }
-    thresholds = ck.wind_speed_thresholds(cfg)
-    # 14.004 and 14.001 and 14.0 round to 14.00; 10.0 and 10.002 round to 10.00
-    assert thresholds == [10.0, 14.0]
+def test_angle_is_never_collected():
+    cfg = _cfg({'observation_stop': 14, 'pointing': 11, 'restricted_pointing_wind_angle': 45},
+               tel={'restricted_pointing_wind_angle': 90})
+    assert ck.wind_speed_thresholds(cfg) == [11.0, 14.0]
 
 
-def test_no_telescopes_uses_global_dict_alone():
-    cfg = {
-        'config': {
-            'site': {
-                'global': {
-                    'obs_limits': {
-                        'weather_restrictions': {
-                            'wind': {
-                                'observation_stop': 15.0,
-                                'pointing': 9.0,
-                            }
-                        }
-                    }
-                }
-            }
-        }
-    }
-    thresholds = ck.wind_speed_thresholds(cfg)
-    assert thresholds == [9.0, 15.0]
+def test_duplicates_collapse_after_rounding():
+    cfg = _cfg({'observation_stop': 14.004, 'pointing': 10.0},
+               a={'observation_stop': 14.0}, b={'pointing': 10.001})
+    assert ck.wind_speed_thresholds(cfg) == [10.0, 14.0]
 
 
-def test_wind_zone_colors():
+def test_bad_values_skipped_with_warning(caplog):
+    cfg = _cfg({'observation_stop': 14, 'pointing': 'abc'},
+               tel_bad={'observation_stop': -5, 'pointing': None},
+               tel_nan={'observation_stop': float('nan'), 'pointing': 0},
+               tel_bool={'observation_stop': True, 'pointing': False},
+               tel_good={'pointing': 8})
+    with caplog.at_level(logging.WARNING):
+        assert ck.wind_speed_thresholds(cfg) == [8.0, 14.0]
+    warned = ' '.join(r.getMessage() for r in caplog.records if r.levelno == logging.WARNING)
+    for tel in ('tel_bad', 'tel_nan', 'tel_bool'):
+        assert tel in warned
+
+
+@pytest.mark.parametrize('nats_cfg', [None, {}, 'invalid', {'config': {}}, {'config': {'telescopes': []}},
+                                      _cfg(None, a=None), _cfg({'pointing': -1})])
+def test_missing_or_unusable_config_falls_back(nats_cfg):
+    assert ck.wind_speed_thresholds(nats_cfg) == FALLBACK
+
+
+# ---- colours and zones -----------------------------------------------------
+
+def test_wind_zone_colors_ends_and_orange():
     assert ck.wind_zone_colors(0) == []
-
-    # n = 1: green and red
-    cols_1 = ck.wind_zone_colors(1)
-    assert len(cols_1) == 2
-    assert cols_1[0] == ck.COLOR_OK
-    assert cols_1[-1] == ck.COLOR_DANGER
-
-    # n = 2: green, orange, red
-    cols_2 = ck.wind_zone_colors(2)
-    assert len(cols_2) == 3
-    assert cols_2[0] == ck.COLOR_OK
-    assert cols_2[1] == ck.COLOR_WIND_ORANGE
-    assert cols_2[2] == ck.COLOR_DANGER
-
-    # n = 4: 5 colours
-    cols_4 = ck.wind_zone_colors(4)
-    assert len(cols_4) == 5
-    assert cols_4[0] == ck.COLOR_OK
-    assert cols_4[2] == ck.COLOR_WIND_ORANGE
-    assert cols_4[4] == ck.COLOR_DANGER
-
-    # General n
+    assert ck.wind_zone_colors(1) == [ck.COLOR_OK, ck.COLOR_DANGER]
+    assert ck.wind_zone_colors(2) == [ck.COLOR_OK, ck.COLOR_WIND_ORANGE, ck.COLOR_DANGER]
+    assert ck.wind_zone_colors(4)[2] == ck.COLOR_WIND_ORANGE
     for n in (3, 5, 10):
         cols = ck.wind_zone_colors(n)
         assert len(cols) == n + 1
-        assert cols[0] == ck.COLOR_OK
-        assert cols[-1] == ck.COLOR_DANGER
+        assert (cols[0], cols[-1]) == (ck.COLOR_OK, ck.COLOR_DANGER)
+        assert len(set(cols)) == n + 1  # inner bands never repeat the outer zones
 
 
-def test_zone_boundary_color():
-    for test_color in [ck.COLOR_OK, ck.COLOR_WIND_ORANGE, ck.COLOR_DANGER, '#8cb134', '#ef7524']:
-        r1, g1, b1 = mcolors.to_rgb(test_color)
-        h1, l1, s1 = colorsys.rgb_to_hls(r1, g1, b1)
+@pytest.mark.parametrize('speed, zone', [(0.0, 0), (5.9, 0), (6.0, 1), (10.9, 1), (11.0, 2),
+                                         (14.0, 3), (15.9, 3), (16.0, 4), (40.0, 4)])
+def test_wind_zone_index(speed, zone):
+    assert ck.wind_zone_index([6.0, 11.0, 14.0, 16.0], speed) == zone
 
-        bcol = ck.zone_boundary_color(test_color)
-        h2, l2, s2 = colorsys.rgb_to_hls(*bcol)
 
-        # Hue is preserved within float tolerance
-        diff_h = abs(h1 - h2)
-        # account for wrap around at 0/1
-        assert diff_h < 1e-5 or abs(diff_h - 1.0) < 1e-5
-
-        # Lightness or saturation changed
-        assert l2 != l1 or s2 != s1
-        assert l2 >= l1
-        assert s2 >= min(s1, 0.85)
+@pytest.mark.parametrize('band', [ck.COLOR_OK, ck.COLOR_WIND_ORANGE, ck.COLOR_DANGER, '#8cb134', '#ef7524'])
+def test_zone_boundary_color_keeps_hue(band):
+    h1, l1, s1 = colorsys.rgb_to_hls(*mcolors.to_rgb(band))
+    h2, l2, s2 = colorsys.rgb_to_hls(*ck.zone_boundary_color(band))
+    assert min(abs(h1 - h2), 1.0 - abs(h1 - h2)) < 1e-5
+    assert (l2, s2) != (l1, s1)
+    assert l2 >= l1 and s2 >= min(s1, 0.85)
 
 
 def test_wind_zone_bands():
     fig, ax = plt.subplots()
+    try:
+        assert ck.wind_zone_bands(ax, []) == []
 
-    # Empty thresholds
-    assert ck.wind_zone_bands(ax, []) == []
+        artists = ck.wind_zone_bands(ax, [16.0, 6.0, 14.0, 11.0])  # unsorted on purpose
+        bands, lines = artists[:5], artists[5:]
+        assert len(lines) == 4
+        assert [b.get_y() for b in bands] == [0.0, 6.0, 11.0, 14.0, 16.0]
+        assert [ln.get_ydata()[0] for ln in lines] == [6.0, 11.0, 14.0, 16.0]
+        assert bands[0].get_alpha() == ck.WIND_ZONE_CALM_ALPHA
+        assert {b.get_alpha() for b in bands[1:]} == {ck.WIND_ZONE_ALPHA}
 
-    # 4 thresholds: 5 bands + 4 lines = 9 artists
-    thresholds = [6.0, 11.0, 14.0, 16.0]
-    artists = ck.wind_zone_bands(ax, thresholds)
-    assert len(artists) == 9
-
-    # Check top scaling if threshold is high
-    high_thresholds = [20.0, 30.0]
-    artists_high = ck.wind_zone_bands(ax, high_thresholds, top=35.0)
-    # top should be max(35.0, 2 * 30.0) = 60.0
-    assert len(artists_high) == 5
-    # The last band (red) is index 2 among bands (artists_high[2])
-    # Its y-range should extend to 60.0
-    last_band = artists_high[2]
-    # axhspan creates a Polygon whose y-extent top is y + height
-    max_y = last_band.get_y() + last_band.get_height()
-    assert max_y == 60.0
-
-    plt.close(fig)
+        red = ck.wind_zone_bands(ax, [20.0, 30.0], top=35.0)[2]
+        assert red.get_y() + red.get_height() == 60.0  # top grows to 2 × the highest limit
+    finally:
+        plt.close(fig)
