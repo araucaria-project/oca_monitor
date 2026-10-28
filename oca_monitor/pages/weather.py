@@ -346,6 +346,7 @@ class _WindPanel(_SimpleSeriesPanel):
         self._thresholds: List[float] = ck.wind_speed_thresholds(None)
         self._zone_colors: List[str] = ck.wind_zone_colors(len(self._thresholds))
         self._zone_artists: List[Any] = []
+        self._last_summary: Optional[dict] = None  # re-coloured when the limits change
         self._dir_x: List[float] = []
         self._dir_d: List[float] = []
         self._quiver = None
@@ -362,6 +363,12 @@ class _WindPanel(_SimpleSeriesPanel):
             return  # init_axes will draw with the new limits
         self._draw_zones()
         self._refresh_arrows()  # arrows sit at a fixed fraction of the new y-range
+        if self._last_summary is not None:
+            self.on_live_summary(self._last_summary)  # don't wait ~1 min for Davis to re-colour the value
+
+    def on_live_summary(self, msm: dict) -> None:
+        self._last_summary = msm
+        super().on_live_summary(msm)
 
     def _draw_zones(self) -> None:
         """(Re)draw the wind zones and fit the y-axis to the highest limit; safe to repeat."""
