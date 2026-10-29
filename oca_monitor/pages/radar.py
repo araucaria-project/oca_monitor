@@ -118,6 +118,11 @@ def _as_float(value: Any) -> Optional[float]:
         return None
 
 
+def _q(value: Any, nd: int) -> Any:
+    """Round for a frame signature, leaving None and anything odd alone."""
+    return round(value, nd) if isinstance(value, (int, float)) else value
+
+
 def _cutoff_engaged(value: Any) -> Optional[bool]:
     """The engaged flag out of an access_grantor.safety_cutoff_state reading.
 
@@ -268,6 +273,10 @@ def _angular_sep(az1: float, alt1: float, az2: float, alt2: float) -> float:
 class RadarWidget(QWidget):
 
     REFRESH_S = 0.5
+    # a frame is skipped when _frame_sig says the picture has not moved, but
+    # never for longer than this: whatever that key might have failed to
+    # account for, the disc cannot be more than a few seconds behind the sky
+    MAX_SKIP_S = 5.0
     ASTRO_REFRESH_S = 5.0
     ALMANAC_REFRESH_S = 60.0
 
@@ -467,6 +476,9 @@ class RadarWidget(QWidget):
         self._wind: Dict[str, Optional[float]] = {'ms': None, 'dir': None}
         self._radec_cache: Optional[Tuple[float, Tuple[List, List, List, List]]] = None
         self._lst_cache: Optional[Tuple[float, float]] = None
+        self._frame_sig_last: Optional[Tuple] = None
+        self._last_draw_t = 0.0
+        self._sharing = False
 
         self._init_ui()
         QtCore.QTimer.singleShot(0, self.async_init)
@@ -481,6 +493,9 @@ class RadarWidget(QWidget):
             'camera_state': None, 'fw_position': None, 'cover_state': None,
             'safety_cutoff': None,
             'ob': None, 'plan': None,
+            # bumped by _document_reader: a frame signature has to notice a
+            # new plan, and comparing the documents themselves is not worth it
+            'ob_rev': 0, 'plan_rev': 0,
             'trail': deque(maxlen=self.TRAIL_MAX_POINTS),
             'trail_done_t': None,
         }
@@ -721,6 +736,7 @@ class RadarWidget(QWidget):
             reader = get_reader(subject, deliver_policy='last')
             async for data, meta in reader:
                 self._state[tel][key] = data
+                self._state[tel][f'{key}_rev'] += 1
         except (asyncio.CancelledError, asyncio.TimeoutError):
             raise
         except Exception as e:
@@ -931,12 +947,115 @@ class RadarWidget(QWidget):
             return True
         return (_now_utc() - pos_dt).total_seconds() > self.STALE_S
 
+    def _frame_sig(self) -> Tuple:
+        """Everything the next frame would be drawn from, as one comparable key.
+
+        A frame costs some 120 ms: ``ax.clear()`` and every artist on the disc
+        built again from nothing, five mounts' worth of glyphs among them.
+        Twice a second that is a quarter of the event loop, and for much of the
+        day it buys nothing at all - parked mounts under a shut dome draw the
+        very same picture every time. So the loop builds this key first and
+        lets the frame go when it has not moved.
+
+        Whatever moves the picture has to appear here, the clock-driven parts
+        included: the ping pulsing under a tracking mount, a trail fading out,
+        overlapping mounts taking their turns, the slow drift of the RA/Dec
+        grid. Time enters quantised at the step the eye could tell apart, so a
+        still scene settles on one key instead of drifting into a new one every
+        tick.
+        """
+        now = time.time()
+        mono = time.monotonic()
+        sun = self._astro.get('sun') or {}
+        moon = self._astro.get('moon') or {}
+        targets = self._astro.get('targets') or {}
+        sig: List[Any] = [
+            self.canvas.width(), self.canvas.height(),
+            _q(self._obs_min_alt(), 2), _q(self._moon_avoid(), 2),
+            self._wind_limits(),
+            # the observatory config lands seconds after the first frame and
+            # renames filters, moves the site and shifts every limit drawn
+            # here; one flag for it catches the lot, whatever the config feeds
+            bool(getattr(self.main_window, 'nats_cfg', None)),
+            _q(self._wind.get('ms'), 2), _q(self._wind.get('dir'), 1),
+            # the Sun and the Moon really do move, and _astro_loop hands in
+            # a fresh pair every ASTRO_REFRESH_S, so these are rounded to
+            # where the disc can actually show the difference: a tenth of a
+            # degree is about half a pixel at this size. Finer than that and
+            # nothing else on a still frame gets a chance to settle.
+            _q(sun.get('az'), 1), _q(sun.get('alt'), 1),
+            _q(moon.get('az'), 1), _q(moon.get('alt'), 1),
+            _q(moon.get('phase'), 3),
+            # the equatorial grid and the galactic line are rebuilt on their
+            # own clock, and mounts sharing a spot hand it over on theirs -
+            # that second clock only matters while a spot is actually shared
+            int(mono // self.RADEC_REFRESH_S),
+            int(mono // self.TEL_SHARE_PERIOD_S) if self._sharing else False,
+        ]
+        pinging = False
+        for tel in self.telescopes:
+            st = self._state[tel]
+            stale = self._is_stale(st)
+            target = targets.get(tel) or {}
+            _, progress, ob_active = self._ob_progress(tel)
+            trail = st['trail']
+            done = st['trail_done_t']
+            # a trail reaches the disc only from its second point on, and the
+            # standing mount _sample_trails keeps anchored at one point is not
+            # a trail at all - so the whole of it, fade included, has to be
+            # gated the same way _draw_telescope gates it, or a mount doing
+            # nothing at the park mints a new key twice a second for ever
+            if len(trail) > 1:
+                head_az, head_alt = _q(trail[-1][1], 2), _q(trail[-1][2], 2)
+                # the fade runs for trail_seconds and then stands still;
+                # clamped, so a spent trail stops moving the key as well
+                fade = (_q(min(1.0, (now - done) / self.trail_seconds), 2)
+                        if done is not None else None)
+                trail_n = len(trail)
+            else:
+                head_az = head_alt = fade = None
+                trail_n = 0
+            if st['tracking'] and not stale:
+                pinging = True
+            sig.extend((
+                _q(st['az'], 2), _q(st['alt'], 2), _q(st['dome_az'], 1),
+                st['slewing'], st['tracking'], st['motors'], st['atpark'],
+                st['safety_cutoff'], st['dome_shutter'], st['cover_state'],
+                st['camera_state'], st['fw_position'], stale,
+                st['ob_rev'], st['plan_rev'], ob_active, _q(progress, 2),
+                _q(target.get('az'), 2), _q(target.get('alt'), 2),
+                trail_n, head_az, head_alt, fade,
+            ))
+        # a ping pulses under every tracking mount, so while one of them is on
+        # the disc there is a fresh frame every tick and no key to settle on
+        if pinging:
+            sig.append(int(now / self.REFRESH_S))
+        return tuple(sig)
+
     async def _refresh_loop(self) -> None:
         while True:
             try:
                 self._sample_trails()
                 if self.isVisible():
-                    self._draw()
+                    try:
+                        sig = self._frame_sig()
+                    except Exception as e:
+                        # a key that cannot be built is no reason to stop
+                        # painting: fall back to drawing on every tick, which
+                        # is what the radar did before it had a key at all
+                        logger.warning(f'radar frame signature failed: {e}')
+                        sig = None
+                    stale_frame = time.time() - self._last_draw_t > self.MAX_SKIP_S
+                    if sig is None or stale_frame or sig != self._frame_sig_last:
+                        self._draw()
+                        # only once the frame is up: a draw that threw has to
+                        # be tried again, not skipped as already on screen
+                        self._frame_sig_last = sig
+                        self._last_draw_t = time.time()
+                else:
+                    # nothing is kept up to date behind a hidden tab, so the
+                    # first tick back in view always draws
+                    self._frame_sig_last = None
             except Exception as e:
                 logger.warning(f'radar redraw failed: {e}')
             await asyncio.sleep(self.REFRESH_S)
@@ -1440,6 +1559,7 @@ class RadarWidget(QWidget):
                 spots[tel] = ax.transData.transform(
                     (_theta(st['az']), self._radius(st['alt'])))
             except (ValueError, AttributeError, RuntimeError):
+                self._sharing = False
                 return set()  # no usable transform yet: draw everything
 
         groups: List[List[str]] = []
@@ -1453,6 +1573,9 @@ class RadarWidget(QWidget):
                 groups.append([tel])
 
         slot = int(time.monotonic() / self.TEL_SHARE_PERIOD_S)
+        # a frame signature only has to follow the turn-taking clock while
+        # there is a spot being shared - see _frame_sig
+        self._sharing = any(len(group) > 1 for group in groups)
         covered = set()
         for group in groups:
             if len(group) < 2:

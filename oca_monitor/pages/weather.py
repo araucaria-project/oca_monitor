@@ -1173,7 +1173,7 @@ class _FwhmPanel(_PerTelescopeScatterPanel):
 
     needs_faststat = True
     title = 'FWHM  [arcsec]'
-    y_min = 0.5   # sub-arcsec is exceptional; tighten the floor so 1–3" reads clearly
+    y_min = 0.4   # sub-arcsec is exceptional; tighten the floor so 1–3" reads clearly
     y_max = 3.0   # frames above 3" are exceptional — don't waste vertical space
     marker = 'o'
     line_style = ''  # markers only — frames arrive irregularly
@@ -1197,6 +1197,7 @@ class _FwhmPanel(_PerTelescopeScatterPanel):
 
     def init_axes(self, ax) -> None:
         super().init_axes(ax)
+        ax.set_yticks(np.arange(0.5, self.y_max - 1e-9, 0.5))
         for tel in self.telescopes:
             color = ck.telescope_color(self.main_window, tel)
             if tel in self._lines:
@@ -1381,6 +1382,9 @@ class _PhotZeroPanel(_Panel):
     # elsewhere in the chart palette, so it visually flags "average across
     # telescopes" without colliding with any telescope or filter colour.
     MEAN_LINE_COLOR = '#ffffff'
+    # ±1σ confidence band around the trend line: local Gaussian-weighted
+    # scatter (same sigma as the trend), drawn as a barely-visible white fill.
+    BAND_ALPHA = 0.15
     # Maximum hour-of-day gap between consecutive samples that still counts
     # as "the same segment" of the trend curve. Anything wider gets a NaN
     # break so the line doesn't connect islands of points across hours of
@@ -1400,11 +1404,17 @@ class _PhotZeroPanel(_Panel):
         }
         self._scatters: Dict[str, Any] = {}
         self._line_smoothed = None
+        self._band = None
         self._overlay_avg = None
 
     def init_axes(self, ax) -> None:
         super().init_axes(ax)
         ax.set_ylim(self.Y_MIN, self.Y_MAX)
+        # Ticks every 0.05 mag from 0 downward (nothing above zero).
+        ax.set_yticks(np.arange(0.0, self.Y_MIN + 1e-9, -0.05))
+        # Drop the leading zero ("-.05") — the label is clipped at the edge anyway.
+        ax.yaxis.set_major_formatter(
+            lambda v, _pos: '0' if abs(v) < 1e-9 else f'{v:.2f}'.replace('0.', '.', 1))
         # Threshold zone bands — drawn behind data so colour shifts read
         # as background quality state.
         ax.axhspan(self.GREEN_THRESHOLD, 1.0,
@@ -1413,6 +1423,11 @@ class _PhotZeroPanel(_Panel):
                    color=ck.COLOR_WARN, alpha=0.15, linewidth=0, zorder=0)
         ax.axhspan(-100.0, self.YELLOW_THRESHOLD,
                    color=ck.COLOR_DANGER, alpha=0.20, linewidth=0, zorder=0)
+        # Reference line at ZP = 0 (nominal transparency). Thin, half-alpha
+        # green: clearly separates from the faint green zone band behind it
+        # without competing with the scatter or the white trend line.
+        ax.axhline(0.0, color=ck.COLOR_OK, alpha=0.45,
+                   linewidth=0.8, zorder=1)
         for tel in self.telescopes:
             color = ck.telescope_color(self.main_window, tel)
             self._scatters[tel] = ax.scatter([], [], s=7, c=color,
@@ -1461,6 +1476,7 @@ class _PhotZeroPanel(_Panel):
         self._refresh_smoothed_and_scale()
 
     def _refresh_smoothed_and_scale(self) -> None:
+        self._set_band([], [], [])
         all_x: List[float] = []
         all_y: List[float] = []
         for _tel, (xs, ys, _) in self._series.items():
@@ -1492,17 +1508,22 @@ class _PhotZeroPanel(_Panel):
 
         out_x: List[float] = []
         out_y: List[float] = []
+        out_sd: List[float] = []
         last_smoothed: Optional[float] = None
         for sx, sy in zip(seg_x, seg_y):
             if sx.size == 0:
                 continue
             if sx.size >= self.MIN_SEGMENT_POINTS:
                 sy_smooth = ck.gaussian_filter1d(sy, sigma=self.SMOOTH_SIGMA)
+                sy2_smooth = ck.gaussian_filter1d(sy * sy, sigma=self.SMOOTH_SIGMA)
+                sd = np.sqrt(np.clip(sy2_smooth - sy_smooth ** 2, 0.0, None))
                 if out_x:
                     out_x.append(np.nan)
                     out_y.append(np.nan)
+                    out_sd.append(np.nan)
                 out_x.extend(sx.tolist())
                 out_y.extend(sy_smooth.tolist())
+                out_sd.extend(sd.tolist())
                 last_smoothed = float(sy_smooth[-1])
             # Segments shorter than MIN_SEGMENT_POINTS are intentionally
             # not added to the trend line — the per-telescope scatter
@@ -1511,11 +1532,26 @@ class _PhotZeroPanel(_Panel):
 
         if self._line_smoothed is not None:
             self._line_smoothed.set_data(out_x, out_y)
+        self._set_band(out_x, out_y, out_sd)
         if self._overlay_avg is not None and last_smoothed is not None:
             self._overlay_avg.set_text(f"{last_smoothed:+.3f} mag")
             self._overlay_avg.set_color(self._color_for(last_smoothed))
         elif self._overlay_avg is not None:
             self._overlay_avg.set_text('')
+
+    def _set_band(self, xs, ys, sds) -> None:
+        """Redraw the ±1σ band; NaN separators split it into segments."""
+        if self._band is not None:
+            self._band.remove()
+            self._band = None
+        if self.ax is None or not xs:
+            return
+        x = np.asarray(xs, dtype=float)
+        y = np.asarray(ys, dtype=float)
+        sd = np.asarray(sds, dtype=float)
+        self._band = self.ax.fill_between(
+            x, y - sd, y + sd, color=self.MEAN_LINE_COLOR,
+            alpha=self.BAND_ALPHA, linewidth=0, zorder=7)
 
     def on_session_reset(self) -> None:
         for tel in self.telescopes:
@@ -1524,6 +1560,7 @@ class _PhotZeroPanel(_Panel):
                 self._scatters[tel].set_offsets(np.zeros((0, 2)))
         if self._line_smoothed is not None:
             self._line_smoothed.set_data([], [])
+        self._set_band([], [], [])
         if self._overlay_avg is not None:
             self._overlay_avg.set_text('')
 
@@ -1549,8 +1586,22 @@ _OCM_LOCAL_NOON_UTC_HOUR = 16
 
 
 def _current_night_start_utc() -> datetime.datetime:
-    """Most recent OCM local-noon (16:00 UTC), as a tz-aware UTC datetime."""
+    """Start of the observing night currently shown, as a tz-aware UTC datetime.
+
+    Must match the runtime reset, which wipes pipeline panels at sunset
+    (``_do_sunset_reset``): until tonight's sunset the panels keep showing
+    last night. So history replay starts at the most recent sunset —
+    approximated as next sunset minus one day, minus a margin to absorb
+    the day-to-day drift of sunset time. Falls back to the most recent
+    local noon (16:00 UTC) if the ephemeris is unavailable.
+    """
     now = datetime.datetime.now(datetime.timezone.utc)
+    try:
+        sunset = next_sun_alt_event(now, 0.0, 'setting')
+    except Exception:
+        sunset = None
+    if sunset is not None:
+        return sunset - datetime.timedelta(days=1, minutes=5)
     local_noon = now.replace(hour=_OCM_LOCAL_NOON_UTC_HOUR,
                              minute=0, second=0, microsecond=0)
     if local_noon > now:
