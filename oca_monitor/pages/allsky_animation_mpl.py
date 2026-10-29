@@ -30,12 +30,16 @@ STATE_COLORS = {'clear': '#4caf50', 'thin': '#ffc107', 'cloudy': '#ff7043', 'ove
 class AllskyAnimationMplWidget(QWidget):
     def __init__(self, main_window, allsky_dir='/data/misc/allsky/', vertical_screen=False,
                  clouds_subject='tic.status.ocm.allsky_overwatch.clouds',
-                 segments_subject='tic.status.ocm.allsky_overwatch.segments', **kwargs):
+                 segments_subject='tic.status.ocm.allsky_overwatch.segments', star_partial=0.7, star_partial_low=0.5,
+                 star_covered=0.25, **kwargs):
         super().__init__()
         self.main_window = main_window
         self.dir = allsky_dir
         self.clouds_subject = clouds_subject
         self.segments_subject = segments_subject
+        self.star_partial = star_partial            # share of expected stars seen below this: yellow (some lost)
+        self.star_partial_low = star_partial_low    # the same for the lowest ring (alt 30-50, noisier)
+        self.star_covered = star_covered            # below this: red (segment covered)
         self.camera = CAMERA_PARAMS
         self.segments = None        # segment geometry from allsky_overwatch: {"star": [...], "diff": [...]}
         self.clouds = {}            # (file size, mtime) -> allsky_overwatch message of that frame (last few)
@@ -89,19 +93,22 @@ class AllskyAnimationMplWidget(QWidget):
         return None
 
     def draw_clouds(self, ax, image_path):
-        """Segments flagged by allsky_overwatch on this frame: red = expected stars missing, orange = moving
-        cloud; white outlines = the star segments; the sky state in the corner. In twilight the star segments are
-        not filled: the expected stars assume a dark sky."""
+        """Segments of this frame from allsky_overwatch, only those where something is found: star segments outlined
+        yellow when part of the expected stars is lost, red when almost none is seen; difference segments with a
+        moving cloud outlined cyan, dashed; the sky state in the corner. In twilight the star segments are not drawn:
+        the expected stars assume a dark sky."""
         data = self.frame_clouds(image_path)
         if data is None or self.segments is None:
             return
-        layers = [('diff', 'moving', 'orange')] + ([] if data['twilight'] else [('star', 'missing', 'red')])
-        for kind, flag, color in layers:
-            for seg, flagged in zip(self.segments[kind], data['segments'][kind][flag]):
-                if flagged:
-                    ax.add_patch(Polygon(self.segment_polygon(seg), closed=True, facecolor=color, alpha=0.25, edgecolor='none'))
-        for seg in self.segments['star']:
-            ax.add_patch(Polygon(self.segment_polygon(seg), closed=True, fill=False, edgecolor='white', alpha=0.3, lw=0.6))
+        if not data['twilight']:
+            for seg, frac in zip(self.segments['star'], data['segments']['star']['star_frac_ref']):
+                partial = self.star_partial_low if seg['alt_lo'] < 50 else self.star_partial
+                color = None if frac is None or frac >= partial else 'red' if frac < self.star_covered else 'yellow'
+                if color:
+                    ax.add_patch(Polygon(self.segment_polygon(seg), closed=True, fill=False, edgecolor=color, lw=2, zorder=3))
+        for seg, moving in zip(self.segments['diff'], data['segments']['diff']['moving']):
+            if moving:
+                ax.add_patch(Polygon(self.segment_polygon(seg), closed=True, fill=False, edgecolor='cyan', lw=1.2, ls='--'))
         state = data['state'] + (' (twilight)' if data['twilight'] else '')
         ax.text(1230, 30, f"{state}  {data['time'][11:16]} UT", color=STATE_COLORS.get(data['state'], 'white'),
                 fontsize=12, ha='right')

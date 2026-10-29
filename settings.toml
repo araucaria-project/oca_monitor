@@ -29,6 +29,11 @@ source = "message"  # page source - page is defined in oca_monitor/pages/example
 source = "allsky_animation_mpl"  # page source - page is defined in oca_monitor/pages/example.py
 #source = "allsky_animation"  # the non-matplotlib variant
 vertical_screen = 0
+# clouds from allsky_overwatch: a star segment is yellow when the share of expected stars seen is below star_partial
+# (star_partial_low for the lowest ring, alt 30-50), red below star_covered
+star_partial = 0.7
+star_partial_low = 0.5
+star_covered = 0.25
 
 [default.panels.01.Satellite]
 source = "satellite_animation"  # page source - page is defined in oca_monitor/pages/example.py
