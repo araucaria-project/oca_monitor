@@ -138,6 +138,11 @@ class ImageDisplay:
                 self.last_refresh = time.time()
             await asyncio.sleep(self.image_pause_sec)
 
+    def force_refresh(self) -> None:
+        """Rebuild all image objects at the next list check, e.g. when what is drawn over the images has changed."""
+        self.image_queue = asyncio.Queue()
+        self.last_refresh = None
+
     async def display_init(self):
         logger.info(f'Starting {self.name} display.')
         await create_task(self.display(), f'{self.name}_display_images')
