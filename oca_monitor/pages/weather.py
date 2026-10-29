@@ -1359,17 +1359,11 @@ class _PhotZeroPanel(_Panel):
     # Singletons / pairs draw as raw markers via the per-tel scatter
     # already; the trend line just doesn't extend through them.
     MIN_SEGMENT_POINTS = 4
-    # TEMPORARY: telescopes whose zero_monitor points are not to be shown
-    # (bad/unreliable photometry from the pipeline). Their samples are
-    # dropped entirely, so they affect neither the scatter nor the
-    # site-wide trend line. Empty this tuple to restore them.
-    EXCLUDED_TELESCOPES = ('jk15',)
 
     def __init__(self, main_window, telescopes: Sequence[str]) -> None:
         super().__init__()
         self.main_window = main_window
-        self.telescopes = [t for t in telescopes
-                           if t.lower() not in self.EXCLUDED_TELESCOPES]
+        self.telescopes = list(telescopes)
         self._series: Dict[str, Tuple[List[float], List[float], List[str]]] = {
             t: ([], [], []) for t in self.telescopes
         }
