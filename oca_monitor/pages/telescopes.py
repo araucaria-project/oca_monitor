@@ -147,6 +147,8 @@ class TelecopeWindow(QWidget):
             reader = get_reader(f'tic.status.{tel}.access_grantor.safety_cutoff_state', deliver_policy='last')
             async for data, meta in reader:
                 state = (data.get('measurements') or {}).get(f'{tel}.access_grantor.safety_cutoff_state')
+                if isinstance(state, dict):
+                    state = state.get('engaged')
                 self.safety_cutoff[tel] = None if state is None else bool(state)
                 async with self.lock:
                     self.update_table()
