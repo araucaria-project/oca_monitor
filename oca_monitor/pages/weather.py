@@ -1571,11 +1571,11 @@ class _PhotZeroPanel(_Panel):
 class _CloudsPanel(_Panel):
     """Clouds from the allsky camera, ``tic.status.ocm.allsky_overwatch.clouds`` (one message per frame, ~2.4 min).
 
-    A band along the top coloured by the sky state of each frame (thin / veil yellow, cloudy orange, overcast red,
-    nothing when clear), and below it the share of the sky (above 30 deg) under the observers' marks: yellow (cirrus,
-    semi-transparent or uncertain cloud, red included) and red (cloud that hides everything) as filled areas, plus a
-    dashed white line for the zenith cap (above 60 deg, yellow incl. red), where most observing happens. The big
-    overlay is the state of the last frame. Gaps longer than MAX_SEGMENT_GAP_HOURS break the areas.
+    A band along the top coloured by the sky state of each frame (thin yellow, veil yellow hatched, cloudy orange,
+    overcast red, nothing when clear), and below it the share of the sky (above 30 deg) under the observers' marks: yellow (cirrus,
+    semi-transparent or uncertain cloud, red included) and red (cloud that hides everything) as filled areas; a dashed
+    white vertical line marks the current time. The big overlay is the state of the last frame. Gaps longer than
+    MAX_SEGMENT_GAP_HOURS break the areas.
     """
 
     needs_clouds = True
@@ -1589,9 +1589,10 @@ class _CloudsPanel(_Panel):
 
     def __init__(self) -> None:
         super().__init__()
-        self._rows: List[Tuple[float, str, float, float, float]] = []   # (hour, state, yellow, red, zenith)
+        self._rows: List[Tuple[float, str, float, float]] = []   # (hour, state, yellow, red)
         self._artists: List[Any] = []
         self._overlay_state = None
+        self._now_line = None
 
     def init_axes(self, ax) -> None:
         super().init_axes(ax)
@@ -1599,13 +1600,13 @@ class _CloudsPanel(_Panel):
         ax.set_yticks([0.0, 0.5])
         ax.yaxis.set_major_formatter(lambda v, _pos: f'{v * 100:.0f}%')
         self._overlay_state = ck.big_overlay(ax)
+        self._now_line = ax.axvline(_hour_now_utc(), color='#ffffff', linestyle='--', linewidth=1.0, alpha=0.9, zorder=6)
 
     def on_clouds(self, hour: float, data: dict) -> None:
         marks = data.get('marks') or {}
         try:
             state = 'veil' if data.get('veil') and data['state'] == 'thin' else str(data['state'])
-            row = (hour, state, float(marks.get('yellow') or 0.0), float(marks.get('red') or 0.0),
-                   float(marks.get('zen_yellow') or 0.0))
+            row = (hour, state, float(marks.get('yellow') or 0.0), float(marks.get('red') or 0.0))
         except (KeyError, TypeError, ValueError):
             return
         self._rows.append(row)
@@ -1614,6 +1615,9 @@ class _CloudsPanel(_Panel):
         self._dirty = True
 
     def render(self) -> None:
+        if self._now_line is not None:
+            now = _hour_now_utc()
+            self._now_line.set_xdata([now, now])
         if not self._dirty or self.ax is None:
             return
         self._dirty = False
@@ -1628,18 +1632,18 @@ class _CloudsPanel(_Panel):
         hours = np.array([r[0] for r in rows])
         yellow = np.array([r[2] for r in rows]) * self.BAND_BOTTOM
         red = np.array([r[3] for r in rows]) * self.BAND_BOTTOM
-        zenith = np.array([r[4] for r in rows]) * self.BAND_BOTTOM
         cuts = np.where(np.abs(np.diff(hours)) > self.MAX_SEGMENT_GAP_HOURS)[0] + 1
         for idx in np.split(np.arange(len(rows)), cuts):
             x = hours[idx]
             self._artists.append(self.ax.fill_between(x, 0, yellow[idx], color='#f6ce46', alpha=0.45, linewidth=0, zorder=3))
             self._artists.append(self.ax.fill_between(x, 0, red[idx], color='#ea4d3d', alpha=0.75, linewidth=0, zorder=4))
-            self._artists.append(self.ax.plot(x, zenith[idx], '--', color='#ffffff', linewidth=1.0, alpha=0.9, zorder=6)[0])
         for state, color in self.STATE_COLORS.items():
             spans = [(h, self.FRAME_HOURS) for h, st, *_ in rows if st == state]
             if spans:
+                # veil hatched, to tell it from thin of the same colour
+                look = dict(facecolors='none', edgecolors=color, hatch='////') if state == 'veil' else dict(facecolors=color)
                 self._artists.append(self.ax.broken_barh(spans, (self.BAND_BOTTOM + 0.02, 1.0 - self.BAND_BOTTOM - 0.02),
-                                                         facecolors=color, linewidth=0, zorder=5))
+                                                         linewidth=0, zorder=5, **look))
         if self._overlay_state is not None:
             last = self._rows[-1][1]
             self._overlay_state.set_text(last)
