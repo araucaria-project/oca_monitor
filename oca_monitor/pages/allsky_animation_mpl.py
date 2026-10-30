@@ -12,7 +12,7 @@ from matplotlib.patches import Arrow
 import matplotlib.pyplot as plt
 import math
 import numpy as np
-from PIL import Image, ImageDraw
+from PIL import Image
 
 from qasync import asyncSlot
 from serverish.base.task_manager import create_task
@@ -25,21 +25,8 @@ logger = logging.getLogger(__name__.rsplit('.')[-1])
 # Camera model of the allsky frames (lastimage*.jpg are the archive frames): (x0, y0, theta, k1, k2),
 # z = 90 - alt, r = k1 z + k2 z^3, x = x0 + r sin(az + theta), y = y0 - r cos(az + theta) (allsky_lib.CAMERA_PARAMS).
 CAMERA_PARAMS = (610.88, 624.52, -9.094, 6.21458, -3.7e-05)
-DISC_RADIUS = 536   # px from (x0, y0): the sky disc with its rim, inside the burned-in N, E, S, W labels
 STATE_COLORS = {'clear': '#4caf50', 'veil': '#ffc107', 'thin': '#ffc107', 'cloudy': '#ff7043', 'overcast': '#e53935'}
 MARKS_GRID = 4      # the marks of allsky_overwatch are on every 4th pixel of the frame
-
-
-def north_up(image, camera=CAMERA_PARAMS):
-    """The allsky frame, or a picture drawn on it (PIL image), with its sky disc turned by -theta about the camera centre,
-    so that north is straight up; outside the disc the frame stays as it is (time, logo), and its burned-in N, E, S, W
-    labels become right."""
-    x0, y0, theta = camera[:3]
-    disc = Image.new('L', image.size, 0)
-    ImageDraw.Draw(disc).ellipse((x0 - DISC_RADIUS, y0 - DISC_RADIUS, x0 + DISC_RADIUS, y0 + DISC_RADIUS), fill=255)
-    sky = Image.composite(image, Image.new(image.mode, image.size), disc)     # no labels turned into the disc
-    turned = sky.rotate(theta, resample=Image.Resampling.BILINEAR, center=(x0, y0))
-    return Image.composite(turned, image, disc)
 
 
 class AllskyAnimationMplWidget(QWidget):
@@ -68,11 +55,11 @@ class AllskyAnimationMplWidget(QWidget):
         # logger.info(f"AllskyAnimationMplWidget UI setup done")
 
     def sky_xy(self, alt, az):
-        """Pixel (x, y) of a sky position (alt, az in deg, az from N through E) on the frame turned by north_up."""
+        """Pixel (x, y) of a sky position (alt, az in deg, az from N through E) on the allsky frame."""
         x0, y0, theta, k1, k2 = self.camera
         z = 90. - alt
         r = k1 * z + k2 * z ** 3
-        a = math.radians(az)
+        a = math.radians(az + theta)
         return x0 + r * math.sin(a), y0 - r * math.cos(a)
 
     @staticmethod
@@ -104,9 +91,7 @@ class AllskyAnimationMplWidget(QWidget):
             return
         path = (data.get('files') or {}).get('marks')
         if path and os.path.exists(path):
-            x0, y0, theta = self.camera[:3]
-            codes = Image.open(path).rotate(theta, resample=Image.Resampling.NEAREST, center=(x0 / MARKS_GRID, y0 / MARKS_GRID))
-            codes = np.array(codes)        # turned as the frame (north_up)
+            codes = np.array(Image.open(path))
             gy, gx = np.mgrid[0:codes.shape[0], 0:codes.shape[1]] * MARKS_GRID
             yellow = (codes == 1) | (codes == 2)
             if yellow.any():
@@ -120,16 +105,17 @@ class AllskyAnimationMplWidget(QWidget):
                 color=STATE_COLORS.get(state, 'white'), fontsize=12, ha='right')
 
     def calc_wind_arrow(self, x_0, y_0, r, r_prim):
+        # the frame is shown as the camera takes it (north turned by theta), so the arrow is turned by theta too
         pi = 3.14159
         try:
-            winddir = self.main_window.winddir
+            winddir = self.main_window.winddir + self.camera[2]
             x = x_0 - r * math.cos((270. - winddir) * pi / 180.)
             y = y_0 + r * math.sin((270. - winddir) * pi / 180.)
             x_prim = x_0 - r_prim * math.cos((270. - winddir) * pi / 180.)
             y_prim = y_0 + r_prim * math.sin((270. - winddir) * pi / 180.)
 
         except:
-            winddir = 180.
+            winddir = 180. + self.camera[2]
             x = x_0 - r * math.cos((270. - winddir) * pi / 180.)
             y = y_0 + r * math.sin((270. - winddir) * pi / 180.)
             x_prim = x_0 - r_prim * math.cos((270. - winddir) * pi / 180.)
@@ -191,7 +177,8 @@ class AllskyAnimationMplWidget(QWidget):
         figure = Figure(facecolor='black')
         figure.clf()
         ax = figure.add_subplot(111)
-        ax.imshow(north_up(Image.open(image_path), self.camera))
+        image = plt.imread(image_path)
+        ax.imshow(image)
 
         try:
             for t in self.main_window.telescope_names:
