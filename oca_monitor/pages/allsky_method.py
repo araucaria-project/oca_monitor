@@ -1,13 +1,17 @@
 import asyncio
 import datetime
+import io
 import logging
 
 from PyQt6 import QtCore
 from PyQt6.QtGui import QPixmap
 from PyQt6.QtWidgets import QWidget, QVBoxLayout, QLabel, QSizePolicy
+from PIL import Image
 from qasync import asyncSlot
 from serverish.base.task_manager import create_task
 from serverish.messenger import get_reader
+
+from oca_monitor.pages.allsky_animation_mpl import north_up
 
 logger = logging.getLogger(__name__.rsplit('.')[-1])
 
@@ -85,6 +89,20 @@ class AllskyMethodWidget(QWidget):
         super().resizeEvent(event)
         self.show_image()
 
+    @staticmethod
+    def load(path):
+        """The picture at path turned north up as the allsky page (north_up), as a QPixmap, or None if unreadable."""
+        try:
+            with Image.open(path) as image:
+                buf = io.BytesIO()
+                north_up(image.convert('RGB')).save(buf, format='PNG')
+        except OSError as e:
+            logger.warning(f'allsky method picture {path}: {e}')
+            return None
+        pixmap = QPixmap()
+        pixmap.loadFromData(buf.getvalue())
+        return pixmap
+
     async def clouds_reader(self):
         try:
             reader = get_reader(self.clouds_subject, deliver_policy='last')
@@ -92,8 +110,8 @@ class AllskyMethodWidget(QWidget):
                 path = (data.get('files') or {}).get(self.kind)
                 self.data = data
                 if path:
-                    pixmap = QPixmap(path)       # the service writes it before the message (temporary file + rename)
-                    if not pixmap.isNull():
+                    pixmap = self.load(path)     # the service writes it before the message (temporary file + rename)
+                    if pixmap is not None and not pixmap.isNull():
                         self.pixmap = pixmap
                         self.show_image()
                 self.show_state()
