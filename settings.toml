@@ -55,7 +55,14 @@ source = "telescopes"  # page source - page is defined in oca_monitor/pages/exam
 source = "weather"  # page source - page is defined in oca_monitor/pages/example.py
 vertical_screen = 0
 
-charts = ["wind", "temperature", "humidity_pressure", "fwhm", "phot_zero", "power"]
+charts = ["wind", "temperature", "humidity_pressure", "power"]
+
+# sky quality, in the rotation with Weather: clouds from the allsky camera (allsky_overwatch), photometric zero point, seeing
+[default.panels.02.Sky]
+source = "weather"
+vertical_screen = 0
+charts = ["clouds", "phot_zero", "fwhm"]
+permanent_wind = false
 
 
 [default.panels.12.Site]

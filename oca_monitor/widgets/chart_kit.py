@@ -443,6 +443,16 @@ def wind_speed_thresholds(nats_cfg: Any) -> List[float]:
     return sorted(speeds) or [WIND_WARN_MS, WIND_DANGER_MS]
 
 
+def telescope_wind_limits(nats_cfg: Any, tel: str) -> Tuple[Optional[float], Optional[float]]:
+    """(observation_stop, pointing) wind limits [m/s] of one telescope from ``tic.config.observatory``: its
+    ``observatory.obs_limits`` merged over ``site.global.obs_limits``, as in ``wind_speed_thresholds``; ``None``
+    for a limit that is missing or invalid (also before the config arrives)."""
+    cfg = _sub_dict(nats_cfg, ('config',))
+    wind = {**_sub_dict(cfg, ('site', 'global', *_WIND_LIMITS_PATH)),
+            **_sub_dict(cfg, ('telescopes', tel, 'observatory', *_WIND_LIMITS_PATH))}
+    return _wind_speed(wind.get('observation_stop')), _wind_speed(wind.get('pointing'))
+
+
 _WIND_PALETTE = mcolors.LinearSegmentedColormap.from_list(
     'wind_zones', [COLOR_OK, COLOR_WIND_ORANGE, COLOR_DANGER])
 

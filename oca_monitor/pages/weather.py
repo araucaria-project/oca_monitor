@@ -64,6 +64,7 @@ class _Panel:
     needs_faststat: bool = False
     needs_zdf: bool = False
     needs_zero_monitor: bool = False
+    needs_clouds: bool = False
     needs_dome_state: bool = False
     needs_mount_az: bool = False
 
@@ -140,6 +141,8 @@ class _Panel:
     def on_zdf(self, tel: str, hour: float, content: dict) -> None: ...
 
     def on_zero_monitor(self, tel: str, hour: float, data: dict) -> None: ...
+
+    def on_clouds(self, hour: float, data: dict) -> None: ...
 
     def on_dome_state(self, tel: str, shutter_open: Optional[bool]) -> None: ...
 
@@ -1565,6 +1568,88 @@ class _PhotZeroPanel(_Panel):
             self._overlay_avg.set_text('')
 
 
+class _CloudsPanel(_Panel):
+    """Clouds from the allsky camera, ``tic.status.ocm.allsky_overwatch.clouds`` (one message per frame, ~2.4 min).
+
+    A band along the top coloured by the sky state of each frame (thin / veil yellow, cloudy orange, overcast red,
+    nothing when clear), and below it the share of the sky (above 30 deg) under the observers' marks: yellow (cirrus,
+    semi-transparent or uncertain cloud, red included) and red (cloud that hides everything) as filled areas, plus a
+    dashed white line for the zenith cap (above 60 deg, yellow incl. red), where most observing happens. The big
+    overlay is the state of the last frame. Gaps longer than MAX_SEGMENT_GAP_HOURS break the areas.
+    """
+
+    needs_clouds = True
+    title = 'Clouds  [share of sky]'
+    title_side = 'right'
+
+    STATE_COLORS = {'thin': '#f6ce46', 'veil': '#f6ce46', 'cloudy': '#f28c28', 'overcast': '#ea4d3d'}
+    BAND_BOTTOM = 0.88          # the state band fills the top of the axes, data below
+    MAX_SEGMENT_GAP_HOURS = 0.25
+    FRAME_HOURS = 2.4 / 60      # width of one frame in the band
+
+    def __init__(self) -> None:
+        super().__init__()
+        self._rows: List[Tuple[float, str, float, float, float]] = []   # (hour, state, yellow, red, zenith)
+        self._artists: List[Any] = []
+        self._overlay_state = None
+
+    def init_axes(self, ax) -> None:
+        super().init_axes(ax)
+        ax.set_ylim(0.0, 1.0)
+        ax.set_yticks([0.0, 0.5])
+        ax.yaxis.set_major_formatter(lambda v, _pos: f'{v * 100:.0f}%')
+        self._overlay_state = ck.big_overlay(ax)
+
+    def on_clouds(self, hour: float, data: dict) -> None:
+        marks = data.get('marks') or {}
+        try:
+            state = 'veil' if data.get('veil') and data['state'] == 'thin' else str(data['state'])
+            row = (hour, state, float(marks.get('yellow') or 0.0), float(marks.get('red') or 0.0),
+                   float(marks.get('zen_yellow') or 0.0))
+        except (KeyError, TypeError, ValueError):
+            return
+        self._rows.append(row)
+        if len(self._rows) > 2000:
+            del self._rows[:500]
+        self._dirty = True
+
+    def render(self) -> None:
+        if not self._dirty or self.ax is None:
+            return
+        self._dirty = False
+        for a in self._artists:
+            a.remove()
+        self._artists = []
+        if not self._rows:
+            if self._overlay_state is not None:
+                self._overlay_state.set_text('')
+            return
+        rows = sorted(self._rows)
+        hours = np.array([r[0] for r in rows])
+        yellow = np.array([r[2] for r in rows]) * self.BAND_BOTTOM
+        red = np.array([r[3] for r in rows]) * self.BAND_BOTTOM
+        zenith = np.array([r[4] for r in rows]) * self.BAND_BOTTOM
+        cuts = np.where(np.abs(np.diff(hours)) > self.MAX_SEGMENT_GAP_HOURS)[0] + 1
+        for idx in np.split(np.arange(len(rows)), cuts):
+            x = hours[idx]
+            self._artists.append(self.ax.fill_between(x, 0, yellow[idx], color='#f6ce46', alpha=0.45, linewidth=0, zorder=3))
+            self._artists.append(self.ax.fill_between(x, 0, red[idx], color='#ea4d3d', alpha=0.75, linewidth=0, zorder=4))
+            self._artists.append(self.ax.plot(x, zenith[idx], '--', color='#ffffff', linewidth=1.0, alpha=0.9, zorder=6)[0])
+        for state, color in self.STATE_COLORS.items():
+            spans = [(h, self.FRAME_HOURS) for h, st, *_ in rows if st == state]
+            if spans:
+                self._artists.append(self.ax.broken_barh(spans, (self.BAND_BOTTOM + 0.02, 1.0 - self.BAND_BOTTOM - 0.02),
+                                                         facecolors=color, linewidth=0, zorder=5))
+        if self._overlay_state is not None:
+            last = self._rows[-1][1]
+            self._overlay_state.set_text(last)
+            self._overlay_state.set_color(self.STATE_COLORS.get(last, ck.COLOR_OK))
+
+    def on_session_reset(self) -> None:
+        self._rows = []
+        self._dirty = True
+
+
 # ----------------------------------------------------------------------------
 # Helpers
 # ----------------------------------------------------------------------------
@@ -1577,6 +1662,9 @@ def _hour_now_utc() -> float:
 def _today_midnight_utc() -> datetime.datetime:
     n = datetime.datetime.now(datetime.timezone.utc)
     return datetime.datetime(n.year, n.month, n.day, tzinfo=datetime.timezone.utc)
+
+
+CLOUDS_SUBJECT = 'tic.status.ocm.allsky_overwatch.clouds'   # allsky_overwatch, one message per frame
 
 
 # OCM is at -70°W → local noon = 16:00 UTC. Use that as the night boundary
@@ -1629,7 +1717,7 @@ class WeatherDataWidget(QWidget):
     DEFAULT_CHARTS: Tuple[str, ...] = ('wind', 'temperature', 'humidity_pressure', 'power')
     KNOWN_CHARTS = frozenset({
         'wind', 'humidity_pressure', 'temperature', 'power',
-        'dome_wind_az', 'fwhm', 'quality', 'phot_zero',
+        'dome_wind_az', 'fwhm', 'quality', 'phot_zero', 'clouds',
     })
 
     def __init__(self, main_window, subject: str = 'telemetry.weather.davis',
@@ -1642,6 +1730,7 @@ class WeatherDataWidget(QWidget):
                  temperature_danger_c: float = 0.0,
                  soc_warn_pct: float = 30.0,
                  soc_danger_pct: float = 15.0,
+                 permanent_wind: bool = True,
                  **kwargs) -> None:
         super().__init__()
         self.main_window = main_window
@@ -1656,6 +1745,7 @@ class WeatherDataWidget(QWidget):
         self.soc_danger_pct = float(soc_danger_pct)
         self._draw_pending = False
         self._draw_interval_ms = 100
+        self.permanent_wind = bool(permanent_wind)   # False: no wind chart unless asked (e.g. the Sky page)
         self.chart_keys = self._resolve_charts(charts)
         self.panels: List[_Panel] = self._build_panels()
         self._init_ui()
@@ -1674,8 +1764,8 @@ class WeatherDataWidget(QWidget):
                     out.append(key)
             else:
                 logger.warning(f"Unknown weather chart '{key}' — skipped.")
-        if 'wind' not in out:
-            out.insert(0, 'wind')  # wind is permanent
+        if 'wind' not in out and self.permanent_wind:
+            out.insert(0, 'wind')  # wind is permanent, unless the page says permanent_wind = false
         return out
 
     def _build_panels(self) -> List[_Panel]:
@@ -1714,6 +1804,8 @@ class WeatherDataWidget(QWidget):
                 panels.append(_QualityPanel(self.main_window, telescopes))
             elif key == 'phot_zero' and telescopes:
                 panels.append(_PhotZeroPanel(self.main_window, telescopes))
+            elif key == 'clouds':
+                panels.append(_CloudsPanel())
         return panels
 
     # ---- UI -----------------------------------------------------------------
@@ -1858,7 +1950,7 @@ class WeatherDataWidget(QWidget):
         n = 0
         for p in self.panels:
             # Only panels driven by per-night pipeline streams.
-            if p.needs_faststat or p.needs_zdf or p.needs_zero_monitor:
+            if p.needs_faststat or p.needs_zdf or p.needs_zero_monitor or p.needs_clouds:
                 try:
                     p.on_session_reset()
                     n += 1
@@ -1914,7 +2006,9 @@ class WeatherDataWidget(QWidget):
             for tel in telescopes:
                 await create_task(self._zero_monitor_loop(tel),
                                   f'weather_zerolc_{tel}')
-        if any(p.needs_faststat or p.needs_zdf or p.needs_zero_monitor
+        if any(p.needs_clouds for p in self.panels):
+            await create_task(self._clouds_loop(), 'weather_clouds')
+        if any(p.needs_faststat or p.needs_zdf or p.needs_zero_monitor or p.needs_clouds
                for p in self.panels):
             self._schedule_next_sunset_reset()
 
@@ -2164,6 +2258,20 @@ class WeatherDataWidget(QWidget):
                 self._schedule_draw()
         except Exception as e:
             logger.warning(f"zero_monitor.lc reader [{tel}] failed: {e}")
+
+    async def _clouds_loop(self):
+        try:
+            r = get_reader(CLOUDS_SUBJECT, deliver_policy='by_start_time',
+                           opt_start_time=_current_night_start_utc())
+            async for data, meta in r:
+                if not isinstance(data, dict):
+                    continue
+                hour = _hour_from_iso(data.get('time')) or _hour_from_meta(meta) or _hour_now_utc()
+                for p in self.panels:
+                    p.on_clouds(hour, data)
+                self._schedule_draw()
+        except Exception as e:
+            logger.warning(f"allsky clouds reader failed: {e}")
 
     # ---- ephemeris label ----------------------------------------------------
 

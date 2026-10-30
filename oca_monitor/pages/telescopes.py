@@ -1,20 +1,40 @@
 import copy
+import datetime
 import logging
 import os
 import subprocess
 import time
 import asyncio
 
-from PyQt6.QtWidgets import QWidget, QGridLayout, QTableWidget, QTableWidgetItem, QHeaderView
+from PyQt6.QtWidgets import QWidget, QGridLayout, QTableWidget, QTableWidgetItem, QHeaderView, QHBoxLayout, QLabel
 from PyQt6 import QtCore, QtGui
+from PyQt6.QtSvg import QSvgRenderer
 
 from qasync import asyncSlot
 from serverish.base import dt_ensure_datetime
 from serverish.base.task_manager import create_task_sync, create_task
 from serverish.messenger import get_reader, single_read
 
+from oca_monitor.paths import icon_path
+from oca_monitor.widgets import chart_kit as ck
+
 
 logger = logging.getLogger(__name__.rsplit('.')[-1])
+
+CLOUDS_MAX_AGE = 600        # s; an older allsky_overwatch message does not count (day, service down)
+MIRROR_FANS_STALE = 15 * 60  # s; an older focuser.fansstatus does not count
+
+
+def icon(name, color, size=14):
+    """An icon of resources/icons (svg, as in TOI) painted in one colour."""
+    pixmap = QtGui.QPixmap(size, size)
+    pixmap.fill(QtCore.Qt.GlobalColor.transparent)
+    painter = QtGui.QPainter(pixmap)
+    QSvgRenderer(str(icon_path(f'{name}.svg'))).render(painter)
+    painter.setCompositionMode(QtGui.QPainter.CompositionMode.CompositionMode_SourceIn)
+    painter.fillRect(pixmap.rect(), QtGui.QColor(color))
+    painter.end()
+    return pixmap
 
 class TelecopeWindow(QWidget):
 
@@ -28,10 +48,18 @@ class TelecopeWindow(QWidget):
         'lime': (0, 255, 0)
     }
 
-    def __init__(self, main_window, subject='telemetry.weather.davis', vertical_screen = False, **kwargs):
+    def __init__(self, main_window, subject='telemetry.weather.davis', vertical_screen = False,
+                 clouds_subject='tic.status.ocm.allsky_overwatch.clouds', humidity_limit=70., temperature_limit=0., **kwargs):
         super().__init__()
         self.main_window = main_window
         self.subject = subject
+        self.clouds_subject = clouds_subject
+        self.humidity_limit = float(humidity_limit)        # % - icon as in TOI
+        self.temperature_limit = float(temperature_limit)  # C
+        self.weather = {}           # last telemetry.weather.davis measurements
+        self.safety_cutoff = {t: None for t in self.main_window.telescope_names}
+        self.mirror_fans = {}       # tel -> (fans on, time.time() of the message)
+        self.clouds = None          # last allsky_overwatch clouds message
         self.vertical = bool(vertical_screen)
         self.mkUI()
         self.lock = asyncio.Lock()
@@ -77,13 +105,118 @@ class TelecopeWindow(QWidget):
                 tmp_n = None
             self.filters[tel] = tmp_n
 
+        await create_task(self.weather_reader(), "nats_tel_weather_reader")
+        await create_task(self.clouds_reader(), "nats_tel_clouds_reader")
         for tel in self.main_window.telescope_names:
+            await create_task(self.safety_cutoff_reader(tel), "nats_tel_safety_cutoff_reader")
+            await create_task(self.mirror_fans_reader(tel), "nats_tel_mirror_fans_reader")
             await create_task(self.oca_telemetry_program_reader(tel),"nats_oca_telemetry_program_reader")
             await create_task(self.oca_az_reader(tel), "nats_oca_az_reader")
             await create_task(self.oca_alt_reader(tel), "nats_oca_alt_reader")
             await create_task(self.oca_toi_status_reader(tel), "nats_oca_toi_status_reader")
             for k in self.oca_tel_state[tel].keys():
                 await create_task(self.oca_telemetry_reader(tel,k),"nats_oca_telemetry_reader")
+
+    # the icons of the Telescope column, as in TOI's obs window (weather, safety cutoff, mirror fans, clouds)
+    async def weather_reader(self):
+        try:
+            reader = get_reader(self.subject, deliver_policy='last')
+            async for data, meta in reader:
+                self.weather = data.get('measurements') or {}
+                async with self.lock:
+                    self.update_table()
+        except (asyncio.CancelledError, asyncio.TimeoutError):
+            raise
+        except Exception as e:
+            logger.warning(f'EXCEPTION weather_reader: {e}')
+
+    async def clouds_reader(self):
+        try:
+            reader = get_reader(self.clouds_subject, deliver_policy='last')
+            async for data, meta in reader:
+                self.clouds = data
+                async with self.lock:
+                    self.update_table()
+        except (asyncio.CancelledError, asyncio.TimeoutError):
+            raise
+        except Exception as e:
+            logger.warning(f'EXCEPTION clouds_reader: {e}')
+
+    async def safety_cutoff_reader(self, tel):
+        try:
+            reader = get_reader(f'tic.status.{tel}.access_grantor.safety_cutoff_state', deliver_policy='last')
+            async for data, meta in reader:
+                state = (data.get('measurements') or {}).get(f'{tel}.access_grantor.safety_cutoff_state')
+                self.safety_cutoff[tel] = None if state is None else bool(state)
+                async with self.lock:
+                    self.update_table()
+        except (asyncio.CancelledError, asyncio.TimeoutError):
+            raise
+        except Exception as e:
+            logger.warning(f'EXCEPTION safety_cutoff_reader: {e}')
+
+    async def mirror_fans_reader(self, tel):
+        try:
+            reader = get_reader(f'tic.status.{tel}.focuser.fansstatus', deliver_policy='last')
+            async for data, meta in reader:
+                values = list((data.get('measurements') or {}).values())
+                self.mirror_fans[tel] = (None if not values or values[0] is None else str(values[0]) == 'True', time.time())
+                async with self.lock:
+                    self.update_table()
+        except (asyncio.CancelledError, asyncio.TimeoutError):
+            raise
+        except Exception as e:
+            logger.warning(f'EXCEPTION mirror_fans_reader: {e}')
+
+    def clouds_at(self, tel):
+        """"red" / "yellow" when the telescope observes where allsky_overwatch marks clouds on its last frame."""
+        d = self.clouds
+        if not d or not d.get('time'):
+            return None
+        try:
+            age = time.time() - datetime.datetime.fromisoformat(d['time']).timestamp()
+        except (TypeError, ValueError):
+            return None
+        return (d.get('telescopes') or {}).get(tel) if age <= CLOUDS_MAX_AGE else None
+
+    def telescope_icons(self, t):
+        """(icon, colour, tooltip) of the Telescope column, as in TOI (without its joystick: TOI's own access)."""
+        out = []
+        if self.safety_cutoff.get(t):
+            out.append(('icon_hat', 'red', 'safety cutoff ON'))
+        op = self.toi_op_status[t] or {}
+        if (self.ob_prog_status[t] or {}).get('error'):
+            out.append(('icon_bug', 'red', 'program error'))
+        changed = lambda k: (op.get(k) or {}).get('state') != (op.get(k) or {}).get('defoult')
+        fans, fans_t = self.mirror_fans.get(t, (None, 0))
+        if fans is None or time.time() - fans_t > MIRROR_FANS_STALE:
+            fans = changed('mirror_fans') if op else None
+        if (op and changed('dome_ventilators')) or fans:
+            out.append(('icon_fan', 'orange', 'ventilators / mirror fans on'))
+        if op and (changed('flat_lamps') or changed('dome_lights')):
+            out.append(('icon_bulb', 'orange', 'flat lamps / dome lights on'))
+        def _f(key):
+            try:
+                return float(self.weather.get(key))
+            except (TypeError, ValueError):
+                return None
+        wind, rain, humidity, temperature = _f('wind_10min_ms'), _f('rain_mm'), _f('humidity'), _f('temperature_C')
+        stop, pointing = ck.telescope_wind_limits(getattr(self.main_window, 'nats_cfg', None), t)
+        if wind is not None and stop is not None and wind > stop:
+            out.append(('icon_wind', 'red', f'wind {wind:.1f} m/s above the observation stop {stop:g}'))
+        elif wind is not None and pointing is not None and wind > pointing:
+            out.append(('icon_wind', 'orange', f'wind {wind:.1f} m/s above the pointing limit {pointing:g}'))
+        if rain is not None and rain > 0:
+            out.append(('icon_rain', 'red', 'rain'))
+        if humidity is not None and humidity > self.humidity_limit:
+            out.append(('icon_water', 'red', f'humidity {humidity:.0f} % above {self.humidity_limit:g} %'))
+        if temperature is not None and temperature < self.temperature_limit:
+            out.append(('icon_cold', 'red', f'temperature {temperature:.1f} C below {self.temperature_limit:g} C'))
+        clouds = self.clouds_at(t)
+        if clouds:
+            out.append(('icon_cloud', 'red' if clouds == 'red' else 'orange',
+                        'pointing into thick clouds' if clouds == 'red' else 'pointing into clouds'))
+        return out
 
     async def oca_toi_status_reader(self,tel):
         try:
@@ -144,31 +277,24 @@ class TelecopeWindow(QWidget):
         for t in self.main_window.telescope_names:
             i = i + 1
 
-            # TELESKOPY
-
-            rgb = self.COLORS['light_gray']
-            status_ok = True
+            # TELESKOPY: name and the icons of TOI's obs window
+            cell = QWidget()
+            lay = QHBoxLayout(cell)
+            lay.setContentsMargins(1, 0, 1, 0)
+            lay.setSpacing(3)
+            lay.setAlignment(QtCore.Qt.AlignmentFlag.AlignCenter)
+            name = QLabel(t)
+            name.setStyleSheet("color: rgb(%d, %d, %d);" % self.COLORS['light_gray'])
+            lay.addWidget(name)
             try:
-                if self.toi_op_status[t]:
-                    for k in self.toi_op_status[t].keys():
-                        if self.toi_op_status[t][k]["state"] == self.toi_op_status[t][k]["defoult"]:
-                            pass
-                        else:
-                            status_ok = False
+                for icon_name, color, tip in self.telescope_icons(t):
+                    label = QLabel()
+                    label.setPixmap(icon(icon_name, color))
+                    label.setToolTip(tip)
+                    lay.addWidget(label)
             except Exception as e:
-                print(f"EXCEPTION: {e}")
-
-            if status_ok:
-                txt = ""
-            else:
-                txt = "\u26A0 "
-                rgb = self.COLORS['yellow']
-            txt = txt + f'{t}'
-
-            item = QTableWidgetItem(txt)
-            item.setForeground(QtGui.QBrush(QtGui.QColor(*rgb)))
-            item.setTextAlignment(QtCore.Qt.AlignmentFlag.AlignCenter)
-            self.obs_t.setItem(i, 0, item)
+                logger.warning(f'EXCEPTION telescope icons {t}: {e}')
+            self.obs_t.setCellWidget(i, 0, cell)
 
             # DOME
             state, rgb = "--", (0, 0, 0)
