@@ -84,7 +84,7 @@ class AllskyAnimationMplWidget(QWidget):
     def draw_clouds(self, ax, image_path):
         """Marks of this frame from allsky_overwatch (<frame>_marks.png on every MARKS_GRID-th pixel of the frame: 1 yellow,
         2 red, 3 Moon): light yellow fill = cirrus, semi-transparent or uncertain cloud (or the whole sky under a veil),
-        red outline = cloud that hides everything, cyan outline = the Moon, where nothing is detected; the sky state in
+        red outline = cloud that hides everything, light cyan area = the Moon, where nothing is detected; the sky state in
         the corner. The service keeps only the pictures of its last frames, enough for the lastimage*.jpg window."""
         data = self.frame_clouds(image_path)
         if data is None:
@@ -96,9 +96,10 @@ class AllskyAnimationMplWidget(QWidget):
             yellow = (codes == 1) | (codes == 2)
             if yellow.any():
                 ax.contourf(gx, gy, yellow.astype(float), levels=[0.5, 1.5], colors='yellow', alpha=0.25)
-            for code, color, lw in ((2, 'red', 2), (3, 'cyan', 1.2)):
-                if (codes == code).any():
-                    ax.contour(gx, gy, (codes == code).astype(float), levels=[0.5], colors=color, linewidths=lw)
+            if (codes == 3).any():
+                ax.contourf(gx, gy, (codes == 3).astype(float), levels=[0.5, 1.5], colors='cyan', alpha=0.3)
+            if (codes == 2).any():
+                ax.contour(gx, gy, (codes == 2).astype(float), levels=[0.5], colors='red', linewidths=2)
         state = 'veil' if data.get('veil') and data['state'] == 'thin' else data['state']
         ax.text(1230, 30, f"{state}{' (twilight)' if data['twilight'] else ''}  {data['time'][11:16]} UT",
                 color=STATE_COLORS.get(state, 'white'), fontsize=12, ha='right')

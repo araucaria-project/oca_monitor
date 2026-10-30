@@ -13,10 +13,10 @@ logger = logging.getLogger(__name__.rsplit('.')[-1])
 
 STATE_COLORS = {'clear': '#4caf50', 'veil': '#ffc107', 'thin': '#ffc107', 'cloudy': '#ff7043', 'overcast': '#e53935'}
 LEGENDS = {
-    'stars': 'stars a clear sky would show: green seen, red missing (large = sure ones); '
-             'outlined yellow = possible cloud, red = cloud that hides everything; cyan = Moon',
-    'diff': 'change since the previous frame: red brighter, blue darker; '
-            'outlined yellow = changing region, black = strong change; cyan = Moon',
+    'stars': 'stars a clear sky would show, ringed: green seen, red missing (large = sure ones); '
+             'outlined yellow = possible cloud, red = cloud that hides everything; cyan area = Moon',
+    'diff': 'change since the previous frame, coloured over the frame: red brighter, blue darker; '
+            'outlined yellow = changing region, black = strong change; cyan area = Moon',
 }
 MAX_AGE = 600       # s; an older picture is shown as not current (day, service down)
 
