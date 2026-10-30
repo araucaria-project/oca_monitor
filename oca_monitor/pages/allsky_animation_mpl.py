@@ -8,9 +8,11 @@ from PyQt6.QtWidgets import QWidget, QVBoxLayout
 from PyQt6.QtCore import QTimer
 from matplotlib.backends.backend_qtagg import FigureCanvasQTAgg as FigureCanvas
 from matplotlib.figure import Figure
-from matplotlib.patches import Arrow, Polygon
+from matplotlib.patches import Arrow
 import matplotlib.pyplot as plt
 import math
+import numpy as np
+from PIL import Image
 
 from qasync import asyncSlot
 from serverish.base.task_manager import create_task
@@ -21,27 +23,20 @@ from oca_monitor.image_display import ImageDisplay
 logger = logging.getLogger(__name__.rsplit('.')[-1])
 
 # Camera model of the allsky frames (lastimage*.jpg are the archive frames): (x0, y0, theta, k1, k2),
-# z = 90 - alt, r = k1 z + k2 z^3, x = x0 + r sin(az + theta), y = y0 - r cos(az + theta). allsky_overwatch
-# publishes it with the segment geometry; this is the default until that message arrives.
+# z = 90 - alt, r = k1 z + k2 z^3, x = x0 + r sin(az + theta), y = y0 - r cos(az + theta) (allsky_lib.CAMERA_PARAMS).
 CAMERA_PARAMS = (610.88, 624.52, -9.094, 6.21458, -3.7e-05)
-STATE_COLORS = {'clear': '#4caf50', 'thin': '#ffc107', 'cloudy': '#ff7043', 'overcast': '#bdbdbd'}
+STATE_COLORS = {'clear': '#4caf50', 'veil': '#ffc107', 'thin': '#ffc107', 'cloudy': '#ff7043', 'overcast': '#e53935'}
+MARKS_GRID = 4      # the marks of allsky_overwatch are on every 4th pixel of the frame
 
 
 class AllskyAnimationMplWidget(QWidget):
     def __init__(self, main_window, allsky_dir='/data/misc/allsky/', vertical_screen=False,
-                 clouds_subject='tic.status.ocm.allsky_overwatch.clouds',
-                 segments_subject='tic.status.ocm.allsky_overwatch.segments', star_partial=0.7, star_partial_low=0.5,
-                 star_covered=0.25, **kwargs):
+                 clouds_subject='tic.status.ocm.allsky_overwatch.clouds', **kwargs):
         super().__init__()
         self.main_window = main_window
         self.dir = allsky_dir
         self.clouds_subject = clouds_subject
-        self.segments_subject = segments_subject
-        self.star_partial = star_partial            # share of expected stars seen below this: yellow (some lost)
-        self.star_partial_low = star_partial_low    # the same for the lowest ring (alt 30-50, noisier)
-        self.star_covered = star_covered            # below this: red (segment covered)
         self.camera = CAMERA_PARAMS
-        self.segments = None        # segment geometry from allsky_overwatch: {"star": [...], "diff": [...]}
         self.clouds = {}            # (file size, mtime) -> allsky_overwatch message of that frame (last few)
         self.unmatched = set()      # (file size, mtime) of frames drawn before their message came
         self.display = None
@@ -67,12 +62,6 @@ class AllskyAnimationMplWidget(QWidget):
         a = math.radians(az + theta)
         return x0 + r * math.sin(a), y0 - r * math.cos(a)
 
-    def segment_polygon(self, seg, step=3.):
-        """Pixel outline of a sky segment (alt_lo..alt_hi x az_lo..az_hi), arcs sampled every `step` deg."""
-        n = max(int((seg['az_hi'] - seg['az_lo']) / step), 1)
-        azs = [seg['az_lo'] + (seg['az_hi'] - seg['az_lo']) * i / n for i in range(n + 1)]
-        return [self.sky_xy(seg['alt_lo'], a) for a in azs] + [self.sky_xy(seg['alt_hi'], a) for a in reversed(azs)]
-
     @staticmethod
     def same_frame(a, b):
         """(size, mtime) of an archive frame and of a lastimage*.jpg: the same bytes, written a few s later."""
@@ -93,25 +82,26 @@ class AllskyAnimationMplWidget(QWidget):
         return None
 
     def draw_clouds(self, ax, image_path):
-        """Segments of this frame from allsky_overwatch, only those where something is found: star segments outlined
-        yellow when part of the expected stars is lost, red when almost none is seen; difference segments with a
-        moving cloud outlined cyan, dashed; the sky state in the corner. In twilight the star segments are not drawn:
-        the expected stars assume a dark sky."""
+        """Marks of this frame from allsky_overwatch (<frame>_marks.png on every MARKS_GRID-th pixel of the frame: 1 yellow,
+        2 red, 3 Moon): light yellow fill = cirrus, semi-transparent or uncertain cloud (or the whole sky under a veil),
+        red outline = cloud that hides everything, cyan outline = the Moon, where nothing is detected; the sky state in
+        the corner. The service keeps only the pictures of its last frames, enough for the lastimage*.jpg window."""
         data = self.frame_clouds(image_path)
-        if data is None or self.segments is None:
+        if data is None:
             return
-        if not data['twilight']:
-            for seg, frac in zip(self.segments['star'], data['segments']['star']['star_frac_ref']):
-                partial = self.star_partial_low if seg['alt_lo'] < 50 else self.star_partial
-                color = None if frac is None or frac >= partial else 'red' if frac < self.star_covered else 'yellow'
-                if color:
-                    ax.add_patch(Polygon(self.segment_polygon(seg), closed=True, fill=False, edgecolor=color, lw=2, zorder=3))
-        for seg, moving in zip(self.segments['diff'], data['segments']['diff']['moving']):
-            if moving:
-                ax.add_patch(Polygon(self.segment_polygon(seg), closed=True, fill=False, edgecolor='cyan', lw=1.2, ls='--'))
-        state = data['state'] + (' (twilight)' if data['twilight'] else '')
-        ax.text(1230, 30, f"{state}  {data['time'][11:16]} UT", color=STATE_COLORS.get(data['state'], 'white'),
-                fontsize=12, ha='right')
+        path = (data.get('files') or {}).get('marks')
+        if path and os.path.exists(path):
+            codes = np.array(Image.open(path))
+            gy, gx = np.mgrid[0:codes.shape[0], 0:codes.shape[1]] * MARKS_GRID
+            yellow = (codes == 1) | (codes == 2)
+            if yellow.any():
+                ax.contourf(gx, gy, yellow.astype(float), levels=[0.5, 1.5], colors='yellow', alpha=0.25)
+            for code, color, lw in ((2, 'red', 2), (3, 'cyan', 1.2)):
+                if (codes == code).any():
+                    ax.contour(gx, gy, (codes == code).astype(float), levels=[0.5], colors=color, linewidths=lw)
+        state = 'veil' if data.get('veil') and data['state'] == 'thin' else data['state']
+        ax.text(1230, 30, f"{state}{' (twilight)' if data['twilight'] else ''}  {data['time'][11:16]} UT",
+                color=STATE_COLORS.get(state, 'white'), fontsize=12, ha='right')
 
     def calc_wind_arrow(self, x_0, y_0, r, r_prim):
         pi = 3.14159
@@ -229,22 +219,6 @@ class AllskyAnimationMplWidget(QWidget):
         self.layout.insertWidget(0, object_to_display)
         self.canvas.draw()
 
-    async def segments_reader(self):
-        try:
-            reader = get_reader(self.segments_subject, deliver_policy='last')
-            async for data, meta in reader:
-                try:
-                    self.segments = {'star': data['star'], 'diff': data['diff']}
-                    self.camera = tuple(float(p) for p in data['camera']['params'])
-                except (LookupError, TypeError, ValueError):
-                    continue
-                if self.display:
-                    self.display.force_refresh()
-        except (asyncio.CancelledError, asyncio.TimeoutError):
-            raise
-        except Exception as e:
-            logger.warning(f'allsky reader {self.segments_subject} failed: {e}')
-
     async def clouds_reader(self):
         try:
             t0 = datetime.datetime.now(datetime.timezone.utc) - datetime.timedelta(minutes=15)
@@ -271,7 +245,6 @@ class AllskyAnimationMplWidget(QWidget):
     @asyncSlot()
     async def async_init(self):
         logger.info('Starting allsky display.')
-        await create_task(self.segments_reader(), 'allsky_segments')
         await create_task(self.clouds_reader(), 'allsky_clouds')
         self.display = display = ImageDisplay(
             name='allsky', images_dir=self.dir, image_display_clb=self.image_display,
