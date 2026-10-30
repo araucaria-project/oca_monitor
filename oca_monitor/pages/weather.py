@@ -331,28 +331,63 @@ class _SimpleSeriesPanel(_Panel):
 class _WindPanel(_SimpleSeriesPanel):
     """Wind speed + direction-arrow strip along the bottom."""
 
-    def __init__(self, *, warn_ms: float = ck.WIND_WARN_MS,
-                 danger_ms: float = ck.WIND_DANGER_MS) -> None:
+    def __init__(self) -> None:
         super().__init__(
             measurement_key='wind_10min_ms',
             y_label='Wind  [m/s]',
             today_color=ck.COLOR_TODAY,
             y_min=0.0, y_max=None,
-            reject_above=danger_ms * 3.0,
+            reject_above=ck.WIND_DANGER_MS * 3.0,
             reject_below=0.0,
-            zone_drawer=ck.wind_zone_bands,
+            zone_drawer=None,
             sigma_minutes=1.0,   # wind: keep gusts; only smooth out reading noise
-            warn_above=warn_ms,
-            danger_above=danger_ms,
         )
+        # fallback limits until tic.config.observatory arrives (on_observatory_config)
+        self._thresholds: List[float] = ck.wind_speed_thresholds(None)
+        self._zone_colors: List[str] = ck.wind_zone_colors(len(self._thresholds))
+        self._zone_artists: List[Any] = []
+        self._last_summary: Optional[dict] = None  # re-coloured when the limits change
         self._dir_x: List[float] = []
         self._dir_d: List[float] = []
         self._quiver = None
 
     def init_axes(self, ax) -> None:
         super().init_axes(ax)
-        ax.set_ylim(0, max(15.0, self.danger_above * 1.4))
+        self._draw_zones()
         self._add_overlay(ax)
+
+    def on_observatory_config(self, nats_cfg: dict) -> None:
+        self._thresholds = ck.wind_speed_thresholds(nats_cfg)
+        self._zone_colors = ck.wind_zone_colors(len(self._thresholds))
+        if self.ax is None:
+            return  # init_axes will draw with the new limits
+        self._draw_zones()
+        self._refresh_arrows()  # arrows sit at a fixed fraction of the new y-range
+        if self._last_summary is not None:
+            self.on_live_summary(self._last_summary)  # don't wait ~1 min for Davis to re-colour the value
+
+    def on_live_summary(self, msm: dict) -> None:
+        self._last_summary = msm
+        super().on_live_summary(msm)
+
+    def _draw_zones(self) -> None:
+        """(Re)draw the wind zones and fit the y-axis to the highest limit; safe to repeat."""
+        for artist in self._zone_artists:
+            try:
+                artist.remove()
+            except (ValueError, AttributeError):
+                pass
+        self._zone_artists = ck.wind_zone_bands(self.ax, self._thresholds)
+        self.ax.set_ylim(0, max(15.0, self._thresholds[-1] * 1.4))
+
+    def alert_color(self, msm) -> Optional[str]:
+        """Colour of the zone the current wind is in; default text colour in the calm zone."""
+        try:
+            v = float(msm[self.measurement_key])
+        except (KeyError, TypeError, ValueError):
+            return None
+        zone = ck.wind_zone_index(self._thresholds, v) if _math.isfinite(v) else 0
+        return self._zone_colors[zone] if zone else None
 
     def format_overlay(self, msm):
         wind = float(msm['wind_10min_ms'])
@@ -1138,7 +1173,7 @@ class _FwhmPanel(_PerTelescopeScatterPanel):
 
     needs_faststat = True
     title = 'FWHM  [arcsec]'
-    y_min = 0.5   # sub-arcsec is exceptional; tighten the floor so 1–3" reads clearly
+    y_min = 0.4   # sub-arcsec is exceptional; tighten the floor so 1–3" reads clearly
     y_max = 3.0   # frames above 3" are exceptional — don't waste vertical space
     marker = 'o'
     line_style = ''  # markers only — frames arrive irregularly
@@ -1162,6 +1197,7 @@ class _FwhmPanel(_PerTelescopeScatterPanel):
 
     def init_axes(self, ax) -> None:
         super().init_axes(ax)
+        ax.set_yticks(np.arange(0.5, self.y_max - 1e-9, 0.5))
         for tel in self.telescopes:
             color = ck.telescope_color(self.main_window, tel)
             if tel in self._lines:
@@ -1346,6 +1382,9 @@ class _PhotZeroPanel(_Panel):
     # elsewhere in the chart palette, so it visually flags "average across
     # telescopes" without colliding with any telescope or filter colour.
     MEAN_LINE_COLOR = '#ffffff'
+    # ±1σ confidence band around the trend line: local Gaussian-weighted
+    # scatter (same sigma as the trend), drawn as a barely-visible white fill.
+    BAND_ALPHA = 0.15
     # Maximum hour-of-day gap between consecutive samples that still counts
     # as "the same segment" of the trend curve. Anything wider gets a NaN
     # break so the line doesn't connect islands of points across hours of
@@ -1365,11 +1404,17 @@ class _PhotZeroPanel(_Panel):
         }
         self._scatters: Dict[str, Any] = {}
         self._line_smoothed = None
+        self._band = None
         self._overlay_avg = None
 
     def init_axes(self, ax) -> None:
         super().init_axes(ax)
         ax.set_ylim(self.Y_MIN, self.Y_MAX)
+        # Ticks every 0.05 mag from 0 downward (nothing above zero).
+        ax.set_yticks(np.arange(0.0, self.Y_MIN + 1e-9, -0.05))
+        # Drop the leading zero ("-.05") — the label is clipped at the edge anyway.
+        ax.yaxis.set_major_formatter(
+            lambda v, _pos: '0' if abs(v) < 1e-9 else f'{v:.2f}'.replace('0.', '.', 1))
         # Threshold zone bands — drawn behind data so colour shifts read
         # as background quality state.
         ax.axhspan(self.GREEN_THRESHOLD, 1.0,
@@ -1378,6 +1423,11 @@ class _PhotZeroPanel(_Panel):
                    color=ck.COLOR_WARN, alpha=0.15, linewidth=0, zorder=0)
         ax.axhspan(-100.0, self.YELLOW_THRESHOLD,
                    color=ck.COLOR_DANGER, alpha=0.20, linewidth=0, zorder=0)
+        # Reference line at ZP = 0 (nominal transparency). Thin, half-alpha
+        # green: clearly separates from the faint green zone band behind it
+        # without competing with the scatter or the white trend line.
+        ax.axhline(0.0, color=ck.COLOR_OK, alpha=0.45,
+                   linewidth=0.8, zorder=1)
         for tel in self.telescopes:
             color = ck.telescope_color(self.main_window, tel)
             self._scatters[tel] = ax.scatter([], [], s=7, c=color,
@@ -1426,6 +1476,7 @@ class _PhotZeroPanel(_Panel):
         self._refresh_smoothed_and_scale()
 
     def _refresh_smoothed_and_scale(self) -> None:
+        self._set_band([], [], [])
         all_x: List[float] = []
         all_y: List[float] = []
         for _tel, (xs, ys, _) in self._series.items():
@@ -1457,17 +1508,22 @@ class _PhotZeroPanel(_Panel):
 
         out_x: List[float] = []
         out_y: List[float] = []
+        out_sd: List[float] = []
         last_smoothed: Optional[float] = None
         for sx, sy in zip(seg_x, seg_y):
             if sx.size == 0:
                 continue
             if sx.size >= self.MIN_SEGMENT_POINTS:
                 sy_smooth = ck.gaussian_filter1d(sy, sigma=self.SMOOTH_SIGMA)
+                sy2_smooth = ck.gaussian_filter1d(sy * sy, sigma=self.SMOOTH_SIGMA)
+                sd = np.sqrt(np.clip(sy2_smooth - sy_smooth ** 2, 0.0, None))
                 if out_x:
                     out_x.append(np.nan)
                     out_y.append(np.nan)
+                    out_sd.append(np.nan)
                 out_x.extend(sx.tolist())
                 out_y.extend(sy_smooth.tolist())
+                out_sd.extend(sd.tolist())
                 last_smoothed = float(sy_smooth[-1])
             # Segments shorter than MIN_SEGMENT_POINTS are intentionally
             # not added to the trend line — the per-telescope scatter
@@ -1476,11 +1532,26 @@ class _PhotZeroPanel(_Panel):
 
         if self._line_smoothed is not None:
             self._line_smoothed.set_data(out_x, out_y)
+        self._set_band(out_x, out_y, out_sd)
         if self._overlay_avg is not None and last_smoothed is not None:
             self._overlay_avg.set_text(f"{last_smoothed:+.3f} mag")
             self._overlay_avg.set_color(self._color_for(last_smoothed))
         elif self._overlay_avg is not None:
             self._overlay_avg.set_text('')
+
+    def _set_band(self, xs, ys, sds) -> None:
+        """Redraw the ±1σ band; NaN separators split it into segments."""
+        if self._band is not None:
+            self._band.remove()
+            self._band = None
+        if self.ax is None or not xs:
+            return
+        x = np.asarray(xs, dtype=float)
+        y = np.asarray(ys, dtype=float)
+        sd = np.asarray(sds, dtype=float)
+        self._band = self.ax.fill_between(
+            x, y - sd, y + sd, color=self.MEAN_LINE_COLOR,
+            alpha=self.BAND_ALPHA, linewidth=0, zorder=7)
 
     def on_session_reset(self) -> None:
         for tel in self.telescopes:
@@ -1489,6 +1560,7 @@ class _PhotZeroPanel(_Panel):
                 self._scatters[tel].set_offsets(np.zeros((0, 2)))
         if self._line_smoothed is not None:
             self._line_smoothed.set_data([], [])
+        self._set_band([], [], [])
         if self._overlay_avg is not None:
             self._overlay_avg.set_text('')
 
@@ -1514,8 +1586,22 @@ _OCM_LOCAL_NOON_UTC_HOUR = 16
 
 
 def _current_night_start_utc() -> datetime.datetime:
-    """Most recent OCM local-noon (16:00 UTC), as a tz-aware UTC datetime."""
+    """Start of the observing night currently shown, as a tz-aware UTC datetime.
+
+    Must match the runtime reset, which wipes pipeline panels at sunset
+    (``_do_sunset_reset``): until tonight's sunset the panels keep showing
+    last night. So history replay starts at the most recent sunset —
+    approximated as next sunset minus one day, minus a margin to absorb
+    the day-to-day drift of sunset time. Falls back to the most recent
+    local noon (16:00 UTC) if the ephemeris is unavailable.
+    """
     now = datetime.datetime.now(datetime.timezone.utc)
+    try:
+        sunset = next_sun_alt_event(now, 0.0, 'setting')
+    except Exception:
+        sunset = None
+    if sunset is not None:
+        return sunset - datetime.timedelta(days=1, minutes=5)
     local_noon = now.replace(hour=_OCM_LOCAL_NOON_UTC_HOUR,
                              minute=0, second=0, microsecond=0)
     if local_noon > now:
@@ -1551,8 +1637,6 @@ class WeatherDataWidget(QWidget):
                  vertical_screen: bool = False,
                  charts: Optional[Sequence[str]] = None,
                  dome_danger_zone_deg: float = 30.0,
-                 wind_warn_ms: float = ck.WIND_WARN_MS,
-                 wind_danger_ms: float = ck.WIND_DANGER_MS,
                  humidity_warn_pct: float = 70.0,
                  humidity_danger_pct: float = 75.0,
                  temperature_danger_c: float = 0.0,
@@ -1565,8 +1649,6 @@ class WeatherDataWidget(QWidget):
         self.power_subject = power_subject
         self.vertical = bool(vertical_screen)
         self.dome_danger_zone_deg = float(dome_danger_zone_deg)
-        self.wind_warn_ms = float(wind_warn_ms)
-        self.wind_danger_ms = float(wind_danger_ms)
         self.humidity_warn_pct = float(humidity_warn_pct)
         self.humidity_danger_pct = float(humidity_danger_pct)
         self.temperature_danger_c = float(temperature_danger_c)
@@ -1601,8 +1683,7 @@ class WeatherDataWidget(QWidget):
         panels: List[_Panel] = []
         for key in self.chart_keys:
             if key == 'wind':
-                panels.append(_WindPanel(warn_ms=self.wind_warn_ms,
-                                         danger_ms=self.wind_danger_ms))
+                panels.append(_WindPanel())
             elif key == 'humidity_pressure':
                 panels.append(_HumidityPressurePanel(
                     warn_pct=self.humidity_warn_pct,
@@ -1792,7 +1873,7 @@ class WeatherDataWidget(QWidget):
 
     @asyncSlot()
     async def async_init(self):
-        await create_task(self._color_resolver(), 'weather_color_resolver')
+        await create_task(self._observatory_config_resolver(), 'weather_config_resolver')
         if any(p.needs_weather_history for p in self.panels):
             await create_task(self._weather_history_loop(), 'weather_history_reader')
         if any(p.needs_power_history for p in self.panels):
@@ -1839,34 +1920,37 @@ class WeatherDataWidget(QWidget):
 
     # ---- readers ------------------------------------------------------------
 
-    async def _color_resolver(self):
-        """One-shot watcher: re-stamp telescope colours once nats_cfg arrives.
+    async def _observatory_config_resolver(self):
+        """One-shot watcher: re-stamp telescope colours and wind zones once nats_cfg arrives.
 
         Panels are constructed synchronously during MainWindow.__init__ —
         before MainWindow.async_init has finished its single_read on
         ``tic.config.observatory`` — so the first paint uses
-        chart_kit fallback colours. This task polls until the live config
-        is available, then re-applies the published ``style.color`` to
-        every per-telescope artist exactly once.
+        chart_kit fallback colours and thresholds. This task polls until
+        the live config is available, then applies the published config
+        to every panel that defines a config or restamp hook.
         """
         import asyncio
         for _ in range(120):  # ~60 s of patience, then give up
             cfg = getattr(self.main_window, 'nats_cfg', None) or {}
-            if cfg.get('config', {}).get('telescopes'):
+            if cfg.get('config', {}).get('telescopes') or cfg.get('config', {}).get('site'):
                 break
             await asyncio.sleep(0.5)
         else:
-            logger.warning('nats_cfg never arrived — sticking with fallback colours')
+            logger.warning('nats_cfg never arrived — sticking with fallback colours and wind limits')
             return
-        restamped = 0
+        updated = 0
         for p in self.panels:
-            fn = getattr(p, 'restamp_telescope_colors', None)
-            if callable(fn):
-                fn()
-                restamped += 1
-        if restamped:
+            on_config = getattr(p, 'on_observatory_config', None)
+            restamp = getattr(p, 'restamp_telescope_colors', None)
+            if callable(on_config):
+                on_config(cfg)
+            if callable(restamp):
+                restamp()
+            updated += callable(on_config) or callable(restamp)
+        if updated:
             self._schedule_draw()
-            logger.info(f'Restamped telescope colours on {restamped} panel(s)')
+            logger.info(f'Applied observatory config to {updated} panel(s)')
 
     async def _weather_history_loop(self):
         await self._dual_day_history_loop(
