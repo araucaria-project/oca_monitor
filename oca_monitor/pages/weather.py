@@ -1572,7 +1572,7 @@ class _CloudsPanel(_Panel):
     """Clouds from the allsky camera, ``tic.status.ocm.allsky_overwatch.clouds`` (one message per frame, ~2.4 min).
 
     A band along the top coloured by the sky state of each frame (thin yellow, veil yellow hatched, cloudy orange,
-    overcast red, nothing when clear), and below it the share of the sky (above 30 deg) under the observers' marks: yellow (cirrus,
+    overcast red, twilight light blue - clouds not measured then -, nothing when clear), and below it the share of the sky (above 30 deg) under the observers' marks: yellow (cirrus,
     semi-transparent or uncertain cloud, red included) and red (cloud that hides everything) as filled areas; a dashed
     white vertical line marks the current time. The big overlay is the state of the last frame. Gaps longer than
     MAX_SEGMENT_GAP_HOURS break the areas.
@@ -1582,7 +1582,8 @@ class _CloudsPanel(_Panel):
     title = 'Clouds  [share of sky]'
     title_side = 'right'
 
-    STATE_COLORS = {'thin': '#f6ce46', 'veil': '#f6ce46', 'cloudy': '#f28c28', 'overcast': '#ea4d3d'}
+    STATE_COLORS = {'thin': '#f6ce46', 'veil': '#f6ce46', 'cloudy': '#f28c28', 'overcast': '#ea4d3d',
+                    'twilight': '#90caf9'}      # twilight: Sun above -18 deg, clouds not measured
     BAND_BOTTOM = 0.88          # the state band fills the top of the axes, data below
     MAX_SEGMENT_GAP_HOURS = 0.25
     FRAME_HOURS = 2.4 / 60      # width of one frame in the band
@@ -1605,8 +1606,9 @@ class _CloudsPanel(_Panel):
     def on_clouds(self, hour: float, data: dict) -> None:
         marks = data.get('marks') or {}
         try:
-            state = 'veil' if data.get('veil') and data['state'] == 'thin' else str(data['state'])
-            row = (hour, state, float(marks.get('yellow') or 0.0), float(marks.get('red') or 0.0))
+            twilight = bool(data.get('twilight'))
+            state = 'twilight' if twilight else 'veil' if data.get('veil') and data['state'] == 'thin' else str(data['state'])
+            row = (hour, state, 0.0, 0.0) if twilight else (hour, state, float(marks.get('yellow') or 0.0), float(marks.get('red') or 0.0))
         except (KeyError, TypeError, ValueError):
             return
         self._rows.append(row)

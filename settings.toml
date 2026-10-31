@@ -25,23 +25,31 @@ source = "radar"  # page source - page is defined in oca_monitor/pages/radar.py
 [default.panels.10.Message]
 source = "message"  # page source - page is defined in oca_monitor/pages/example.py
 
+[default.panels.01.Clouds]
+source = "allsky_animation_mpl"
+vertical_screen = 0
+# clouds from allsky_overwatch drawn on the frames: yellow fill = cirrus / semi-transparent / uncertain, red outline =
+# cloud that hides everything, dashed yellow circle = a veil over the whole sky, cyan = Moon; in twilight (Sun above
+# -18 deg) the Moon only
+
+# the plain allsky frames (telescopes and wind only), for when the cloud marks are wrong; out of the rotation
 [default.panels.01.Allsky]
 source = "allsky_animation_mpl"  # page source - page is defined in oca_monitor/pages/example.py
 #source = "allsky_animation"  # the non-matplotlib variant
 vertical_screen = 0
-# clouds from allsky_overwatch drawn on the frames: yellow fill = cirrus / semi-transparent / uncertain (or a veil),
-# red outline = cloud that hides everything, cyan = Moon
+clouds = false
+auto_enabled = false
 
 # the two method pictures of allsky_overwatch (pages/allsky_method.py), out of the rotation (auto_enabled = false);
 # switch them on in the panel's config dialog
-[default.panels.01.AllskyStars]
-source = "allsky_method"
-kind = "stars"
-auto_enabled = false
-
-[default.panels.01.AllskyDiff]
+[default.panels.01.CloudsDiff]
 source = "allsky_method"
 kind = "diff"
+auto_enabled = false
+
+[default.panels.01.CloudsStars]
+source = "allsky_method"
+kind = "stars"
 auto_enabled = false
 
 [default.panels.01.Satellite]

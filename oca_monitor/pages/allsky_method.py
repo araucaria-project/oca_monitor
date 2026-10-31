@@ -11,12 +11,13 @@ from serverish.messenger import get_reader
 
 logger = logging.getLogger(__name__.rsplit('.')[-1])
 
-STATE_COLORS = {'clear': '#4caf50', 'veil': '#ffc107', 'thin': '#ffc107', 'cloudy': '#ff7043', 'overcast': '#e53935'}
+STATE_COLORS = {'clear': '#4caf50', 'veil': '#ffc107', 'thin': '#ffc107', 'cloudy': '#ff7043', 'overcast': '#e53935',
+                'twilight': '#90caf9'}     # twilight: Sun above -18 deg, clouds not measured (blue as TOI's UT)
 LEGENDS = {
     'stars': 'stars a clear sky would show, ringed: green seen, red missing (large = sure ones); '
-             'outlined yellow = possible cloud, red = cloud that hides everything; cyan area = Moon',
+             'outlined yellow = possible cloud, red = cloud that hides everything; dashed yellow circle = veil; cyan area = Moon',
     'diff': 'change since the previous frame, coloured over the frame: red brighter, blue darker; '
-            'outlined yellow = changing region, black = strong change; cyan area = Moon',
+            'outlined yellow = changing region, black = strong change; dashed yellow circle = veil; cyan area = Moon',
 }
 MAX_AGE = 600       # s; an older picture is shown as not current (day, service down)
 
@@ -66,8 +67,8 @@ class AllskyMethodWidget(QWidget):
             self.state.setStyleSheet('font-size: 14pt; color: #bdbdbd;')
             return
         age = (datetime.datetime.now(datetime.timezone.utc) - datetime.datetime.fromisoformat(d['time'])).total_seconds()
-        state = 'veil' if d.get('veil') and d.get('state') == 'thin' else d.get('state')
-        text = f"{state}{' (twilight)' if d.get('twilight') else ''}  {d['time'][11:16]} UT"
+        state = 'twilight' if d.get('twilight') else 'veil' if d.get('veil') and d.get('state') == 'thin' else d.get('state')
+        text = f"{state}  {d['time'][11:16]} UT"
         if age > MAX_AGE:
             text += f'  (not current: {age / 60:.0f} min old)'
         self.state.setText(text)

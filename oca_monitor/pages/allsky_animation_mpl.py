@@ -25,17 +25,20 @@ logger = logging.getLogger(__name__.rsplit('.')[-1])
 # Camera model of the allsky frames (lastimage*.jpg are the archive frames): (x0, y0, theta, k1, k2),
 # z = 90 - alt, r = k1 z + k2 z^3, x = x0 + r sin(az + theta), y = y0 - r cos(az + theta) (allsky_lib.CAMERA_PARAMS).
 CAMERA_PARAMS = (610.88, 624.52, -9.094, 6.21458, -3.7e-05)
-STATE_COLORS = {'clear': '#4caf50', 'veil': '#ffc107', 'thin': '#ffc107', 'cloudy': '#ff7043', 'overcast': '#e53935'}
+STATE_COLORS = {'clear': '#4caf50', 'veil': '#ffc107', 'thin': '#ffc107', 'cloudy': '#ff7043', 'overcast': '#e53935',
+                'twilight': '#90caf9'}     # twilight: Sun above -18 deg, clouds not measured (blue as TOI's UT)
 MARKS_GRID = 4      # the marks of allsky_overwatch are on every 4th pixel of the frame
+VEIL_RING_ALT = 30.0    # deg; a veil is drawn as a dashed yellow circle here (the edge of the sky allsky_overwatch analyses)
 
 
 class AllskyAnimationMplWidget(QWidget):
     def __init__(self, main_window, allsky_dir='/data/misc/allsky/', vertical_screen=False,
-                 clouds_subject='tic.status.ocm.allsky_overwatch.clouds', **kwargs):
+                 clouds_subject='tic.status.ocm.allsky_overwatch.clouds', clouds=True, **kwargs):
         super().__init__()
         self.main_window = main_window
         self.dir = allsky_dir
         self.clouds_subject = clouds_subject
+        self.show_clouds = bool(clouds)     # False: the plain frames (telescopes and wind only), no allsky_overwatch
         self.camera = CAMERA_PARAMS
         self.clouds = {}            # (file size, mtime) -> allsky_overwatch message of that frame (last few)
         self.unmatched = set()      # (file size, mtime) of frames drawn before their message came
@@ -83,25 +86,29 @@ class AllskyAnimationMplWidget(QWidget):
 
     def draw_clouds(self, ax, image_path):
         """Marks of this frame from allsky_overwatch (<frame>_marks.png on every MARKS_GRID-th pixel of the frame: 1 yellow,
-        2 red, 3 Moon): light yellow fill = cirrus, semi-transparent or uncertain cloud (or the whole sky under a veil),
-        red outline = cloud that hides everything, light cyan area = the Moon, where nothing is detected; the sky state in
-        the corner. The service keeps only the pictures of its last frames, enough for the lastimage*.jpg window."""
+        2 red, 3 Moon): light yellow fill = cirrus, semi-transparent or uncertain cloud, red outline = cloud that hides
+        everything, light cyan area = the Moon, where nothing is detected; a veil (the whole sky dimmed) as a dashed yellow
+        circle at VEIL_RING_ALT, not painted over the frame; the sky state in the corner. The service keeps only the pictures of its last frames, enough for the lastimage*.jpg window."""
         data = self.frame_clouds(image_path)
         if data is None:
             return
         path = (data.get('files') or {}).get('marks')
+        twilight = data.get('twilight')
         if path and os.path.exists(path):
             codes = np.array(Image.open(path))
             gy, gx = np.mgrid[0:codes.shape[0], 0:codes.shape[1]] * MARKS_GRID
-            yellow = (codes == 1) | (codes == 2)
+            yellow = ((codes == 1) | (codes == 2)) & (not twilight)     # twilight: clouds not measured, Moon only
             if yellow.any():
                 ax.contourf(gx, gy, yellow.astype(float), levels=[0.5, 1.5], colors='yellow', alpha=0.25)
             if (codes == 3).any():
                 ax.contourf(gx, gy, (codes == 3).astype(float), levels=[0.5, 1.5], colors='cyan', alpha=0.3)
-            if (codes == 2).any():
+            if (codes == 2).any() and not twilight:
                 ax.contour(gx, gy, (codes == 2).astype(float), levels=[0.5], colors='red', linewidths=2)
-        state = 'veil' if data.get('veil') and data['state'] == 'thin' else data['state']
-        ax.text(1230, 30, f"{state}{' (twilight)' if data['twilight'] else ''}  {data['time'][11:16]} UT",
+        state = 'twilight' if twilight else 'veil' if data.get('veil') and data['state'] == 'thin' else data['state']
+        if state == 'veil':
+            az = np.linspace(0., 360., 361)
+            ax.plot(*zip(*(self.sky_xy(VEIL_RING_ALT, a) for a in az)), color='yellow', linestyle=(0, (6, 6)), linewidth=2)
+        ax.text(1230, 30, f"{state}  {data['time'][11:16]} UT",
                 color=STATE_COLORS.get(state, 'white'), fontsize=12, ha='right')
 
     def calc_wind_arrow(self, x_0, y_0, r, r_prim):
@@ -198,10 +205,11 @@ class AllskyAnimationMplWidget(QWidget):
         except Exception as e:
             print(f"EXCEPTION 32: {e}")
 
-        try:
-            self.draw_clouds(ax, image_path)
-        except Exception as e:
-            logger.warning(f'allsky clouds overlay failed: {e!r}')
+        if self.show_clouds:
+            try:
+                self.draw_clouds(ax, image_path)
+            except Exception as e:
+                logger.warning(f'allsky clouds overlay failed: {e!r}')
 
         x_arrow, y_arrow, dx_arrow, dy_arrow = self.calc_wind_arrow(self.camera[0], self.camera[1], 550., 500.)
         wind_arrow = Arrow(x_arrow, y_arrow, dx_arrow, dy_arrow, width=20., color="magenta")
@@ -247,7 +255,8 @@ class AllskyAnimationMplWidget(QWidget):
     @asyncSlot()
     async def async_init(self):
         logger.info('Starting allsky display.')
-        await create_task(self.clouds_reader(), 'allsky_clouds')
+        if self.show_clouds:
+            await create_task(self.clouds_reader(), 'allsky_clouds')
         self.display = display = ImageDisplay(
             name='allsky', images_dir=self.dir, image_display_clb=self.image_display,
             image_instance_clb=self.image_instance, images_prefix='lastimage',
