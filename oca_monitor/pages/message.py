@@ -14,7 +14,8 @@ from serverish.messenger import get_reader
 
 logger = logging.getLogger(__name__.rsplit('.')[-1])
 
-# etykieta komunikatu z tic.status.ocm.messages -> (dzwiek z sounds/ albo None, kolor tekstu). Klasy (2026-11-02,
+# etykieta komunikatu z tic.status.ocm.messages -> (dzwiek z sounds/ - plik, krotka plikow granych po kolei albo None,
+# kolor tekstu). Klasy (2026-11-02,
 # knowledge-base: Operator sound alerts): notification = obserwator ma sprawdzic, czy wszystko ok; WEATHER WARNING =
 # ograniczenia rosna; WEATHER ALERT = zamknac wszystko; WEATHER LEVEL DOWN = krok w dol (weather_overwatch);
 # SYSTEM ALERT = zagrozony sprzet (bateria, temperatura serwerowni / baterii / pomieszczenia elektrycznego)
@@ -24,7 +25,7 @@ LABEL_SOUNDS = {
     "PING": ("ping_tos_alien_sound_4.wav", Qt.GlobalColor.darkYellow),
     "PROGRAM STOP": ("stop_alert07.wav", Qt.GlobalColor.gray),
     "PROGRAM BELL": ("bell_romulan_alarm.wav", Qt.GlobalColor.gray),
-    "PROGRAM ERROR": ("error_fart.wav", Qt.GlobalColor.red),
+    "PROGRAM ERROR": (("error_mixkit-click-1110.wav", "error_fart.wav"), Qt.GlobalColor.red),     # najpierw click
     "WEATHER ALERT": ("weather_alarm_klingon_alert.wav", Qt.GlobalColor.red),
     "WEATHER WARNING": ("warning_weather_alert09.wav", Qt.GlobalColor.darkYellow),
     "WEATHER LEVEL DOWN": ("level_down.wav", Qt.GlobalColor.darkGreen),
@@ -69,8 +70,9 @@ class MessageWidget(QWidget):
                 try:
                     label = data["label"]
                     sound, c = LABEL_SOUNDS.get(label, DEFAULT_SOUND)
-                    if sound:
-                        subprocess.Popen(["aplay", f"{os.getcwd()}/sounds/{sound}"])
+                    if sound:       # aplay gra kilka plikow po kolei, Popen nie blokuje GUI
+                        files = (sound,) if isinstance(sound, str) else sound
+                        subprocess.Popen(["aplay"] + [f"{os.getcwd()}/sounds/{f}" for f in files])
 
 
                     # if label == "TOI RESPONDER":
@@ -78,6 +80,8 @@ class MessageWidget(QWidget):
                     # if label == "PLANRUNNER":
                     #     c = QtCore.Qt.darkGray
 
+                    if data.get("test"):    # sound test from TOI's PING window: the sound, but not the alarm colour
+                        c = Qt.GlobalColor.gray
                     txt = f'{data["ut"]} [{data["user"]}] {data["info"]}'
                     self.info_e.setTextColor(c)
                     self.info_e.append(txt)
