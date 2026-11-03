@@ -52,7 +52,8 @@ class TabConfigDialog(QDialog):
         self.speed_label.setText(f"Speed: {value}s")
 
     def updateTabEnabled(self, name, state):
-        self.tabs_info[name].auto_enabled = state == Qt.Checked
+        # PyQt6: stateChanged gives an int, the enum is scoped (Qt.Checked was PyQt5)
+        self.tabs_info[name].auto_enabled = Qt.CheckState(state) == Qt.CheckState.Checked
 
     def updateSpeed(self, speed):
         self.speed = speed

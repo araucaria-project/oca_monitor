@@ -14,6 +14,28 @@ from serverish.messenger import get_reader
 
 logger = logging.getLogger(__name__.rsplit('.')[-1])
 
+# etykieta komunikatu z tic.status.ocm.messages -> (dzwiek z sounds/ albo None, kolor tekstu). Klasy (2026-11-02,
+# knowledge-base: Operator sound alerts): notification = obserwator ma sprawdzic, czy wszystko ok; WEATHER WARNING =
+# ograniczenia rosna; WEATHER ALERT = zamknac wszystko; WEATHER LEVEL DOWN = krok w dol (weather_overwatch);
+# SYSTEM ALERT = zagrozony sprzet (bateria, temperatura serwerowni / baterii / pomieszczenia elektrycznego)
+NOTIFICATION = "notification_computerbeep_12.wav"
+LABEL_SOUNDS = {
+    "INFO": (None, Qt.GlobalColor.gray),
+    "PING": ("ping_tos_alien_sound_4.wav", Qt.GlobalColor.darkYellow),
+    "PROGRAM STOP": ("stop_alert07.wav", Qt.GlobalColor.gray),
+    "PROGRAM BELL": ("bell_romulan_alarm.wav", Qt.GlobalColor.gray),
+    "PROGRAM ERROR": ("error_fart.wav", Qt.GlobalColor.red),
+    "WEATHER ALERT": ("weather_alarm_klingon_alert.wav", Qt.GlobalColor.red),
+    "WEATHER WARNING": ("warning_weather_alert09.wav", Qt.GlobalColor.darkYellow),
+    "WEATHER LEVEL DOWN": ("level_down.wav", Qt.GlobalColor.darkGreen),
+    "SUN WARNING": ("alert23.wav", Qt.GlobalColor.darkYellow),
+    "SYSTEM ALERT": ("mixkit-facility-alarm-908.wav", Qt.GlobalColor.red),    # bateria, serwerownia, ... (weather_overwatch)
+    "FWHM WARNING": (NOTIFICATION, Qt.GlobalColor.darkYellow),
+    "ZERO POINT WARNING": (NOTIFICATION, Qt.GlobalColor.darkYellow),
+    "CLOUDS INFO": (NOTIFICATION, Qt.GlobalColor.darkYellow),
+}
+DEFAULT_SOUND = (NOTIFICATION, Qt.GlobalColor.gray)
+
 class MessageWidget(QWidget):
     def __init__(self, main_window, subject='telemetry.weather.davis', vertical_screen = False, **kwargs):
         super().__init__()
@@ -46,36 +68,9 @@ class MessageWidget(QWidget):
             async for data, meta in r:
                 try:
                     label = data["label"]
-                    c = Qt.GlobalColor.gray
-                    if label == "INFO":
-                        c = Qt.GlobalColor.gray
-                    elif label == "PING":
-                        c = Qt.GlobalColor.darkYellow
-                        subprocess.run(["aplay", f"{os.getcwd()}/sounds/ping_tos_alien_sound_4.wav"])
-                    elif label == "PROGRAM STOP":
-                        c = Qt.GlobalColor.gray
-                        subprocess.run(["aplay", f"{os.getcwd()}/sounds/stop_alert07.wav"])
-                    elif label == "PROGRAM BELL":
-                        c = Qt.GlobalColor.gray
-                        subprocess.run(["aplay",f"{os.getcwd()}/sounds/bell_romulan_alarm.wav"])
-                    elif label == "PROGRAM ERROR":
-                        c = Qt.GlobalColor.red
-                        subprocess.run(["aplay",f"{os.getcwd()}/sounds/error_fart.wav"])
-                    elif label == "WEATHER ALERT":
-                        c = Qt.GlobalColor.red
-                        subprocess.run(["aplay", f"{os.getcwd()}/sounds/weather_alarm_klingon_alert.wav"])
-                    elif label == "WEATHER WARNING":
-                        c = Qt.GlobalColor.darkYellow
-                        subprocess.run(["aplay", f"{os.getcwd()}/sounds/warning_weather_alert09.wav"])
-                    elif label == "SUN WARNING":
-                        c = Qt.GlobalColor.darkYellow
-                        subprocess.run(["aplay", f"{os.getcwd()}/sounds/alert23.wav"])
-                    elif label == "FWHM WARNING":
-                        c = Qt.GlobalColor.darkYellow
-                        subprocess.run(["aplay", f"{os.getcwd()}/sounds/notification_computerbeep_12.wav"])
-                    else:
-                        c = Qt.GlobalColor.gray
-                        subprocess.run(["aplay", f"{os.getcwd()}/sounds/notification_computerbeep_12.wav"])
+                    sound, c = LABEL_SOUNDS.get(label, DEFAULT_SOUND)
+                    if sound:
+                        subprocess.Popen(["aplay", f"{os.getcwd()}/sounds/{sound}"])
 
 
                     # if label == "TOI RESPONDER":

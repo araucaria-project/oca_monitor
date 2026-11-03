@@ -1575,7 +1575,8 @@ class _CloudsPanel(_Panel):
     overcast red, twilight light blue - clouds not measured then -, nothing when clear), and below it the share of the sky (above 30 deg) under the observers' marks: yellow (cirrus,
     semi-transparent or uncertain cloud, red included) and red (cloud that hides everything) as filled areas; a dashed
     white vertical line marks the current time. The big overlay is the state of the last frame. Gaps longer than
-    MAX_SEGMENT_GAP_HOURS break the areas.
+    MAX_SEGMENT_GAP_HOURS break the areas. The day (Sun above DAY_SUN_ALT, the horizon) is shaded grey, so in the
+    daytime the moving time line runs over a grey "day" area instead of an empty chart; twilight is the blue band.
     """
 
     needs_clouds = True
@@ -1587,6 +1588,9 @@ class _CloudsPanel(_Panel):
     BAND_BOTTOM = 0.88          # the state band fills the top of the axes, data below
     MAX_SEGMENT_GAP_HOURS = 0.25
     FRAME_HOURS = 2.4 / 60      # width of one frame in the band
+    DAY_SUN_ALT = 0.0           # deg; grey "day" from sunrise to sunset (twilight: the blue band of the frames)
+    DAY_COLOR = '#808080'
+    DAY_ALPHA = 0.18
 
     def __init__(self) -> None:
         super().__init__()
@@ -1594,6 +1598,41 @@ class _CloudsPanel(_Panel):
         self._artists: List[Any] = []
         self._overlay_state = None
         self._now_line = None
+        self._day_artists: List[Any] = []
+        self._day_key = None        # UT date the day shading was computed for
+
+    def _day_spans(self, day: datetime.date) -> List[Tuple[float, float]]:
+        """Hours (0-24 UT axis) with the Sun above DAY_SUN_ALT: from the morning crossing of this UT day to the
+        evening one; if that falls after midnight UT (deeper altitudes), the span wraps to the start of the axis"""
+        midnight = datetime.datetime(day.year, day.month, day.day, tzinfo=datetime.timezone.utc)
+        rise = next_sun_alt_event(midnight, self.DAY_SUN_ALT, 'rising')
+        if rise is None:
+            return []
+        sets = next_sun_alt_event(rise, self.DAY_SUN_ALT, 'setting')
+        if sets is None:
+            return []
+        start = (rise - midnight).total_seconds() / 3600.0
+        end = start + (sets - rise).total_seconds() / 3600.0
+        if end <= 24.0:
+            return [(start, end)]
+        return [(start, 24.0), (0.0, end - 24.0)]
+
+    def _update_day_shading(self) -> None:
+        today = datetime.datetime.now(datetime.timezone.utc).date()
+        if self.ax is None or today == self._day_key:
+            return
+        self._day_key = today
+        for a in self._day_artists:
+            a.remove()
+        self._day_artists = []
+        try:
+            spans = self._day_spans(today)
+        except Exception as e:
+            logger.warning(f'clouds panel: day shading failed: {e!r}')
+            return
+        for x0, x1 in spans:
+            self._day_artists.append(self.ax.axvspan(x0, x1, color=self.DAY_COLOR, alpha=self.DAY_ALPHA,
+                                                     linewidth=0, zorder=1))
 
     def init_axes(self, ax) -> None:
         super().init_axes(ax)
@@ -1620,6 +1659,7 @@ class _CloudsPanel(_Panel):
         if self._now_line is not None:
             now = _hour_now_utc()
             self._now_line.set_xdata([now, now])
+        self._update_day_shading()      # once per UT day
         if not self._dirty or self.ax is None:
             return
         self._dirty = False

@@ -211,19 +211,19 @@ class ButtonsMessageWidget(QWidget):
                     if "BELL" in data['info']:
                         txt = f"(UT {txt}) {data['info']} by {data['tel']}"
                         self.info_e.append(txt)
-                        subprocess.run(["aplay", f"{os.getcwd()}/sounds/bell_romulan_alarm.wav"])
+                        subprocess.Popen(["aplay", f"{os.getcwd()}/sounds/bell_romulan_alarm.wav"])
                     elif "STOP" in data['info']:
                         txt = f"(UT {txt}) {data['info']} reached by {data['tel']}"
                         self.info_e.append(txt)
-                        subprocess.run(["aplay", f"{os.getcwd()}/sounds/stop_alert07.wav"])
+                        subprocess.Popen(["aplay", f"{os.getcwd()}/sounds/stop_alert07.wav"])
                     elif "PING" in data['info']:
                         txt = f"(UT {txt}) {data['info']} reached by {data['tel']}"
                         self.info_e.append(txt)
-                        subprocess.run(["aplay", f"{os.getcwd()}/sounds/ping_tos_alien_sound_4.wav"])
+                        subprocess.Popen(["aplay", f"{os.getcwd()}/sounds/ping_tos_alien_sound_4.wav"])
                     else:
                         txt = f"(UT {txt}) {data['info']} by {data['tel']}"
                         self.info_e.append(txt)
-                        subprocess.run(["aplay", f"{os.getcwd()}/sounds/notification_computerbeep_12.wav"])
+                        subprocess.Popen(["aplay", f"{os.getcwd()}/sounds/notification_computerbeep_12.wav"])
 
 
         except Exception as e:

@@ -10,6 +10,8 @@ the controlroom layout. Single panel with three themed groups:
 * **SUN / MOON / WATER** — next sunset and sunrise (closer one bright,
   the other dimmed), moon altitude + phase emoji, next moonset and
   moonrise in the same paired format, plus the OCM water-tank level.
+* **NET** — internet uplink in use, Paranal (radio) or Starlink (satellite),
+  from wan-watchdog (``svc.publish.oca.wan.status``, published on change).
 
 Async path is only the water-level NATS subscription; everything else
 ticks once per second from a ``QTimer``.
@@ -147,6 +149,7 @@ class SiteStatusWidget(QWidget):
                  water_capacity_m3: float = 15.0,
                  water_warn_pct: float = 20.0,
                  water_danger_pct: float = 10.0,
+                 net_subject: str = 'svc.publish.oca.wan.status',
                  **kwargs) -> None:
         super().__init__()
         self.main_window = main_window
@@ -157,6 +160,7 @@ class SiteStatusWidget(QWidget):
         self.water_warn_pct = float(water_warn_pct)
         self.water_danger_pct = float(water_danger_pct)
         self.water_level_m3: Optional[float] = None
+        self.net_subject = net_subject
         self._init_ui()
         QtCore.QTimer.singleShot(0, self.async_init)
         self._tick_timer = QtCore.QTimer(self)
@@ -265,12 +269,22 @@ class SiteStatusWidget(QWidget):
         self.lbl_water.setTextFormat(QtCore.Qt.TextFormat.RichText)
         self.box_water.layout.addWidget(self.lbl_water)
 
+        # NET — internet uplink (wan-watchdog), under WATER, natural size
+        self.box_net = _Group('NET')
+        self.lbl_net = QLabel("—")
+        self.lbl_net.setStyleSheet("color: #808080;")
+        self.lbl_net.setFont(QtGui.QFont('Arial', 14, QtGui.QFont.Weight.Bold))
+        self.lbl_net.setToolTip("Internet uplink (wan-watchdog): no message yet. It publishes only on change "
+                                "and its stream keeps 14 days, so after a long quiet period the route is unknown.")
+        self.box_net.layout.addWidget(self.lbl_net)
+
         clocks_col = QWidget()
         clocks_col_layout = QVBoxLayout(clocks_col)
         clocks_col_layout.setContentsMargins(0, 0, 0, 0)
         clocks_col_layout.setSpacing(4)
         clocks_col_layout.addWidget(self.box_clocks, 1)  # eats spare height
         clocks_col_layout.addWidget(self.box_water, 0)   # natural size
+        clocks_col_layout.addWidget(self.box_net, 0)     # natural size
         root.addWidget(clocks_col, 1)
 
         # ---- Column 3: SUN + MOON --------------------------------------
@@ -331,6 +345,32 @@ class SiteStatusWidget(QWidget):
             )
         except Exception as e:
             logger.warning(f"water reader subscription failed: {e}")
+        try:
+            await self.main_window.run_reader(
+                clb=self._net_callback,
+                subject=self.net_subject, deliver_policy='last',
+            )
+        except Exception as e:
+            logger.warning(f"net reader subscription failed: {e}")
+
+    # uplink -> colour: Paranal (radio, primary) normal, Starlink (satellite, backup) amber
+    NET_COLORS = {'paranal': '#6ed0a8', 'starlink': '#ffaa33'}
+
+    async def _net_callback(self, data, meta) -> bool:
+        try:
+            route = str(data['measurements']['route'])
+        except (KeyError, TypeError):
+            return True
+        since = ''
+        try:
+            ts = data.get('ts') or meta.get('ts')
+            since = datetime.datetime(*ts[:6]).strftime('%Y-%m-%d %H:%M')
+        except Exception:
+            pass
+        self.lbl_net.setText(route)
+        self.lbl_net.setStyleSheet(f"color: {self.NET_COLORS.get(route.lower(), '#e0e0e0')};")
+        self.lbl_net.setToolTip(f"Internet uplink (wan-watchdog): {route}" + (f" since {since} UT" if since else ""))
+        return True
 
     async def _water_callback(self, data, meta) -> bool:
         try:

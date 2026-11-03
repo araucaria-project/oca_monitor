@@ -586,7 +586,7 @@ class TabBox(QtWidgets.QWidget):
         no_hohoho = datetime.datetime(2023, 12, 25, 14, 0, 0)
         if datetime.datetime.now() > hohoho and datetime.datetime.now() < no_hohoho:
             if self.hohohoOnce:
-                subprocess.run(["aplay", "./sounds/jingle_bells.wav"])
+                subprocess.Popen(["aplay", "./sounds/jingle_bells.wav"])
                 self.hohohoOnce = False
 
         for i, tab in enumerate(self.tabs):

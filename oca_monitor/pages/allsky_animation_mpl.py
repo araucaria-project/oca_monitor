@@ -33,12 +33,17 @@ VEIL_RING_ALT = 30.0    # deg; a veil is drawn as a dashed yellow circle here (t
 
 class AllskyAnimationMplWidget(QWidget):
     def __init__(self, main_window, allsky_dir='/data/misc/allsky/', vertical_screen=False,
-                 clouds_subject='tic.status.ocm.allsky_overwatch.clouds', clouds=True, **kwargs):
+                 clouds_subject='tic.status.ocm.allsky_overwatch.clouds', clouds=True,
+                 wind_subject='telemetry.weather.davis', **kwargs):
         super().__init__()
         self.main_window = main_window
         self.dir = allsky_dir
         self.clouds_subject = clouds_subject
         self.show_clouds = bool(clouds)     # False: the plain frames (telescopes and wind only), no allsky_overwatch
+        # wind direction read here: main_window.winddir was set only by the old wind / buttons_controlroom pages,
+        # which no production env runs, so the arrow stood still at 0 deg
+        self.wind_subject = wind_subject
+        self.winddir = None         # deg from Davis; None - no arrow
         self.camera = CAMERA_PARAMS
         self.clouds = {}            # (file size, mtime) -> allsky_overwatch message of that frame (last few)
         self.unmatched = set()      # (file size, mtime) of frames drawn before their message came
@@ -113,22 +118,17 @@ class AllskyAnimationMplWidget(QWidget):
 
     def calc_wind_arrow(self, x_0, y_0, r, r_prim):
         # the frame is shown as the camera takes it (north turned by theta), so the arrow is turned by theta too
-        pi = 3.14159
-        try:
-            winddir = self.main_window.winddir + self.camera[2]
-            x = x_0 - r * math.cos((270. - winddir) * pi / 180.)
-            y = y_0 + r * math.sin((270. - winddir) * pi / 180.)
-            x_prim = x_0 - r_prim * math.cos((270. - winddir) * pi / 180.)
-            y_prim = y_0 + r_prim * math.sin((270. - winddir) * pi / 180.)
-
-        except:
-            winddir = 180. + self.camera[2]
-            x = x_0 - r * math.cos((270. - winddir) * pi / 180.)
-            y = y_0 + r * math.sin((270. - winddir) * pi / 180.)
-            x_prim = x_0 - r_prim * math.cos((270. - winddir) * pi / 180.)
-            y_prim = y_0 + r_prim * math.sin((270. - winddir) * pi / 180.)
-
+        a = math.radians(270. - (self.winddir + self.camera[2]))
+        x, y = x_0 - r * math.cos(a), y_0 + r * math.sin(a)
+        x_prim, y_prim = x_0 - r_prim * math.cos(a), y_0 + r_prim * math.sin(a)
         return x, y, x_prim - x, y_prim - y
+
+    async def _wind_callback(self, data, meta) -> bool:
+        try:
+            self.winddir = float(data['measurements']['wind_dir_deg'])
+        except (KeyError, TypeError, ValueError):
+            pass
+        return True
 
     # def update(self):
     #     lista = os.popen('ls -tr '+self.dir+'lastimage*.jpg').read().split('\n')[:-1]
@@ -211,9 +211,9 @@ class AllskyAnimationMplWidget(QWidget):
             except Exception as e:
                 logger.warning(f'allsky clouds overlay failed: {e!r}')
 
-        x_arrow, y_arrow, dx_arrow, dy_arrow = self.calc_wind_arrow(self.camera[0], self.camera[1], 550., 500.)
-        wind_arrow = Arrow(x_arrow, y_arrow, dx_arrow, dy_arrow, width=20., color="magenta")
-        ax.add_artist(wind_arrow)
+        if self.winddir is not None:      # redrawn with the frames, i.e. at each new frame (~2.4 min)
+            x_arrow, y_arrow, dx_arrow, dy_arrow = self.calc_wind_arrow(self.camera[0], self.camera[1], 550., 500.)
+            ax.add_artist(Arrow(x_arrow, y_arrow, dx_arrow, dy_arrow, width=20., color="magenta"))
         ax.axis('off')
 
         figure.tight_layout()
@@ -255,6 +255,10 @@ class AllskyAnimationMplWidget(QWidget):
     @asyncSlot()
     async def async_init(self):
         logger.info('Starting allsky display.')
+        try:
+            await self.main_window.run_reader(clb=self._wind_callback, subject=self.wind_subject, deliver_policy='last')
+        except Exception as e:
+            logger.warning(f'allsky wind reader {self.wind_subject} failed: {e}')
         if self.show_clouds:
             await create_task(self.clouds_reader(), 'allsky_clouds')
         self.display = display = ImageDisplay(
