@@ -14,8 +14,8 @@ from serverish.messenger import get_reader
 
 logger = logging.getLogger(__name__.rsplit('.')[-1])
 
-# etykieta komunikatu z tic.status.ocm.messages -> (dzwiek z sounds/ - plik, krotka plikow granych po kolei albo None,
-# kolor tekstu). Klasy (2026-11-02,
+# etykieta komunikatu z tic.status.ocm.messages -> (dzwiek z sounds/ - plik, krotka plikow granych po kolei (liczba w
+# krotce = przerwa w sekundach) albo None, kolor tekstu). Klasy (2026-11-02,
 # knowledge-base: Operator sound alerts): notification = obserwator ma sprawdzic, czy wszystko ok; WEATHER WARNING =
 # ograniczenia rosna; WEATHER ALERT = zamknac wszystko; WEATHER LEVEL DOWN = krok w dol (weather_overwatch);
 # SYSTEM ALERT = zagrozony sprzet (bateria, temperatura serwerowni / baterii / pomieszczenia elektrycznego)
@@ -30,12 +30,29 @@ LABEL_SOUNDS = {
     "WEATHER WARNING": ("warning_weather_alert09.wav", Qt.GlobalColor.darkYellow),
     "WEATHER LEVEL DOWN": ("level_down.wav", Qt.GlobalColor.darkGreen),
     "SUN WARNING": ("alert23.wav", Qt.GlobalColor.darkYellow),
-    "SYSTEM ALERT": ("mixkit-facility-alarm-908.wav", Qt.GlobalColor.red),    # bateria, serwerownia, ... (weather_overwatch)
+    "SYSTEM ALERT": (("mixkit-facility-alarm-908.wav", 3, "mixkit-facility-alarm-908.wav"), Qt.GlobalColor.red),   # 2x    # bateria, serwerownia, ... (weather_overwatch)
     "FWHM WARNING": (NOTIFICATION, Qt.GlobalColor.darkYellow),
     "ZERO POINT WARNING": (NOTIFICATION, Qt.GlobalColor.darkYellow),
     "CLOUDS INFO": (NOTIFICATION, Qt.GlobalColor.darkYellow),
 }
 DEFAULT_SOUND = (NOTIFICATION, Qt.GlobalColor.gray)
+
+
+def play(sound):
+    """Gra plik albo krotke plikow po kolei w tle (Popen nie blokuje GUI). Liczba w krotce = przerwa w sekundach:
+    wtedy przez sh (aplay i sleep na zmiane, sciezki jako argumenty), bez przerw jedno aplay z kilkoma plikami"""
+    parts = (sound,) if isinstance(sound, str) else tuple(sound)
+    if not any(isinstance(p, (int, float)) for p in parts):
+        subprocess.Popen(["aplay"] + [f"{os.getcwd()}/sounds/{p}" for p in parts])
+        return
+    script, args = [], []
+    for p in parts:
+        if isinstance(p, (int, float)):
+            script.append(f"sleep {float(p):g}")
+        else:
+            args.append(f"{os.getcwd()}/sounds/{p}")
+            script.append(f'aplay "${len(args)}"')
+    subprocess.Popen(["sh", "-c", "; ".join(script), "sh"] + args)
 
 class MessageWidget(QWidget):
     def __init__(self, main_window, subject='telemetry.weather.davis', vertical_screen = False, **kwargs):
@@ -70,9 +87,8 @@ class MessageWidget(QWidget):
                 try:
                     label = data["label"]
                     sound, c = LABEL_SOUNDS.get(label, DEFAULT_SOUND)
-                    if sound:       # aplay gra kilka plikow po kolei, Popen nie blokuje GUI
-                        files = (sound,) if isinstance(sound, str) else sound
-                        subprocess.Popen(["aplay"] + [f"{os.getcwd()}/sounds/{f}" for f in files])
+                    if sound:
+                        play(sound)
 
 
                     # if label == "TOI RESPONDER":
