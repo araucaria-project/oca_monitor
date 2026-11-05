@@ -116,6 +116,9 @@ class QualityChartWidget(QWidget):
         self._dirty = False
         self._draw_pending = False
         self._draw_interval_ms = 100
+        # Start (UTC) of the night whose frames are drawn; points with an older
+        # DATE-OBS (reprocessed frames published tonight) are dropped.
+        self._night_start: datetime.datetime = _current_night_start_utc()
 
         self._init_ui()
         QtCore.QTimer.singleShot(0, self.async_init)
@@ -234,9 +237,18 @@ class QualityChartWidget(QWidget):
                     continue
                 if not _math.isfinite(ratio):
                     continue
-                obs_dt = (_dt_from_iso((header or {}).get('DATE-OBS'))
-                          or _dt_from_meta(meta)
-                          or _now_utc())
+                date_obs = (header or {}).get('DATE-OBS')
+                obs_dt = _dt_from_iso(date_obs)
+                if obs_dt is not None and not (
+                        self._night_start <= obs_dt <= _now_utc() + datetime.timedelta(minutes=10)):
+                    # The reader replays by message time; a frame of another
+                    # night drawn by its hour of day would land on tonight.
+                    logger.info(
+                        f"quality chart [{self.tel}] {stage} point skipped - not from the "
+                        f"current night (DATE-OBS {date_obs}, night from "
+                        f"{self._night_start:%Y-%m-%d %H:%M} UTC)")
+                    continue
+                obs_dt = obs_dt or _dt_from_meta(meta) or _now_utc()
                 self._append(stage, obs_dt, ratio * 100.0)
                 self._schedule_draw()
         except Exception as e:
@@ -365,6 +377,7 @@ class QualityChartWidget(QWidget):
         QtCore.QTimer.singleShot(delay_ms, self._do_sunset_reset)
 
     def _do_sunset_reset(self) -> None:
+        self._night_start = _now_utc() - datetime.timedelta(minutes=5)
         for stage in self.STAGES:
             self._series[stage] = ([], [], [])
         self._dirty = True

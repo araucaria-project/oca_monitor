@@ -191,6 +191,11 @@ class WindDataWidget(QWidget):
                 pres = measurement['pressure_Pa']/100.
                 # depending on the date of the measurement, we want to add point to the yesterday or today data
                 hour = ts.hour + ts.minute / 60 + ts.second / 3600
+                if ts < yesterday_midnight.astimezone():
+                    # older than yesterday (late/re-sent message): by its hour it
+                    # would land on the "yesterday" line at a wrong day
+                    logger.info(f"wind: measurement skipped - ts {ts.isoformat()} older than yesterday")
+                    continue
                 if ts < today_midnight.astimezone():
                     #logger.info(f'Adding point to yesterday data {wind_speed10}')
                     self.ln_yesterday_wind.set_data(
