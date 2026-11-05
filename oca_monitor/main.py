@@ -46,6 +46,26 @@ async def asyncmain(app):
     app.aboutToQuit.connect(app_close_event.set)
     await app_close_event.wait()
 
+def _configure_astropy_iers() -> None:
+    """Stop astropy from downloading the IERS table inside the GUI loop.
+
+    Ephemeris calls (sunset, sidereal time) need UT1-UTC. When the cached
+    IERS-A table (~/.astropy/cache) is missing or older than 30 days, astropy
+    downloads finals2000A.all (3.7 MB) synchronously, in the Qt/asyncio thread.
+    That froze the app for ~15 s at start-up on aux (2026-11-05) and NATS
+    requests made meanwhile (tic.config.observatory) timed out. UT1-UTC is
+    below 1 s, which does not matter for what ocam computes, so use the
+    bundled table and do not fail on dates past its end.
+    """
+    try:
+        from astropy.utils import iers
+        iers.conf.auto_download = False
+        iers.conf.auto_max_age = None   # without it the stale bundled table raises ValueError
+        iers.conf.iers_degraded_accuracy = 'ignore'
+    except Exception as e:  # astropy missing or a different version
+        logger.warning(f'Can not configure astropy IERS: {e!r}')
+
+
 def main():
     # Parse command line arguments
     argparser = argparse.ArgumentParser(description=__doc__)
@@ -93,6 +113,7 @@ def main():
 
 
     logger.info(f'OCA Monitor logging level: {loglevel}')
+    _configure_astropy_iers()
     logger.info(f'OCA Monitor configuration environment: {settings.env_for_dynaconf}')
     logger.info(f'OCAM version {__version__}.')
 
