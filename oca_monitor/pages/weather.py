@@ -2299,6 +2299,12 @@ class WeatherDataWidget(QWidget):
                 hour = (_hour_from_oca_jd(data.get('oca_jd'))
                         or _hour_from_meta(meta)
                         or _hour_now_utc())
+                logger.info(
+                    f"zero_monitor.lc [{tel}] point: "
+                    f"zero_value={data.get('zero_value')} "
+                    f"filter={data.get('filter')} "
+                    f"oca_jd={data.get('oca_jd')} hour={hour:.3f} | "
+                    f"full={data!r}")
                 for p in self.panels:
                     p.on_zero_monitor(tel, hour, data)
                 self._schedule_draw()
