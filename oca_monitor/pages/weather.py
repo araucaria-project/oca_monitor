@@ -1405,10 +1405,22 @@ class _PhotZeroPanel(_Panel):
         self._series: Dict[str, Tuple[List[float], List[float], List[str]]] = {
             t: ([], [], []) for t in self.telescopes
         }
+        # Raw points keyed by (filter, oca_jd): zero_monitor re-publishes the
+        # same frame several times (jk15: 2-3x, sometimes with a slightly
+        # different value), so values of one moment are averaged into one
+        # point instead of being plotted and smoothed N times.
+        # value: [hour, sum_of_zp, count]
+        self._points: Dict[str, Dict[Tuple[str, float], List[float]]] = {
+            t: {} for t in self.telescopes
+        }
         self._scatters: Dict[str, Any] = {}
         self._line_smoothed = None
         self._band = None
         self._overlay_avg = None
+
+    # Two oca_jd closer than this (days, ~0.1 s) are the same moment.
+    SAME_MOMENT_OCA_JD = 1e-6
+    MAX_POINTS_PER_TEL = 4000
 
     def init_axes(self, ax) -> None:
         super().init_axes(ax)
@@ -1469,10 +1481,26 @@ class _PhotZeroPanel(_Panel):
         if not _math.isfinite(zp):
             return
         flt = str(data.get('filter', '') or '')
-        hours, zps, fls = self._series[tel]
-        hours.append(hour); zps.append(zp); fls.append(flt)
-        if len(hours) > 4000:
-            del hours[:1000]; del zps[:1000]; del fls[:1000]
+        points = self._points[tel]
+        try:
+            moment = round(float(data['oca_jd']) / self.SAME_MOMENT_OCA_JD)
+        except (KeyError, TypeError, ValueError):
+            moment = round(hour * 3600.0 * 10.0)   # no oca_jd: 0.1 s buckets of the hour
+        key = (flt, moment)
+        acc = points.get(key)
+        if acc is None:
+            points[key] = [hour, zp, 1]
+        else:
+            acc[1] += zp
+            acc[2] += 1
+        if len(points) > self.MAX_POINTS_PER_TEL:
+            for k in sorted(points, key=lambda k: points[k][0])[:1000]:
+                del points[k]
+        ordered = sorted(points.items(), key=lambda kv: kv[1][0])
+        hours = [v[0] for _k, v in ordered]
+        zps = [v[1] / v[2] for _k, v in ordered]
+        fls = [k[0] for k, _v in ordered]
+        self._series[tel] = (hours, zps, fls)
         edge = [ck.PHOT_FILTER_COLORS.get(f, '#888888') for f in fls]
         self._scatters[tel].set_offsets(np.column_stack((hours, zps)))
         self._scatters[tel].set_edgecolors(edge)
@@ -1559,6 +1587,7 @@ class _PhotZeroPanel(_Panel):
     def on_session_reset(self) -> None:
         for tel in self.telescopes:
             self._series[tel] = ([], [], [])
+            self._points[tel] = {}
             if tel in self._scatters:
                 self._scatters[tel].set_offsets(np.zeros((0, 2)))
         if self._line_smoothed is not None:
@@ -1791,6 +1820,9 @@ class WeatherDataWidget(QWidget):
         self.soc_danger_pct = float(soc_danger_pct)
         self._draw_pending = False
         self._draw_interval_ms = 100
+        # Start (UTC) of the night whose zero_monitor points are accepted;
+        # set when the readers start, moved forward on every sunset reset.
+        self._zm_night_start: Optional[datetime.datetime] = None
         self.permanent_wind = bool(permanent_wind)   # False: no wind chart unless asked (e.g. the Sky page)
         self.chart_keys = self._resolve_charts(charts)
         self.panels: List[_Panel] = self._build_panels()
@@ -1993,6 +2025,8 @@ class WeatherDataWidget(QWidget):
         QtCore.QTimer.singleShot(delay_ms, self._do_sunset_reset)
 
     def _do_sunset_reset(self) -> None:
+        # New night: from now on only points newer than this sunset count.
+        self._zm_night_start = _current_night_start_utc()
         n = 0
         for p in self.panels:
             # Only panels driven by per-night pipeline streams.
@@ -2289,6 +2323,8 @@ class WeatherDataWidget(QWidget):
             logger.warning(f"pipeline.zdf reader [{tel}] failed: {e}")
 
     async def _zero_monitor_loop(self, tel: str):
+        if self._zm_night_start is None:
+            self._zm_night_start = _current_night_start_utc()
         try:
             r = get_reader(f'tic.status.{tel}.zero_monitor.lc',
                            deliver_policy='by_start_time',
@@ -2296,9 +2332,24 @@ class WeatherDataWidget(QWidget):
             async for data, meta in r:
                 if not isinstance(data, dict):
                     continue
-                hour = (_hour_from_oca_jd(data.get('oca_jd'))
-                        or _hour_from_meta(meta)
-                        or _hour_now_utc())
+                # zero_monitor (oca-fits-proc) publishes the newest point of
+                # the night it processed - not necessarily tonight (light
+                # curve recomputed for an old night, force_night,
+                # zero_monitor_all). The message is fresh, the point is not,
+                # so filter on the point's own oca_jd, not on the message time.
+                dt = _dt_from_oca_jd(data.get('oca_jd'))
+                if dt is not None:
+                    now = datetime.datetime.now(datetime.timezone.utc)
+                    night_start = self._zm_night_start or _current_night_start_utc()
+                    if not (night_start <= dt <= now + datetime.timedelta(minutes=10)):
+                        logger.info(
+                            f"zero_monitor.lc [{tel}] point skipped - not from the current "
+                            f"night ({dt:%Y-%m-%d %H:%M} UTC, night from "
+                            f"{night_start:%Y-%m-%d %H:%M} UTC) | full={data!r}")
+                        continue
+                    hour = dt.hour + dt.minute / 60.0 + dt.second / 3600.0
+                else:
+                    hour = _hour_from_meta(meta) or _hour_now_utc()
                 logger.info(
                     f"zero_monitor.lc [{tel}] point: "
                     f"zero_value={data.get('zero_value')} "
@@ -2363,6 +2414,26 @@ def _hour_from_meta(meta) -> Optional[float]:
     if ts is None:
         return None
     return ts.hour + ts.minute / 60.0 + ts.second / 3600.0
+
+
+def _dt_from_oca_jd(oca_jd) -> Optional[datetime.datetime]:
+    """Convert oca_jd (pyaraucaria-internal) → tz-aware UTC datetime, if possible.
+
+    Keeps the date (unlike ``_hour_from_oca_jd``), so callers can tell
+    whether a point belongs to the current night.
+    """
+    if oca_jd is None:
+        return None
+    try:
+        from pyaraucaria.date import get_jd_from_oca_jd  # type: ignore
+    except ImportError:
+        return None
+    try:
+        jd = float(get_jd_from_oca_jd(oca_jd=oca_jd))
+        return AstropyTime(jd, format='jd', scale='utc').to_datetime(
+            timezone=datetime.timezone.utc)
+    except (ValueError, TypeError):
+        return None
 
 
 def _hour_from_oca_jd(oca_jd) -> Optional[float]:
