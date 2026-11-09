@@ -24,7 +24,8 @@ logger = logging.getLogger(__name__.rsplit('.')[-1])
 
 # Camera model of the allsky frames (lastimage*.jpg are the archive frames): (x0, y0, theta, k1, k2),
 # z = 90 - alt, r = k1 z + k2 z^3, x = x0 + r sin(az + theta), y = y0 - r cos(az + theta) (allsky_lib.CAMERA_PARAMS).
-CAMERA_PARAMS = (610.88, 624.52, -9.094, 6.21458, -3.7e-05)
+# Since 2026-11-06 the frames have north straight up (process_ocm rotates by -39.1 deg); before: theta -9.094.
+CAMERA_PARAMS = (611.18, 623.42, 0.031, 6.21458, -3.7e-05)
 STATE_COLORS = {'clear': '#4caf50', 'veil': '#ffc107', 'thin': '#ffc107', 'cloudy': '#ff7043', 'overcast': '#e53935',
                 'twilight': '#90caf9'}     # twilight: Sun above -18 deg, clouds not measured (blue as TOI's UT)
 MARKS_GRID = 4      # the marks of allsky_overwatch are on every 4th pixel of the frame

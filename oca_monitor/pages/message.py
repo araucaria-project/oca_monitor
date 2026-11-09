@@ -25,11 +25,13 @@ LABEL_SOUNDS = {
     "PING": ("ping_tos_alien_sound_4.wav", Qt.GlobalColor.darkYellow),
     "PROGRAM STOP": ("stop_alert07.wav", Qt.GlobalColor.gray),
     "PROGRAM BELL": ("bell_romulan_alarm.wav", Qt.GlobalColor.gray),
-    "PROGRAM ERROR": (("error_mixkit-click-1110.wav", "error_fart.wav"), Qt.GlobalColor.red),     # najpierw click
+    "PROGRAM ERROR": ("error_tone.wav", Qt.GlobalColor.red),
     "WEATHER ALERT": ("weather_alarm_klingon_alert.wav", Qt.GlobalColor.red),
     "WEATHER WARNING": ("warning_weather_alert09.wav", Qt.GlobalColor.darkYellow),
     "WEATHER LEVEL DOWN": ("level_down.wav", Qt.GlobalColor.darkGreen),
     "SUN WARNING": ("alert23.wav", Qt.GlobalColor.darkYellow),
+    "OPERATIONS START": ("gong.wav", Qt.GlobalColor.darkBlue),    # Slonce +5 wieczorem (weather_overwatch)
+    "OPERATIONS END": ("gong.wav", Qt.GlobalColor.darkBlue),      # Slonce -18 rano
     "SYSTEM ALERT": (("mixkit-facility-alarm-908.wav", 3, "mixkit-facility-alarm-908.wav"), Qt.GlobalColor.red),   # 2x    # bateria, serwerownia, ... (weather_overwatch)
     "FWHM WARNING": (NOTIFICATION, Qt.GlobalColor.darkYellow),
     "ZERO POINT WARNING": (NOTIFICATION, Qt.GlobalColor.darkYellow),
