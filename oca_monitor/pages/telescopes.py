@@ -49,7 +49,7 @@ class TelecopeWindow(QWidget):
     }
 
     def __init__(self, main_window, subject='telemetry.weather.davis', vertical_screen = False,
-                 clouds_subject='tic.status.ocm.allsky_overwatch.clouds', humidity_limit=70., temperature_limit=0., **kwargs):
+                 clouds_subject='data.overwatch.oca.allsky.clouds', humidity_limit=70., temperature_limit=0., **kwargs):
         super().__init__()
         self.main_window = main_window
         self.subject = subject
@@ -222,7 +222,7 @@ class TelecopeWindow(QWidget):
 
     async def oca_toi_status_reader(self,tel):
         try:
-            reader = get_reader(f'tic.status.{tel}.toi.status', deliver_policy='last')
+            reader = get_reader(f'status.toi.{tel}.self.switches', deliver_policy='last')
             async for data, meta in reader:
                 self.toi_op_status[tel] = data
                 async with self.lock:
@@ -265,7 +265,7 @@ class TelecopeWindow(QWidget):
 
     async def oca_telemetry_program_reader(self,tel):
         try:
-            reader = get_reader(f'tic.status.{tel}.toi.ob', deliver_policy='last')
+            reader = get_reader(f'status.toi.{tel}.self.ob', deliver_policy='last')
             async for status, meta in reader:
                 self.ob_prog_status[tel] = status
                 async with self.lock:

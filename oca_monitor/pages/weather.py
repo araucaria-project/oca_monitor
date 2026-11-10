@@ -1598,7 +1598,7 @@ class _PhotZeroPanel(_Panel):
 
 
 class _CloudsPanel(_Panel):
-    """Clouds from the allsky camera, ``tic.status.ocm.allsky_overwatch.clouds`` (one message per frame, ~2.4 min).
+    """Clouds from the allsky camera, ``data.overwatch.oca.allsky.clouds`` (one message per frame, ~2.4 min).
 
     A band along the top coloured by the sky state of each frame (thin yellow, veil yellow hatched, cloudy orange,
     overcast red, twilight light blue - clouds not measured then -, nothing when clear), and below it the share of the sky (above 30 deg) under the observers' marks: yellow (cirrus,
@@ -1739,7 +1739,7 @@ def _today_midnight_utc() -> datetime.datetime:
     return datetime.datetime(n.year, n.month, n.day, tzinfo=datetime.timezone.utc)
 
 
-CLOUDS_SUBJECT = 'tic.status.ocm.allsky_overwatch.clouds'   # allsky_overwatch, one message per frame
+CLOUDS_SUBJECT = 'data.overwatch.oca.allsky.clouds'   # allsky_overwatch, one message per frame
 
 
 # OCM is at -70°W → local noon = 16:00 UTC. Use that as the night boundary

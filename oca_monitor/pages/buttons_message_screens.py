@@ -1,17 +1,12 @@
 import logging
-import os
-import subprocess
-import time
 import json, requests
 import oca_monitor.config as config
 from PyQt6.QtWidgets import QDialog, QWidget, QVBoxLayout, QHBoxLayout, QLabel, QSlider, QDial, QScrollBar, QPushButton, \
     QCheckBox, QTextEdit
-from PyQt6.QtCore import QTimer
 from PyQt6 import QtCore, QtGui
 from qasync import asyncSlot
 from serverish.base import dt_ensure_datetime
-from serverish.base.task_manager import create_task_sync, create_task
-from serverish.messenger import get_reader
+from serverish.base.task_manager import create_task_sync
 
 logger = logging.getLogger(__name__.rsplit('.')[-1])
 
@@ -75,14 +70,8 @@ class ButtonsMessageWidget(QWidget):
         self.one_sun_sound = True
         self.one_weather_warning = True
         self.one_weather_stop = True
-        QTimer.singleShot(0, self.async_init)
         # self.script_location = os.path.dirname(os.path.abspath(__file__))
 
-    @asyncSlot()
-    async def async_init(self):
-
-        for tel in self.parent.telescope_names:
-            await create_task(self.toi_message_reader(tel), f"nats_toi_message_reader_{tel}")
 
     def initUI(self, ):
         self.layout = QHBoxLayout(self)
@@ -202,32 +191,6 @@ class ButtonsMessageWidget(QWidget):
         for siren, ip in config.bbox_sirens.items():
             requests.post('http://' + ip + '/state', json={"relays": [{"relay": 0, "state": wyj}]})
 
-    async def toi_message_reader(self, tel):
-        try:
-            r = get_reader(f'tic.status.{tel}.toi.message', deliver_policy='new')
-            async for data, meta in r:
-                txt = f"{time.strftime('%H:%M:%S', time.gmtime())}"
-                if "info" in data.keys() and "tel" in data.keys():
-                    if "BELL" in data['info']:
-                        txt = f"(UT {txt}) {data['info']} by {data['tel']}"
-                        self.info_e.append(txt)
-                        subprocess.Popen(["aplay", f"{os.getcwd()}/sounds/bell_romulan_alarm.wav"])
-                    elif "STOP" in data['info']:
-                        txt = f"(UT {txt}) {data['info']} reached by {data['tel']}"
-                        self.info_e.append(txt)
-                        subprocess.Popen(["aplay", f"{os.getcwd()}/sounds/stop_alert07.wav"])
-                    elif "PING" in data['info']:
-                        txt = f"(UT {txt}) {data['info']} reached by {data['tel']}"
-                        self.info_e.append(txt)
-                        subprocess.Popen(["aplay", f"{os.getcwd()}/sounds/ping_tos_alien_sound_4.wav"])
-                    else:
-                        txt = f"(UT {txt}) {data['info']} by {data['tel']}"
-                        self.info_e.append(txt)
-                        subprocess.Popen(["aplay", f"{os.getcwd()}/sounds/notification_computerbeep_12.wav"])
-
-
-        except Exception as e:
-            logger.warning(f'{e}')
 
 
 widget_class = ButtonsMessageWidget

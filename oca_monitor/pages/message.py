@@ -14,7 +14,7 @@ from serverish.messenger import get_reader
 
 logger = logging.getLogger(__name__.rsplit('.')[-1])
 
-# etykieta komunikatu z tic.status.ocm.messages -> (dzwiek z sounds/ - plik, krotka plikow granych po kolei (liczba w
+# etykieta komunikatu z message.*.*.*.notice -> (dzwiek z sounds/ - plik, krotka plikow granych po kolei (liczba w
 # krotce = przerwa w sekundach) albo None, kolor tekstu). Klasy (2026-11-02,
 # knowledge-base: Operator sound alerts): notification = obserwator ma sprawdzic, czy wszystko ok; WEATHER WARNING =
 # ograniczenia rosna; WEATHER ALERT = zamknac wszystko; WEATHER LEVEL DOWN = krok w dol (weather_overwatch);
@@ -31,7 +31,7 @@ LABEL_SOUNDS = {
     "WEATHER LEVEL DOWN": ("level_down.wav", Qt.GlobalColor.darkGreen),
     "SUN WARNING": ("alert23.wav", Qt.GlobalColor.darkYellow),
     "OPERATIONS START": ("gong.wav", Qt.GlobalColor.darkBlue),    # Slonce +5 wieczorem (weather_overwatch)
-    "OPERATIONS END": ("gong.wav", Qt.GlobalColor.darkBlue),      # Slonce -18 rano
+    "OBSERVATIONS END": ("gong.wav", Qt.GlobalColor.darkBlue),      # Slonce -18 rano
     "SYSTEM ALERT": (("mixkit-facility-alarm-908.wav", 3, "mixkit-facility-alarm-908.wav"), Qt.GlobalColor.red),   # 2x    # bateria, serwerownia, ... (weather_overwatch)
     "FWHM WARNING": (NOTIFICATION, Qt.GlobalColor.darkYellow),
     "ZERO POINT WARNING": (NOTIFICATION, Qt.GlobalColor.darkYellow),
@@ -84,7 +84,7 @@ class MessageWidget(QWidget):
 
 
     async def reader_ocm_messages(self):
-            r = get_reader(f'tic.status.ocm.messages', deliver_policy='new')
+            r = get_reader('message.*.*.*.notice', deliver_policy='new')     # komunikaty wszystkich nadawcow (TOI, overwatche), od 2026-11-10
             async for data, meta in r:
                 try:
                     label = data["label"]

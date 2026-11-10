@@ -33,7 +33,7 @@ class AllskyMethodWidget(QWidget):
     frames like the Clouds tab (paths in the `files` of the clouds messages), with the sky state and time of the frame
     shown and a short legend."""
 
-    def __init__(self, main_window, kind='stars', clouds_subject='tic.status.ocm.allsky_overwatch.clouds',
+    def __init__(self, main_window, kind='stars', clouds_subject='data.overwatch.oca.allsky.clouds',
                  vertical_screen=False, **kwargs):
         super().__init__()
         if kind not in LEGENDS:

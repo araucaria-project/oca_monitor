@@ -34,7 +34,7 @@ VEIL_RING_ALT = 30.0    # deg; a veil is drawn as a dashed yellow circle here (t
 
 class AllskyAnimationMplWidget(QWidget):
     def __init__(self, main_window, allsky_dir='/data/misc/allsky/', vertical_screen=False,
-                 clouds_subject='tic.status.ocm.allsky_overwatch.clouds', clouds=True,
+                 clouds_subject='data.overwatch.oca.allsky.clouds', clouds=True,
                  wind_subject='telemetry.weather.davis', **kwargs):
         super().__init__()
         self.main_window = main_window

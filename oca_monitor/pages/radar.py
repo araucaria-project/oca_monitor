@@ -1,7 +1,7 @@
 """Sky radar: telescope dots with motion trails, slew targets, Sun and Moon.
 
 Data straight off NATS: tic.telemetry.{tel}.mount.azimuth|altitude,
-tic.status.{tel}.mount.slewing|tracking|motorstatus, tic.status.{tel}.toi.ob|plan,
+tic.status.{tel}.mount.slewing|tracking|motorstatus, status.toi.{tel}.self.ob, data.toi.{tel}.self.plan,
 tic.status.{tel}.access_grantor.safety_cutoff_state.
 """
 from __future__ import annotations
@@ -679,9 +679,9 @@ class RadarWidget(QWidget):
                     self._measurement_reader(f'tic.status.{tel}.{suffix}', tel, key,
                                              f'{tel}.{suffix}', _as_int),
                     f'radar_{tel}_{key}')
-            await create_task(self._document_reader(f'tic.status.{tel}.toi.ob', tel, 'ob'),
+            await create_task(self._document_reader(f'status.toi.{tel}.self.ob', tel, 'ob'),
                               f'radar_{tel}_ob')
-            await create_task(self._document_reader(f'tic.status.{tel}.toi.plan', tel, 'plan'),
+            await create_task(self._document_reader(f'data.toi.{tel}.self.plan', tel, 'plan'),
                               f'radar_{tel}_plan')
 
         await create_task(self._wind_reader(), 'radar_wind')
@@ -842,7 +842,7 @@ class RadarWidget(QWidget):
         """Where the running program points, or None when none is running.
 
         Same source as the telescopes page's Program column,
-        tic.status.{tel}.toi.ob: no program entry, no target, so no reticle.
+        status.toi.{tel}.self.ob: no program entry, no target, so no reticle.
         Coordinates come out of the program block itself when it carries them
         and from the plan entry it names otherwise."""
         ob = self._state[tel].get('ob') or {}
