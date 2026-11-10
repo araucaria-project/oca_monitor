@@ -6,6 +6,7 @@ import time
 
 from PyQt6.QtWidgets import  QWidget, QHBoxLayout, QTextEdit
 from PyQt6.QtCore import QTimer, Qt
+from PyQt6.QtGui import QColor, QPalette, QTextCursor, QTextCharFormat
 
 from qasync import asyncSlot
 from serverish.base import dt_ensure_datetime
@@ -21,24 +22,32 @@ logger = logging.getLogger(__name__.rsplit('.')[-1])
 # ograniczenia rosna; WEATHER ALERT = zamknac wszystko; WEATHER LEVEL DOWN = krok w dol (weather_overwatch);
 # SYSTEM ALERT = zagrozony sprzet (bateria, temperatura serwerowni / baterii / pomieszczenia elektrycznego)
 NOTIFICATION = "notification_computerbeep_12.wav"
+# kolory czytelne na ciemnym tle (Qt darkBlue/darkGreen/darkYellow prawie znikaly)
+EVENT_C = QColor(80, 170, 255)
+OK_C = QColor(60, 190, 60)
+WARN_C = QColor(220, 190, 40)
+ALERT_C = QColor(255, 70, 70)
+GRAY_C = QColor(160, 160, 164)
+# blakniecie z wiekiem wiadomosci: (wiek w s, udzial koloru; reszta to tlo okna)
+FADE_STEPS = ((15 * 60, 0.75), (30 * 60, 0.5), (60 * 60, 0.3))
 LABEL_SOUNDS = {
-    "INFO": (None, Qt.GlobalColor.gray),
-    "PING": ("ping_tos_alien_sound_4.wav", Qt.GlobalColor.darkYellow),
-    "PROGRAM STOP": ("stop_alert07.wav", Qt.GlobalColor.gray),
-    "PROGRAM BELL": ("bell_romulan_alarm.wav", Qt.GlobalColor.gray),
-    "PROGRAM ERROR": ("error_tone.wav", Qt.GlobalColor.red),
-    "WEATHER ALERT": ("weather_alarm_klingon_alert.wav", Qt.GlobalColor.red),
-    "WEATHER WARNING": ("warning_weather_alert09.wav", Qt.GlobalColor.darkYellow),
-    "WEATHER LEVEL DOWN": ("level_down.wav", Qt.GlobalColor.darkGreen),
-    "SUN WARNING": ("alert23.wav", Qt.GlobalColor.darkYellow),
-    "EVENT": ("gong.wav", Qt.GlobalColor.darkBlue),     # eventy conditions_overwatch (Slonce +5 / -18, ut, ...);
+    "INFO": (None, GRAY_C),
+    "PING": ("ping_tos_alien_sound_4.wav", WARN_C),
+    "PROGRAM STOP": ("stop_alert07.wav", GRAY_C),
+    "PROGRAM BELL": ("bell_romulan_alarm.wav", GRAY_C),
+    "PROGRAM ERROR": ("error_tone.wav", ALERT_C),
+    "WEATHER ALERT": ("weather_alarm_klingon_alert.wav", ALERT_C),
+    "WEATHER WARNING": ("warning_weather_alert09.wav", WARN_C),
+    "WEATHER LEVEL DOWN": ("level_down.wav", OK_C),
+    "SUN WARNING": ("alert23.wav", WARN_C),
+    "EVENT": ("gong.wav", EVENT_C),     # eventy conditions_overwatch (Slonce +5 / -18, ut, ...);
                                                         # pole "sound" komunikatu zamienia dzwiek
-    "SYSTEM ALERT": (("mixkit-facility-alarm-908.wav", 3, "mixkit-facility-alarm-908.wav"), Qt.GlobalColor.red),   # 2x    # bateria, serwerownia, ... (weather_overwatch)
-    "FWHM WARNING": (NOTIFICATION, Qt.GlobalColor.darkYellow),
-    "ZERO POINT WARNING": (NOTIFICATION, Qt.GlobalColor.darkYellow),
-    "CLOUDS INFO": (NOTIFICATION, Qt.GlobalColor.darkYellow),
+    "SYSTEM ALERT": (("mixkit-facility-alarm-908.wav", 3, "mixkit-facility-alarm-908.wav"), ALERT_C),   # 2x    # bateria, serwerownia, ... (weather_overwatch)
+    "FWHM WARNING": (NOTIFICATION, WARN_C),
+    "ZERO POINT WARNING": (NOTIFICATION, WARN_C),
+    "CLOUDS INFO": (NOTIFICATION, WARN_C),
 }
-DEFAULT_SOUND = (NOTIFICATION, Qt.GlobalColor.gray)
+DEFAULT_SOUND = (NOTIFICATION, GRAY_C)
 # dzwieki eventow (pole "sound"): najpierw wspolny katalog conditions_overwatch (ten sam wybieraja TOI i overwatch),
 # potem sounds/ w repo; nazwa pliku bez sciezki
 SHARED_SOUNDS = "/data/misc/oca_overwatch/sounds"
@@ -85,6 +94,10 @@ class MessageWidget(QWidget):
         self.one_sun_sound = True
         self.one_weather_warning = True
         self.one_weather_stop = True
+        self.shown = []     # [czas odbioru, poczatek, koniec w dokumencie, kolor, krok blakniecia]
+        self.fade_timer = QTimer(self)
+        self.fade_timer.timeout.connect(self.fade_messages)
+        self.fade_timer.start(60 * 1000)
         QTimer.singleShot(0, self.async_init)
         #self.script_location = os.path.dirname(os.path.abspath(__file__))
         logger.info(f"MessageWidget init setup done")
@@ -118,15 +131,44 @@ class MessageWidget(QWidget):
                     #     c = QtCore.Qt.darkGray
 
                     if data.get("test"):    # sound test from TOI's PING window: the sound, but not the alarm colour
-                        c = Qt.GlobalColor.gray
+                        c = GRAY_C
                     txt = f'{data["ut"]} [{data["user"]}] {data["info"]}'
+                    doc = self.info_e.document()
+                    start = doc.characterCount() - 1
                     self.info_e.setTextColor(c)
                     self.info_e.append(txt)
+                    self.shown.append([time.time(), start, doc.characterCount() - 1, QColor(c), -1])
                     self.info_e.repaint()
 
 
                 except Exception as e:
                     logger.warning(f'{e} {data}')
+
+    def fade_messages(self):
+        """Co minute: starsze wiadomosci zlewaja sie z tlem (FADE_STEPS); zmienia tylko kolor ich fragmentu
+        dokumentu, bez przebudowy tekstu - przewijanie i zaznaczenie zostaja"""
+        try:
+            now = time.time()
+            bg = self.info_e.palette().color(QPalette.ColorRole.Base)
+            doc = self.info_e.document()
+            for item in self.shown:
+                t, start, end, c, step = item
+                new_step = sum(1 for age, _ in FADE_STEPS if now - t >= age) - 1
+                if new_step == step:
+                    continue
+                item[4] = new_step
+                a = FADE_STEPS[new_step][1]
+                faded = QColor(*(round(x * a + y * (1 - a)) for x, y in
+                                 ((c.red(), bg.red()), (c.green(), bg.green()), (c.blue(), bg.blue()))))
+                cursor = QTextCursor(doc)
+                cursor.setPosition(start)
+                cursor.setPosition(min(end, doc.characterCount() - 1), QTextCursor.MoveMode.KeepAnchor)
+                fmt = QTextCharFormat()
+                fmt.setForeground(faded)
+                cursor.mergeCharFormat(fmt)
+            self.shown = [i for i in self.shown if i[4] < len(FADE_STEPS) - 1]    # ostatni krok - koniec
+        except Exception as e:      # zwykly slot Qt: wyjatek nie moze uciec
+            logger.warning(f'fade_messages: {e!r}')
 
 
 widget_class = MessageWidget
