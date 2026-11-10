@@ -1,5 +1,6 @@
 import logging
 import os
+import re
 import subprocess
 import time
 
@@ -30,14 +31,31 @@ LABEL_SOUNDS = {
     "WEATHER WARNING": ("warning_weather_alert09.wav", Qt.GlobalColor.darkYellow),
     "WEATHER LEVEL DOWN": ("level_down.wav", Qt.GlobalColor.darkGreen),
     "SUN WARNING": ("alert23.wav", Qt.GlobalColor.darkYellow),
-    "OPERATIONS START": ("gong.wav", Qt.GlobalColor.darkBlue),    # Slonce +5 wieczorem (weather_overwatch)
-    "OBSERVATIONS END": ("gong.wav", Qt.GlobalColor.darkBlue),      # Slonce -18 rano
+    "EVENT": ("gong.wav", Qt.GlobalColor.darkBlue),     # eventy conditions_overwatch (Slonce +5 / -18, ut, ...);
+                                                        # pole "sound" komunikatu zamienia dzwiek
     "SYSTEM ALERT": (("mixkit-facility-alarm-908.wav", 3, "mixkit-facility-alarm-908.wav"), Qt.GlobalColor.red),   # 2x    # bateria, serwerownia, ... (weather_overwatch)
     "FWHM WARNING": (NOTIFICATION, Qt.GlobalColor.darkYellow),
     "ZERO POINT WARNING": (NOTIFICATION, Qt.GlobalColor.darkYellow),
     "CLOUDS INFO": (NOTIFICATION, Qt.GlobalColor.darkYellow),
 }
 DEFAULT_SOUND = (NOTIFICATION, Qt.GlobalColor.gray)
+# dzwieki eventow (pole "sound"): najpierw wspolny katalog conditions_overwatch (ten sam wybieraja TOI i overwatch),
+# potem sounds/ w repo; nazwa pliku bez sciezki
+SHARED_SOUNDS = "/data/misc/oca_overwatch/sounds"
+SOUND_NAME = re.compile(r"^[A-Za-z0-9][A-Za-z0-9_. -]*$")
+
+
+def sound_path(name):
+    shared = os.path.join(SHARED_SOUNDS, name)
+    return shared if os.path.isfile(shared) else f"{os.getcwd()}/sounds/{name}"
+
+
+def event_sound(data):
+    """Dzwiek z pola "sound" komunikatu (EVENT), jesli to sama nazwa istniejacego pliku; inaczej None"""
+    name = data.get("sound")
+    if not isinstance(name, str) or not SOUND_NAME.match(name) or ".." in name:
+        return None
+    return name if os.path.isfile(sound_path(name)) else None
 
 
 def play(sound):
@@ -45,14 +63,14 @@ def play(sound):
     wtedy przez sh (aplay i sleep na zmiane, sciezki jako argumenty), bez przerw jedno aplay z kilkoma plikami"""
     parts = (sound,) if isinstance(sound, str) else tuple(sound)
     if not any(isinstance(p, (int, float)) for p in parts):
-        subprocess.Popen(["aplay"] + [f"{os.getcwd()}/sounds/{p}" for p in parts])
+        subprocess.Popen(["aplay"] + [sound_path(p) for p in parts])
         return
     script, args = [], []
     for p in parts:
         if isinstance(p, (int, float)):
             script.append(f"sleep {float(p):g}")
         else:
-            args.append(f"{os.getcwd()}/sounds/{p}")
+            args.append(sound_path(p))
             script.append(f'aplay "${len(args)}"')
     subprocess.Popen(["sh", "-c", "; ".join(script), "sh"] + args)
 
@@ -89,6 +107,7 @@ class MessageWidget(QWidget):
                 try:
                     label = data["label"]
                     sound, c = LABEL_SOUNDS.get(label, DEFAULT_SOUND)
+                    sound = event_sound(data) or sound
                     if sound:
                         play(sound)
 
