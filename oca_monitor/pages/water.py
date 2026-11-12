@@ -78,13 +78,13 @@ class WaterWindow(QWidget):
                     self.ts.append(ts)
                     self.water_level.append(level)
                     if len(self.ts) > 100:
-                        self.ts = self.ts[len(self.ts)-100:]
-                        self.water_level = self.water_level[len(self.ts)-100:]
+                        self.ts = self.ts[-100:]
+                        self.water_level = self.water_level[-100:]
                     self.update_window()
                 except (ValueError, TypeError, LookupError, TimeoutError, ServerishError) as e:
                     logger.warning(f"water_loop get error: {e}")
         except ServerishError as e:
-            logger.warning(f"water_loop get error: {e}")
+            logger.error(f"water_loop reader stopped, the widget will not update: {e}")
 
 
 widget_class = WaterWindow

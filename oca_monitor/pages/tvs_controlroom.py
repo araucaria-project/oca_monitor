@@ -97,7 +97,7 @@ class WidgetTvsControlroom(QWidget):
                 except (ValueError, TypeError, LookupError, TimeoutError, ServerishError) as e:
                     logger.warning(f"reader_nats_ofp get error: {e}")
         except ServerishError as e:
-            logger.warning(f"reader_nats_ofp get error: {e}")
+            logger.error(f"reader_nats_ofp reader stopped, the widget will not update: {e}")
         except (asyncio.CancelledError, asyncio.TimeoutError):
             raise
         except Exception as e:
