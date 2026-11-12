@@ -35,11 +35,18 @@ SOON_S = 300
 
 
 def trigger(ev: dict) -> str:
-    """``Sun ↓ -18°`` / ``UT`` / ``observers`` - what fires the event (as TOI's obs window)"""
+    """``Sun ↓ -18°`` / ``⏱ 10 min`` / ``UT`` / ``observers`` - what fires the event (as TOI's obs window)"""
     spec = ev.get('spec') or {}
     kind = spec.get('kind')
     if kind in ('sun_set', 'sun_rise'):
         return f"Sun {'↓' if kind == 'sun_set' else '↑'} {float(spec.get('alt', 0)):+g}°"
+    when = str(ev.get('when', ''))
+    if when.startswith('sec='):     # "In minutes" in TOI: overwatch turns it into ut, the original when stays
+        try:
+            m = round(float(when.split('=', 1)[1]) / 60)
+            return f"⏱ {m} min" if m < 60 else f"⏱ {m // 60} h" + (f" {m % 60:02d} min" if m % 60 else "")
+        except ValueError:
+            return '⏱'
     if kind == 'ut':
         return 'UT'
     if kind == 'observers':
