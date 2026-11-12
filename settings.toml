@@ -28,7 +28,7 @@ source = "message"  # page source - page is defined in oca_monitor/pages/example
 [default.panels.01.Clouds]
 source = "allsky_animation_mpl"
 vertical_screen = 0
-# clouds from allsky_overwatch drawn on the frames: yellow fill = cirrus / semi-transparent / uncertain, red outline =
+# clouds from allsky_overwatch drawn on the frames: yellow outline = cirrus / semi-transparent / uncertain, red outline =
 # cloud that hides everything, dashed yellow circle = a veil over the whole sky, cyan = Moon; in twilight (Sun above
 # -18 deg) the Moon only
 

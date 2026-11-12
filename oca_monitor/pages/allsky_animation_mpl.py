@@ -92,7 +92,7 @@ class AllskyAnimationMplWidget(QWidget):
 
     def draw_clouds(self, ax, image_path):
         """Marks of this frame from allsky_overwatch (<frame>_marks.png on every MARKS_GRID-th pixel of the frame: 1 yellow,
-        2 red, 3 Moon): light yellow fill = cirrus, semi-transparent or uncertain cloud, red outline = cloud that hides
+        2 red, 3 Moon): yellow outline = cirrus, semi-transparent or uncertain cloud, red outline = cloud that hides
         everything, light cyan area = the Moon, where nothing is detected; a veil (the whole sky dimmed) as a dashed yellow
         circle at VEIL_RING_ALT, not painted over the frame; the sky state in the corner. The service keeps only the pictures of its last frames, enough for the lastimage*.jpg window."""
         data = self.frame_clouds(image_path)
@@ -103,9 +103,11 @@ class AllskyAnimationMplWidget(QWidget):
         if path and os.path.exists(path):
             codes = np.array(Image.open(path))
             gy, gx = np.mgrid[0:codes.shape[0], 0:codes.shape[1]] * MARKS_GRID
+            # yellow outline = the whole cloud (yellow + red codes), red outline on top = its opaque part; where the red
+            # part touches clear sky the red line covers the yellow one (2026-11-12: outline instead of a yellow fill)
             yellow = ((codes == 1) | (codes == 2)) & (not twilight)     # twilight: clouds not measured, Moon only
             if yellow.any():
-                ax.contourf(gx, gy, yellow.astype(float), levels=[0.5, 1.5], colors='yellow', alpha=0.25)
+                ax.contour(gx, gy, yellow.astype(float), levels=[0.5], colors='yellow', linewidths=2)
             if (codes == 3).any():
                 ax.contourf(gx, gy, (codes == 3).astype(float), levels=[0.5, 1.5], colors='cyan', alpha=0.3)
             if (codes == 2).any() and not twilight:
