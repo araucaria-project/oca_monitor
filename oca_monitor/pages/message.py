@@ -49,9 +49,9 @@ LABEL_SOUNDS = {
 }
 DEFAULT_SOUND = (NOTIFICATION, GRAY_C)
 # dzwieki eventow (pole "sound"): najpierw wspolny katalog conditions_overwatch (ten sam wybieraja TOI i overwatch),
-# potem sounds/ w repo; nazwa pliku bez sciezki
+# potem sounds/ w repo; nazwa pliku bez sciezki (albo special/<plik> - podkatalog wspolnego katalogu)
 SHARED_SOUNDS = "/data/misc/oca_overwatch/sounds"
-SOUND_NAME = re.compile(r"^[A-Za-z0-9][A-Za-z0-9_. -]*$")
+SOUND_NAME = re.compile(r"^(special/)?[A-Za-z0-9][A-Za-z0-9_. -]*$")    # special/: niespodzianki z trybu admina TOI
 
 
 def sound_path(name):
