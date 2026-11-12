@@ -479,8 +479,10 @@ def zone_boundary_color(band_color) -> Tuple[float, float, float]:
     return colorsys.hls_to_rgb(h, min(l + 0.15, 0.85), max(s, 0.85))
 
 
-def wind_zone_bands(ax: Axes, thresholds: Sequence[float], *, top: float = 35.0) -> List[Artist]:
-    """Draw green → … → red zones with boundary lines; return the artists so they can be redrawn."""
+def wind_zone_bands(ax: Axes, thresholds: Sequence[float], *, top: float = 35.0,
+                    fill: bool = True) -> List[Artist]:
+    """Draw green → … → red zones with boundary lines; return the artists so they can be redrawn.
+    ``fill=False``: the boundary lines only (the wind chart since 2026-11-12)."""
     if not thresholds:
         return []
     t = sorted(thresholds)
@@ -490,9 +492,10 @@ def wind_zone_bands(ax: Axes, thresholds: Sequence[float], *, top: float = 35.0)
         ax.axhspan(lo, hi, color=color, linewidth=0, zorder=0,
                    alpha=WIND_ZONE_CALM_ALPHA if i == 0 else WIND_ZONE_ALPHA)
         for i, (lo, hi, color) in enumerate(zip(edges, edges[1:], colors))
-    ]
+    ] if fill else []
     # each boundary takes the hue of the zone it opens: marks the step, not a rainbow
-    artists += [ax.axhline(y, color=zone_boundary_color(color), linewidth=1.0, alpha=0.8, zorder=1)
+    artists += [ax.axhline(y, color=zone_boundary_color(color), linewidth=1.0 if fill else 1.4,
+                           alpha=0.8 if fill else 0.9, zorder=1)
                 for y, color in zip(t, colors[1:])]
     return artists
 

@@ -340,8 +340,12 @@ class _WindPanel(_SimpleSeriesPanel):
     """Wind speed + direction-arrow strip along the bottom.
 
     Line: the 10-minute mean (``wind_10min_ms``); dots (2026-11-12): the instant wind of every Davis message
-    (``wind_ms``, ~1/min), today only - gusts above the mean are seen at once.
+    (``wind_ms``, ~1/min), today only - gusts above the mean are seen at once. The limits are lines only (no filled
+    zones); the direction arrows have their own strip under the zero line (``ARROW_STRIP`` of the y range), so the
+    chart does not run over them; whole-number y ticks (labels like "17.5" were cut at the panel edge).
     """
+
+    ARROW_STRIP = 0.14      # share of the y range below 0 for the direction arrows
 
     def __init__(self) -> None:
         super().__init__(
@@ -398,8 +402,12 @@ class _WindPanel(_SimpleSeriesPanel):
                 artist.remove()
             except (ValueError, AttributeError):
                 pass
-        self._zone_artists = ck.wind_zone_bands(self.ax, self._thresholds)
-        self.ax.set_ylim(0, max(15.0, self._thresholds[-1] * 1.4))
+        self._zone_artists = ck.wind_zone_bands(self.ax, self._thresholds, fill=False)
+        top = max(15.0, self._thresholds[-1] * 1.4)
+        self.ax.set_ylim(-self.ARROW_STRIP * top, top)
+        step = 5 if top <= 30 else 10
+        self.ax.set_yticks(list(range(0, int(top) + 1, step)))
+        self._zone_artists.append(self.ax.axhline(0, color='#555555', linewidth=0.8, zorder=1))
 
     def alert_color(self, msm) -> Optional[str]:
         """Colour of the zone the current wind is in; default text colour in the calm zone."""
@@ -413,7 +421,11 @@ class _WindPanel(_SimpleSeriesPanel):
     def format_overlay(self, msm):
         wind = float(msm['wind_10min_ms'])
         wdir = int(msm['wind_dir_deg'])
-        return f"{wind:.1f} m/s   {wdir:>3d}°"
+        try:        # instant wind in brackets (2026-11-12)
+            inst = f" ({float(msm['wind_ms']):.1f})"
+        except (KeyError, TypeError, ValueError):
+            inst = ""
+        return f"{wind:.1f}{inst} m/s   {wdir:>3d}°"
 
     def on_weather(self, hour, ts, msm, *, is_yesterday) -> None:
         super().on_weather(hour, ts, msm, is_yesterday=is_yesterday)
@@ -454,7 +466,7 @@ class _WindPanel(_SimpleSeriesPanel):
         # Slightly higher than the panel floor; short shaft + chunky head
         # reads cleanly even on top of the wind speed line.
         y_lo, y_hi = ax.get_ylim()
-        y_arrow = y_lo + 0.10 * (y_hi - y_lo)
+        y_arrow = y_lo / 2 if y_lo < 0 else y_lo + 0.10 * (y_hi - y_lo)     # middle of the strip under 0
         ys = np.full_like(u, y_arrow, dtype=float)
         if self._quiver is not None:
             try:
