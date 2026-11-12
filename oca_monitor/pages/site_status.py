@@ -114,6 +114,10 @@ def _moon_alt_phase(alt_deg: float, phase_pct: float) -> str:
     )
 
 
+class _Skip(Exception):
+    """a reader not needed (its box is hidden)"""
+
+
 class _Group(QFrame):
     """Mini-frame that hosts a label cluster with a subtle border + caption."""
 
@@ -150,6 +154,9 @@ class SiteStatusWidget(QWidget):
                  water_warn_pct: float = 20.0,
                  water_danger_pct: float = 10.0,
                  net_subject: str = 'svc.publish.oca.wan.status',
+                 show_events: bool = True,
+                 show_water: bool = True,
+                 show_net: bool = True,
                  **kwargs) -> None:
         super().__init__()
         self.main_window = main_window
@@ -161,7 +168,12 @@ class SiteStatusWidget(QWidget):
         self.water_danger_pct = float(water_danger_pct)
         self.water_level_m3: Optional[float] = None
         self.net_subject = net_subject
+        # monitor3 (2026-11-12): events come from the events page (overwatch), water / net from the utilities page
+        self.show_events, self.show_water, self.show_net = bool(show_events), bool(show_water), bool(show_net)
         self._init_ui()
+        self.box_events.setVisible(self.show_events)
+        self.box_water.setVisible(self.show_water)
+        self.box_net.setVisible(self.show_net)
         QtCore.QTimer.singleShot(0, self.async_init)
         self._tick_timer = QtCore.QTimer(self)
         self._tick_timer.timeout.connect(self._tick)
@@ -339,12 +351,18 @@ class SiteStatusWidget(QWidget):
     @asyncSlot()
     async def async_init(self):
         try:
+            if not self.show_water:
+                raise _Skip
             await self.main_window.run_reader(
                 clb=self._water_callback,
                 subject=self.water_subject, deliver_policy='last',
             )
+        except _Skip:
+            pass
         except Exception as e:
             logger.warning(f"water reader subscription failed: {e}")
+        if not self.show_net:
+            return
         try:
             await self.main_window.run_reader(
                 clb=self._net_callback,

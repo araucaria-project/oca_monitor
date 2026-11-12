@@ -128,6 +128,65 @@ show_time = false
 source = "telescopes"
 
 
+#---------------------------monitor3 - additional controlroom screen (2026-11-12)---------------------
+# poetry run ocam --env monitor3
+# 00 satellite          | 01 clouds (+ allsky, diff, stars out of the rotation) | 02 sky: clouds, zero point, fwhm
+# 10 events (overwatch) | 11 messages (plays the alarm sounds!)                 | 12 site: time, Sun, Moon
+
+[monitor3]
+window_size = [1910, 1040]
+panel_columns = [4,4,3]  # as default
+panel_rows = [5,1]
+style = "dark"
+
+nats_host = "nats.oca.lan"
+nats_port = 4222
+
+log_level = "INFO"
+
+[monitor3.panels.00.Satellite]
+source = "satellite_animation"
+vertical_screen = 0
+
+[monitor3.panels.01.Clouds]
+source = "allsky_animation_mpl"
+vertical_screen = 0
+
+[monitor3.panels.01.Allsky]
+source = "allsky_animation_mpl"
+vertical_screen = 0
+clouds = false
+auto_enabled = false
+
+[monitor3.panels.01.CloudsDiff]
+source = "allsky_method"
+kind = "diff"
+auto_enabled = false
+
+[monitor3.panels.01.CloudsStars]
+source = "allsky_method"
+kind = "stars"
+auto_enabled = false
+
+[monitor3.panels.02.Sky]
+source = "weather"
+vertical_screen = 0
+charts = ["clouds", "phot_zero", "fwhm"]
+permanent_wind = false
+
+[monitor3.panels.10.Events]
+source = "events"   # conditions_overwatch events (the engine of TOI's Events tab), pages/events.py
+
+[monitor3.panels.11.Message]
+source = "message"  # also plays the sounds - run it on one screen of a room only
+
+[monitor3.panels.12.Site]
+source = "site_status"
+show_events = false   # events: panel 10
+show_water = false
+show_net = false
+
+
 ##-------------------------- aux obs display---------------
 
 [aux]  # global configuration is used by all environments, setting from here override all other settings
