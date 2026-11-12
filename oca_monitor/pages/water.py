@@ -1,13 +1,12 @@
 import logging
 import datetime
-from nats.errors import TimeoutError as NatsTimeoutError
 from PyQt6.QtWidgets import QApplication, QWidget, QGridLayout,QLabel,QProgressBar
 from PyQt6.QtCore import QTimer, Qt
 from matplotlib.backends.backend_qtagg import FigureCanvasQTAgg as FigureCanvas
 from matplotlib.figure import Figure
 from matplotlib.dates import date2num
 from qasync import asyncSlot
-from serverish.base import dt_ensure_datetime
+from serverish.base import ServerishError, dt_ensure_datetime
 from serverish.base.task_manager import create_task_sync, create_task
 from serverish.messenger import Messenger
 
@@ -69,20 +68,23 @@ class WaterWindow(QWidget):
 
 
     async def water_loop(self):
-        msg = Messenger()
-        r = msg.get_reader("telemetry.water.level", deliver_policy='by_start_time', opt_start_time=self.telemetry_start_time)
-        async for data, meta in r:
-            try:
-                ts = data['ts']
-                level = float(data["measurements"]["water_level"])
-                self.ts.append(ts)
-                self.water_level.append(level)
-                if len(self.ts) > 100:
-                    self.ts = self.ts[len(self.ts)-100:]
-                    self.water_level = self.water_level[len(self.ts)-100:]
-                self.update_window()
-            except (ValueError, TypeError, LookupError, TimeoutError, NatsTimeoutError) as e:
-                logger.warning(f"water_loop get error: {e}")
+        try:
+            msg = Messenger()
+            r = msg.get_reader("telemetry.water.level", deliver_policy='by_start_time', opt_start_time=self.telemetry_start_time)
+            async for data, meta in r:
+                try:
+                    ts = data['ts']
+                    level = float(data["measurements"]["water_level"])
+                    self.ts.append(ts)
+                    self.water_level.append(level)
+                    if len(self.ts) > 100:
+                        self.ts = self.ts[len(self.ts)-100:]
+                        self.water_level = self.water_level[len(self.ts)-100:]
+                    self.update_window()
+                except (ValueError, TypeError, LookupError, TimeoutError, ServerishError) as e:
+                    logger.warning(f"water_loop get error: {e}")
+        except ServerishError as e:
+            logger.warning(f"water_loop get error: {e}")
 
 
 widget_class = WaterWindow
