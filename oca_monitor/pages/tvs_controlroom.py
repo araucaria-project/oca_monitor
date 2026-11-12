@@ -5,10 +5,9 @@ import json,requests
 import asyncio
 import oca_monitor.config as config
 from qasync import asyncSlot
-from serverish.base import dt_ensure_datetime
+from serverish.base import ServerishError, dt_ensure_datetime
 from serverish.base.task_manager import create_task_sync, create_task
 from serverish.messenger import Messenger, single_read, get_reader
-from nats.errors import TimeoutError as NatsTimeoutError
 import datetime
 import time
 from astropy.time import Time as czas_astro
@@ -95,8 +94,10 @@ class WidgetTvsControlroom(QWidget):
                 try:
                     self.ofp_data = data
                     self.update_pictures()
-                except (ValueError, TypeError, LookupError, TimeoutError, NatsTimeoutError) as e:
+                except (ValueError, TypeError, LookupError, TimeoutError, ServerishError) as e:
                     logger.warning(f"reader_nats_ofp get error: {e}")
+        except ServerishError as e:
+            logger.error(f"reader_nats_ofp reader stopped, the widget will not update: {e}")
         except (asyncio.CancelledError, asyncio.TimeoutError):
             raise
         except Exception as e:

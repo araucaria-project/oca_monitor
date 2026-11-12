@@ -23,7 +23,7 @@ opencv-python = "*"
 astropy = "^7.0"   # 6.x calls np.in1d which numpy 2.4+ removed
 matplotlib = "*"
 requests = "^2.33.1"
-serverish = {version="^2.0.5", extras=["messenger"]}
+serverish = {version="^2.3.0", extras=["messenger"]}
 qasync = "^0.28.0"
 dynaconf = "3.2.13"
 aiofiles = "^25.1.0"
