@@ -1806,6 +1806,8 @@ class WeatherDataWidget(QWidget):
                  soc_warn_pct: float = 30.0,
                  soc_danger_pct: float = 15.0,
                  permanent_wind: bool = True,
+                 show_time: bool = True,
+                 show_values: bool = True,
                  **kwargs) -> None:
         super().__init__()
         self.main_window = main_window
@@ -1825,6 +1827,8 @@ class WeatherDataWidget(QWidget):
         # moved forward on every sunset reset. See ``_point_hour``.
         self._night_start: Optional[datetime.datetime] = None
         self.permanent_wind = bool(permanent_wind)   # False: no wind chart unless asked (e.g. the Sky page)
+        self.show_values = bool(show_values)    # False: no big live numbers over the charts (monitor2 Battery)
+        self.show_time = bool(show_time)    # False: no LT / Sun / UT strip (monitor2 - the time is elsewhere, low panels)
         self.chart_keys = self._resolve_charts(charts)
         self.panels: List[_Panel] = self._build_panels()
         self._init_ui()
@@ -1938,6 +1942,8 @@ class WeatherDataWidget(QWidget):
         else:
             self.layout_root.addWidget(self.label_ephem)
             self.layout_root.addWidget(self.canvas, 1)
+        if not self.show_time:      # the labels are still updated, just not shown
+            self.label_ephem.hide()
 
         self._build_panel_axes()
         self.canvas.draw_idle()
@@ -1974,6 +1980,16 @@ class WeatherDataWidget(QWidget):
                 panel.init_axes(ax)
             if axes:
                 ck.format_hour_xaxis(axes[-1])
+        if not self.show_values:
+            self._hide_overlays()
+
+    def _hide_overlays(self) -> None:
+        """Big live numbers off (``show_values = false``): every panel keeps its overlays (``ck.big_overlay`` Text) in
+        attributes named ``_overlay*``; hidden, they are still updated - set_text does not show them again."""
+        for panel in self.panels:
+            for name, value in vars(panel).items():
+                if name.startswith('_overlay') and hasattr(value, 'set_visible'):
+                    value.set_visible(False)
 
     def _schedule_draw(self) -> None:
         """Coalesce canvas redraws so a flood of NATS messages doesn't

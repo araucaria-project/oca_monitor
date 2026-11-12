@@ -80,12 +80,12 @@ source = "site_status"  # unified clocks + sun/moon events + water level
 #---------------------------monitor2 - additional controlroom screen (2026-11-12, layout being tried)---------------------
 # poetry run ocam --env monitor2
 # 00 system health (page not written yet) | 01 weather charts | 02 radar
-# 10 (not decided yet)                     | 11 battery (later rotated with a 24 h water level chart) | 12 telescopes
+# 10 power / water / internet             | 11 battery (later rotated with a 24 h water level chart) | 12 telescopes
 
 [monitor2]
 window_size = [1910, 1040]
-panel_columns = [2,3,5]  # The size ratio of the columns in the panel grid
-panel_rows = [5,1]   # The size ratio of the rows in the panel grid
+panel_columns = [5,6,9]  # radar column ~ as wide as the top row is high (radar is round); 2026-11-12
+panel_rows = [4,1]   # The size ratio of the rows in the panel grid
 style = "dark"
 
 nats_host = "nats.oca.lan"
@@ -97,15 +97,21 @@ log_level = "INFO"
 source = "weather"
 vertical_screen = 0
 charts = ["wind", "temperature", "humidity_pressure"]
+show_time = false   # no LT / Sun / UT strip above the charts
 
 [monitor2.panels.02.Radar]
 source = "radar"
+
+[monitor2.panels.10.Utilities]
+source = "utilities"  # battery, solar / load, water level, internet uplink
 
 [monitor2.panels.11.Battery]
 source = "weather"
 vertical_screen = 0
 charts = ["power"]
 permanent_wind = false
+show_time = false
+show_values = false   # no big numbers over the chart - they are in Utilities next to it
 
 [monitor2.panels.12.Telescopes]
 source = "telescopes"
