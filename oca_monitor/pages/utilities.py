@@ -84,9 +84,10 @@ class UtilitiesWidget(QWidget):
     # ---- UI -----------------------------------------------------------------
 
     def _init_ui(self) -> None:
+        """POWER in one column on the left (battery, solar, load), NET over WATER on the right"""
         self.setStyleSheet("UtilitiesWidget { background-color: #181818; } QLabel { color: #e0e0e0; }")
-        big = QtGui.QFont('Arial', 16, QtGui.QFont.Weight.Bold)
-        small = QtGui.QFont('Arial', 12, QtGui.QFont.Weight.Bold)
+        big = QtGui.QFont('Arial', 20, QtGui.QFont.Weight.Bold)
+        mid = QtGui.QFont('Arial', 17, QtGui.QFont.Weight.Bold)
 
         def label(font):
             lbl = QLabel("—")
@@ -96,30 +97,36 @@ class UtilitiesWidget(QWidget):
 
         self.box_power = _Group('POWER')
         self.lbl_battery = label(big)
-        self.lbl_flow = label(small)
+        self.lbl_solar = label(mid)
+        self.lbl_solar.setToolTip("solar production")
+        self.lbl_load = label(mid)
+        self.lbl_load.setToolTip("site load = solar + battery discharge - charge")
+        for lbl in (self.lbl_battery, self.lbl_solar, self.lbl_load):
+            self.box_power.layout.addStretch(1)
+            self.box_power.layout.addWidget(lbl)
         self.box_power.layout.addStretch(1)
-        self.box_power.layout.addWidget(self.lbl_battery)
-        self.box_power.layout.addStretch(1)
-        self.box_power.layout.addWidget(self.lbl_flow)
-        self.box_power.layout.addStretch(1)
-
-        self.box_water = _Group('WATER')
-        self.lbl_water = label(small)
-        self.box_water.layout.addWidget(self.lbl_water)
 
         self.box_net = _Group('NET')
-        self.lbl_net = label(small)
+        self.lbl_net = label(mid)
         self.lbl_net.setToolTip("Internet uplink (wan-watchdog): no message yet")
+        self.box_net.layout.addStretch(1)
         self.box_net.layout.addWidget(self.lbl_net)
+        self.box_net.layout.addStretch(1)
+
+        self.box_water = _Group('WATER')
+        self.lbl_water = label(mid)
+        self.box_water.layout.addStretch(1)
+        self.box_water.layout.addWidget(self.lbl_water)
+        self.box_water.layout.addStretch(1)
 
         grid = QGridLayout(self)
         grid.setContentsMargins(6, 6, 6, 6)
         grid.setSpacing(4)
-        grid.addWidget(self.box_power, 0, 0, 1, 2)
-        grid.addWidget(self.box_water, 1, 0)
-        grid.addWidget(self.box_net, 1, 1)
-        grid.setRowStretch(0, 3)
-        grid.setRowStretch(1, 2)
+        grid.addWidget(self.box_power, 0, 0, 2, 1)
+        grid.addWidget(self.box_net, 0, 1)
+        grid.addWidget(self.box_water, 1, 1)
+        grid.setColumnStretch(0, 1)
+        grid.setColumnStretch(1, 1)
 
     # ---- NATS ---------------------------------------------------------------
 
@@ -192,22 +199,24 @@ class UtilitiesWidget(QWidget):
         else:
             soc_txt = f"{soc:.0f} %"
             color = _DANGER if soc <= self.soc_danger_pct else _WARN if soc <= self.soc_warn_pct else _OK
-        net = charge - discharge
+        net = charge - discharge        # battery: ▲ charging / ▼ discharging (the power itself is the load below)
         if abs(net) < 50:
-            flow = ""
+            arrow = ""
         elif net > 0:
-            flow = f'  <span style="color:{_OK}">▲ charging {_kw(net)}</span>'
+            arrow = f' <span style="color:{_OK}">▲</span>'
         else:
-            flow = f'  <span style="color:{_WARN}">▼ {_kw(-net)}</span>'
+            arrow = f' <span style="color:{_WARN}">▼</span>'
+        self.lbl_battery.setToolTip("battery " + ("charging" if net >= 50 else "discharging" if net <= -50 else "idle")
+                                    + (f" {_kw(abs(net))}" if abs(net) >= 50 else ""))
         if stale:
-            self.lbl_battery.setText(f'<span style="color:{_GRAY}">🔋 {soc_txt}  (no data {_age(age)})</span>')
-        else:
-            self.lbl_battery.setText(f'🔋 <span style="color:{color}">{soc_txt}</span>{flow}')
-        load = (pv or 0.0) + discharge - charge
-        solar = f'<span style="color:{_SOLAR}">☀ {_kw(pv)}</span>' if pv and pv > 0 else \
-            f'<span style="color:{_GRAY}">☀ —</span>'
-        self.lbl_flow.setText(f'{solar}   <span style="color:{_GRAY if stale else "#e0e0e0"}">⚡ load {_kw(load)}</span>')
-        self.lbl_flow.setToolTip("☀ solar production, ⚡ site load (solar + battery discharge - charge)")
+            self.lbl_battery.setText(f'<span style="color:{_GRAY}">🔋 {soc_txt}</span>')
+            self.lbl_solar.setText(f'<span style="color:{_GRAY}">no data {_age(age)}</span>')
+            self.lbl_load.setText("")
+            return
+        self.lbl_battery.setText(f'🔋 <span style="color:{color}">{soc_txt}</span>{arrow}')
+        self.lbl_solar.setText(f'<span style="color:{_SOLAR}">☀ {_kw(pv)}</span>' if pv and pv > 0 else
+                               f'<span style="color:{_GRAY}">☀ —</span>')
+        self.lbl_load.setText(f'⚡ {_kw((pv or 0.0) + discharge - charge)}')
 
     def _render_water(self) -> None:
         if self.water_m3 is None:
@@ -215,7 +224,7 @@ class UtilitiesWidget(QWidget):
         age = time.time() - (self.water_t or time.time())
         pct = 100.0 * self.water_m3 / self.water_capacity_m3 if self.water_capacity_m3 > 0 else None
         if age > self.water_stale_s:
-            self.lbl_water.setText(f'<span style="color:{_GRAY}">💧 {self.water_m3:.1f} m³ ({_age(age)} ago)</span>')
+            self.lbl_water.setText(f'<span style="color:{_GRAY}">💧 {self.water_m3:.1f} m³<br>{_age(age)} ago</span>')
             return
         if pct is None:
             self.lbl_water.setText(f"💧 {self.water_m3:.1f} m³")

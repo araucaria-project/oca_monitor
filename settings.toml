@@ -79,7 +79,7 @@ source = "site_status"  # unified clocks + sun/moon events + water level
 
 #---------------------------monitor2 - additional controlroom screen (2026-11-12, layout being tried)---------------------
 # poetry run ocam --env monitor2
-# 00 system health (page not written yet) | 01 weather charts | 02 radar
+# 00 system health                        | 01 weather charts | 02 radar
 # 10 power / water / internet             | 11 battery (later rotated with a 24 h water level chart) | 12 telescopes
 
 [monitor2]
@@ -92,6 +92,9 @@ nats_host = "nats.oca.lan"
 nats_port = 4222
 
 log_level = "INFO"
+
+[monitor2.panels.00.Health]
+source = "health"  # system health: site data, overwatches, services, telescopes (pages/health.py)
 
 [monitor2.panels.01.Weather]
 source = "weather"
