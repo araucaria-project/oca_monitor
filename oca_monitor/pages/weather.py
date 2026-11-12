@@ -337,7 +337,11 @@ class _SimpleSeriesPanel(_Panel):
 
 
 class _WindPanel(_SimpleSeriesPanel):
-    """Wind speed + direction-arrow strip along the bottom."""
+    """Wind speed + direction-arrow strip along the bottom.
+
+    Line: the 10-minute mean (``wind_10min_ms``); dots (2026-11-12): the instant wind of every Davis message
+    (``wind_ms``, ~1/min), today only - gusts above the mean are seen at once.
+    """
 
     def __init__(self) -> None:
         super().__init__(
@@ -358,11 +362,20 @@ class _WindPanel(_SimpleSeriesPanel):
         self._dir_x: List[float] = []
         self._dir_d: List[float] = []
         self._quiver = None
+        self._gust_x: List[float] = []      # instant wind (wind_ms), today
+        self._gust_v: List[float] = []
+        self._dots = None
 
     def init_axes(self, ax) -> None:
         super().init_axes(ax)
         self._draw_zones()
         self._add_overlay(ax)
+        self._dots, = ax.plot([], [], '.', color=self.today_color, markersize=2.5, alpha=0.55, zorder=3)
+
+    def render(self) -> None:
+        if self._dots is not None and self._dirty:
+            self._dots.set_data(self._gust_x, self._gust_v)
+        super().render()
 
     def on_observatory_config(self, nats_cfg: dict) -> None:
         self._thresholds = ck.wind_speed_thresholds(nats_cfg)
@@ -406,6 +419,16 @@ class _WindPanel(_SimpleSeriesPanel):
         super().on_weather(hour, ts, msm, is_yesterday=is_yesterday)
         if is_yesterday:
             return
+        try:
+            v = float(msm['wind_ms'])
+            if 0.0 <= v < ck.WIND_DANGER_MS * 3.0:
+                self._gust_x.append(hour)
+                self._gust_v.append(v)
+                self._dirty = True
+                if len(self._gust_x) > 4000:
+                    self._gust_x, self._gust_v = self._gust_x[-3000:], self._gust_v[-3000:]
+        except (KeyError, TypeError, ValueError):
+            pass
         try:
             d = float(msm['wind_dir_deg'])
         except (KeyError, TypeError, ValueError):
@@ -451,6 +474,9 @@ class _WindPanel(_SimpleSeriesPanel):
     def on_midnight_rollover(self) -> None:
         super().on_midnight_rollover()
         self._dir_x, self._dir_d = [], []
+        self._gust_x, self._gust_v = [], []
+        if self._dots is not None:
+            self._dots.set_data([], [])
         if self._quiver is not None:
             try:
                 self._quiver.remove()
