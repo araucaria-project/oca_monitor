@@ -104,10 +104,11 @@ class AllskyAnimationMplWidget(QWidget):
             codes = np.array(Image.open(path))
             gy, gx = np.mgrid[0:codes.shape[0], 0:codes.shape[1]] * MARKS_GRID
             # yellow outline = the whole cloud (yellow + red codes), red outline on top = its opaque part; where the red
-            # part touches clear sky the red line covers the yellow one (2026-11-12: outline instead of a yellow fill)
+            # part touches clear sky the red line covers the yellow one (2026-11-12: outline instead of a yellow fill;
+            # thinner and softer than the red one)
             yellow = ((codes == 1) | (codes == 2)) & (not twilight)     # twilight: clouds not measured, Moon only
             if yellow.any():
-                ax.contour(gx, gy, yellow.astype(float), levels=[0.5], colors='yellow', linewidths=2)
+                ax.contour(gx, gy, yellow.astype(float), levels=[0.5], colors='yellow', linewidths=1.3, alpha=0.6)
             if (codes == 3).any():
                 ax.contourf(gx, gy, (codes == 3).astype(float), levels=[0.5, 1.5], colors='cyan', alpha=0.3)
             if (codes == 2).any() and not twilight:

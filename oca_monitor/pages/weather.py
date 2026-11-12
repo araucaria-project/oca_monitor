@@ -24,6 +24,7 @@ from PyQt6.QtWidgets import QFrame, QHBoxLayout, QLabel, QVBoxLayout, QWidget
 from astropy.time import Time as AstropyTime
 from matplotlib.backends.backend_qtagg import FigureCanvasQTAgg as FigureCanvas
 from matplotlib.figure import Figure
+from matplotlib.ticker import FormatStrFormatter, MaxNLocator
 from qasync import asyncSlot
 from serverish.base import dt_ensure_datetime, dt_from_array
 from serverish.base.task_manager import create_task
@@ -996,12 +997,15 @@ class _WaterPanel(_Panel):
     widget dates these messages by their NATS time (``_dual_day_history_loop(ts_from_nats=True)``). Bands: warning /
     danger below ``warn_pct`` / ``danger_pct`` of ``capacity_m3`` (as the Site panel). Little smoothing - a refill is
     a step and should stay one.
+    Y axis (2026-11-12): not from zero but a ``span_m3`` (0.5 m3 = 500 L) window around the data, so the daily use
+    (~150-350 L) is visible; wider when the data do not fit (a refill), in 0.1 m3 steps.
     """
 
     needs_water_history = True
     title = 'Water  [m³]'
     COLOR_WATER = '#4fa8ff'
     SIGMA_MIN = 2.0
+    span_m3 = 0.5
 
     def __init__(self, *, capacity_m3: float = 15.0, warn_pct: float = 20.0, danger_pct: float = 10.0) -> None:
         super().__init__()
@@ -1016,9 +1020,9 @@ class _WaterPanel(_Panel):
 
     def init_axes(self, ax) -> None:
         super().init_axes(ax)
-        ax.set_ylim(0, self.capacity_m3)
-        step = 5 if self.capacity_m3 > 10 else 2 if self.capacity_m3 > 4 else 1     # whole numbers: "15", not "15.0"
-        ax.set_yticks(list(range(0, int(self.capacity_m3) + 1, step)))
+        ax.set_ylim(0, self.capacity_m3)        # until the first data (then _rescale)
+        ax.yaxis.set_major_locator(MaxNLocator(nbins=5, steps=[1, 2, 5]))
+        ax.yaxis.set_major_formatter(FormatStrFormatter('%.1f'))
         ax.axhspan(0, self.danger_m3, color=ck.COLOR_DANGER, alpha=0.20, linewidth=0, zorder=0)
         ax.axhspan(self.danger_m3, self.warn_m3, color=ck.COLOR_WARN, alpha=0.15, linewidth=0, zorder=0)
         self._line_yest, = ax.plot([], [], '-', color=self.COLOR_WATER, alpha=ck.YESTERDAY_ALPHA,
@@ -1045,7 +1049,23 @@ class _WaterPanel(_Panel):
         if self._yest.has_data():
             xs, mean = self._smoothed(self._yest)
             self._line_yest.set_data(xs, mean)
+        self._rescale()
         self._dirty = False
+
+    def _rescale(self) -> None:
+        values = [v for bins in (self._today, self._yest) if bins.has_data()
+                  for v in np.asarray(bins.mean, dtype=float) if np.isfinite(v)]
+        if not values:
+            return
+        lo, hi = min(values), max(values)
+        if hi - lo <= self.span_m3:     # a fixed 500 L window, centred on the data, on 0.1 m3
+            bottom = _math.floor((lo + hi - self.span_m3) / 2 * 10) / 10
+            top = bottom + self.span_m3
+            if top < hi:
+                bottom, top = bottom + 0.1, top + 0.1
+        else:                           # does not fit (refill): the whole range
+            bottom, top = _math.floor(lo * 10) / 10, _math.ceil(hi * 10) / 10
+        self.ax.set_ylim(max(0.0, bottom), top)
 
     def on_water(self, hour, ts, msm, *, is_yesterday) -> None:
         minute = (is_yesterday, int(hour * 60))     # 1 Hz meter: one sample per minute is plenty (1-min bins)
