@@ -61,6 +61,7 @@ class _Panel:
 
     needs_weather_history: bool = False
     needs_power_history: bool = False
+    needs_water_history: bool = False
     needs_faststat: bool = False
     needs_zdf: bool = False
     needs_zero_monitor: bool = False
@@ -124,6 +125,9 @@ class _Panel:
                    *, is_yesterday: bool) -> None: ...
 
     def on_power(self, hour: float, ts: datetime.datetime, msm: dict,
+                 *, is_yesterday: bool) -> None: ...
+
+    def on_water(self, hour: float, ts: datetime.datetime, msm: dict,
                  *, is_yesterday: bool) -> None: ...
 
     def on_midnight_rollover(self) -> None:
@@ -985,6 +989,82 @@ class _PowerPanel(_Panel):
         self._dirty = True
 
 
+class _WaterPanel(_Panel):
+    """Water tank level [m3] (monitor2, 2026-11-12), today over yesterday like the Battery chart.
+
+    Stream: ``telemetry.water.level``, field ``measurements.m3``. The meter writes ``ts`` in Chile local time, so the
+    widget dates these messages by their NATS time (``_dual_day_history_loop(ts_from_nats=True)``). Bands: warning /
+    danger below ``warn_pct`` / ``danger_pct`` of ``capacity_m3`` (as the Site panel). Little smoothing - a refill is
+    a step and should stay one.
+    """
+
+    needs_water_history = True
+    title = 'Water  [m³]'
+    COLOR_WATER = '#4fa8ff'
+    SIGMA_MIN = 2.0
+
+    def __init__(self, *, capacity_m3: float = 15.0, warn_pct: float = 20.0, danger_pct: float = 10.0) -> None:
+        super().__init__()
+        self.capacity_m3 = float(capacity_m3)
+        self.warn_m3 = self.capacity_m3 * float(warn_pct) / 100.0
+        self.danger_m3 = self.capacity_m3 * float(danger_pct) / 100.0
+        self._today = ck.TimeBinSeries()
+        self._yest = ck.TimeBinSeries()
+        self._line_today = None
+        self._line_yest = None
+        self._fill_today = None
+
+    def init_axes(self, ax) -> None:
+        super().init_axes(ax)
+        ax.set_ylim(0, self.capacity_m3)
+        step = 5 if self.capacity_m3 > 10 else 2 if self.capacity_m3 > 4 else 1     # whole numbers: "15", not "15.0"
+        ax.set_yticks(list(range(0, int(self.capacity_m3) + 1, step)))
+        ax.axhspan(0, self.danger_m3, color=ck.COLOR_DANGER, alpha=0.20, linewidth=0, zorder=0)
+        ax.axhspan(self.danger_m3, self.warn_m3, color=ck.COLOR_WARN, alpha=0.15, linewidth=0, zorder=0)
+        self._line_yest, = ax.plot([], [], '-', color=self.COLOR_WATER, alpha=ck.YESTERDAY_ALPHA,
+                                   linewidth=0.9, zorder=2)
+        self._line_today, = ax.plot([], [], '-', color=self.COLOR_WATER, linewidth=1.3, zorder=4)
+
+    def _smoothed(self, bins):
+        return bins.centres, ck.time_smooth_bins(bins.mean, sigma_minutes=self.SIGMA_MIN,
+                                                 bin_width_s=bins.bin_width_s)
+
+    def render(self) -> None:
+        if not self._dirty or self.ax is None:
+            return
+        if self._today.has_data():
+            xs, mean = self._smoothed(self._today)
+            self._line_today.set_data(xs, mean)
+            if self._fill_today is not None:
+                try:
+                    self._fill_today.remove()
+                except (ValueError, AttributeError):
+                    pass
+            self._fill_today = self.ax.fill_between(xs, 0, mean, color=self.COLOR_WATER, alpha=0.18,
+                                                    linewidth=0, zorder=3)
+        if self._yest.has_data():
+            xs, mean = self._smoothed(self._yest)
+            self._line_yest.set_data(xs, mean)
+        self._dirty = False
+
+    def on_water(self, hour, ts, msm, *, is_yesterday) -> None:
+        minute = (is_yesterday, int(hour * 60))     # 1 Hz meter: one sample per minute is plenty (1-min bins)
+        if minute == getattr(self, '_last_minute', None):
+            return
+        self._last_minute = minute
+        try:
+            m3 = float(msm['m3'])
+        except (KeyError, TypeError, ValueError):
+            return
+        if 0.0 <= m3 <= self.capacity_m3 * 1.5:
+            (self._yest if is_yesterday else self._today).append(hour, m3)
+            self._dirty = True
+
+    def on_midnight_rollover(self) -> None:
+        self._today, self._yest = ck.TimeBinSeries(), self._today
+        self._dirty = True
+
+
 class _DomeWindAzPanel(_Panel):
     """Per-telescope dome-vs-wind alignment angle, telescope-coloured.
 
@@ -1791,12 +1871,16 @@ class WeatherDataWidget(QWidget):
 
     DEFAULT_CHARTS: Tuple[str, ...] = ('wind', 'temperature', 'humidity_pressure', 'power')
     KNOWN_CHARTS = frozenset({
-        'wind', 'humidity_pressure', 'temperature', 'power',
+        'wind', 'humidity_pressure', 'temperature', 'power', 'water',
         'dome_wind_az', 'fwhm', 'quality', 'phot_zero', 'clouds',
     })
 
     def __init__(self, main_window, subject: str = 'telemetry.weather.davis',
                  power_subject: str = 'telemetry.power.data-manager',
+                 water_subject: str = 'telemetry.water.level',
+                 water_capacity_m3: float = 15.0,
+                 water_warn_pct: float = 20.0,
+                 water_danger_pct: float = 10.0,
                  vertical_screen: bool = False,
                  charts: Optional[Sequence[str]] = None,
                  dome_danger_zone_deg: float = 30.0,
@@ -1813,6 +1897,10 @@ class WeatherDataWidget(QWidget):
         self.main_window = main_window
         self.weather_subject = subject
         self.power_subject = power_subject
+        self.water_subject = water_subject
+        self.water_capacity_m3 = float(water_capacity_m3)
+        self.water_warn_pct = float(water_warn_pct)
+        self.water_danger_pct = float(water_danger_pct)
         self.vertical = bool(vertical_screen)
         self.dome_danger_zone_deg = float(dome_danger_zone_deg)
         self.humidity_warn_pct = float(humidity_warn_pct)
@@ -1878,6 +1966,9 @@ class WeatherDataWidget(QWidget):
             elif key == 'power':
                 panels.append(_PowerPanel(soc_warn_pct=self.soc_warn_pct,
                                           soc_danger_pct=self.soc_danger_pct))
+            elif key == 'water':
+                panels.append(_WaterPanel(capacity_m3=self.water_capacity_m3, warn_pct=self.water_warn_pct,
+                                          danger_pct=self.water_danger_pct))
             elif key == 'dome_wind_az' and telescopes:
                 panels.append(_DomeWindAzPanel(self.main_window, telescopes,
                                                self.dome_danger_zone_deg))
@@ -2067,6 +2158,8 @@ class WeatherDataWidget(QWidget):
             await create_task(self._weather_history_loop(), 'weather_history_reader')
         if any(p.needs_power_history for p in self.panels):
             await create_task(self._power_history_loop(), 'weather_power_reader')
+        if any(p.needs_water_history for p in self.panels):
+            await create_task(self._water_history_loop(), 'weather_water_reader')
         if any(p.live_subject_kind == 'weather' for p in self.panels):
             try:
                 await self.main_window.run_reader(
@@ -2159,8 +2252,19 @@ class WeatherDataWidget(QWidget):
             panel_filter=lambda p: p.needs_power_history,
         )
 
+    async def _water_history_loop(self):
+        await self._dual_day_history_loop(
+            subject=self.water_subject,
+            hook=lambda p, hour, ts, msm, is_yesterday:
+                p.on_water(hour, ts, msm, is_yesterday=is_yesterday),
+            panel_filter=lambda p: p.needs_water_history,
+            ts_from_nats=True,      # the water meter writes ts in Chile local time
+            history_hours=24.0,     # it publishes every second - replay only the last 24 h (~86k messages)
+        )
+
     async def _dual_day_history_loop(self, subject: str, hook,
-                                     panel_filter) -> None:
+                                     panel_filter, ts_from_nats: bool = False,
+                                     history_hours: Optional[float] = None) -> None:
         """Stream today + yesterday history for a ``measurements`` subject.
 
         Replays from yesterday-midnight via ``by_start_time``; rolls
@@ -2180,10 +2284,14 @@ class WeatherDataWidget(QWidget):
         msg = Messenger()
         today_midnight = _today_midnight_utc()
         yesterday_midnight = today_midnight - datetime.timedelta(days=1)
+        replay_from = yesterday_midnight
+        if history_hours is not None:       # shorter replay (the rest of yesterday's line stays empty)
+            replay_from = max(replay_from, datetime.datetime.now(datetime.timezone.utc)
+                              - datetime.timedelta(hours=history_hours))
         rdr = msg.get_reader(subject,
                              deliver_policy='by_start_time',
-                             opt_start_time=yesterday_midnight)
-        logger.info(f"Subscribed to {subject} (history from {yesterday_midnight.isoformat()})")
+                             opt_start_time=replay_from)
+        logger.info(f"Subscribed to {subject} (history from {replay_from.isoformat()})")
         # Hydration tracing — split per-message cost into three buckets
         # so we can see which one dominates:
         #   * t_wait  — time stuck in `async for` waiting for the next
@@ -2212,7 +2320,10 @@ class WeatherDataWidget(QWidget):
                         if panel_filter(p):
                             p.on_midnight_rollover()
                     logger.info(f"Midnight rollover triggered by {subject}")
-                ts = dt_ensure_datetime(data['ts'])
+                if ts_from_nats:    # the NATS (JetStream) time instead of the sender's ts
+                    ts = datetime.datetime(*meta['nats']['timestamp'][:6], tzinfo=datetime.timezone.utc)
+                else:
+                    ts = dt_ensure_datetime(data['ts'])
                 msm = data['measurements']
                 # The replay starts by message time; a measurement older than
                 # yesterday (late/re-sent message) has no place on either the

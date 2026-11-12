@@ -42,6 +42,7 @@ class AsyncTabWidget(QTabWidget):
     def __init__(self, parent=None):
         super().__init__(parent)
         self.pages: dict[str, PageInfo] = {}
+        self.hide_tab_bar = False   # compact panel: rotates without the tab bar
         self.tabBar().setVisible(False)
         self.currentChanged.connect(self.checkTabVisibility)
         # # Add 'config' tab with gear icon
@@ -71,7 +72,7 @@ class AsyncTabWidget(QTabWidget):
 
     def checkTabVisibility(self):
         tab_count = len(self.pages)
-        self.tabBar().setVisible(tab_count > 1)
+        self.tabBar().setVisible(tab_count > 1 and not self.hide_tab_bar)
 
     def eachSecond(self):
         if self.auto_play:
@@ -164,7 +165,15 @@ class ConfigurableTabWidget(QWidget):
     def addTab(self, widget, name, auto_interval=10, auto_enabled=False):
         self.tab_widget.addTab(widget, name, auto_interval=auto_interval, auto_enabled=auto_enabled)
 
+    def setCompact(self):
+        """No tab bar and no Play / Stop / config toolbar; the tabs still rotate (low panels, monitor2)"""
+        self.compact = True
+        self.tab_widget.hide_tab_bar = True
+        self.tab_widget.checkTabVisibility()
+
     def showToolbarIfNeeded(self):
+        if getattr(self, 'compact', False):
+            return
         if len(self.tab_widget.pages) > 1:  # If more than one page have been added
             self.layout.addWidget(self.toolbar, 0)
 
@@ -236,6 +245,10 @@ class MainWindow(QMainWindow):
                 except LookupError:
                     tab_widget.addTab(QLabel('No pages defined'), '')
 
+                # a page with compact_panel = true: the panel rotates without the tab bar and the toolbar
+                if any(isinstance(ps, dict) and ps.get('compact_panel')
+                       for ps in (settings.panels.get(panel_key) or {}).values()):
+                    tab_widget.setCompact()
                 tab_widget.showToolbarIfNeeded()
 
 

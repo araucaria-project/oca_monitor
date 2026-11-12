@@ -84,7 +84,7 @@ class UtilitiesWidget(QWidget):
     # ---- UI -----------------------------------------------------------------
 
     def _init_ui(self) -> None:
-        """POWER in one column on the left (battery, solar, load), NET over WATER on the right"""
+        """NET over WATER on the left, POWER in one column on the right (battery, solar, load)"""
         self.setStyleSheet("UtilitiesWidget { background-color: #181818; } QLabel { color: #e0e0e0; }")
         big = QtGui.QFont('Arial', 20, QtGui.QFont.Weight.Bold)
         mid = QtGui.QFont('Arial', 17, QtGui.QFont.Weight.Bold)
@@ -122,9 +122,9 @@ class UtilitiesWidget(QWidget):
         grid = QGridLayout(self)
         grid.setContentsMargins(6, 6, 6, 6)
         grid.setSpacing(4)
-        grid.addWidget(self.box_power, 0, 0, 2, 1)
-        grid.addWidget(self.box_net, 0, 1)
-        grid.addWidget(self.box_water, 1, 1)
+        grid.addWidget(self.box_net, 0, 0)
+        grid.addWidget(self.box_water, 1, 0)
+        grid.addWidget(self.box_power, 0, 1, 2, 1)
         grid.setColumnStretch(0, 1)
         grid.setColumnStretch(1, 1)
 

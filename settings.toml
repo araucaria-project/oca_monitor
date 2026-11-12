@@ -80,7 +80,7 @@ source = "site_status"  # unified clocks + sun/moon events + water level
 #---------------------------monitor2 - additional controlroom screen (2026-11-12, layout being tried)---------------------
 # poetry run ocam --env monitor2
 # 00 system health                        | 01 weather charts | 02 radar
-# 10 power / water / internet             | 11 battery (later rotated with a 24 h water level chart) | 12 telescopes
+# 10 power / water / internet             | 11 battery / water level (rotating)                      | 12 telescopes
 
 [monitor2]
 window_size = [1910, 1040]
@@ -115,6 +115,14 @@ charts = ["power"]
 permanent_wind = false
 show_time = false
 show_values = false   # no big numbers over the chart - they are in Utilities next to it
+compact_panel = true  # panel 11 rotates Battery / Water without the tab bar and Play / Stop buttons
+
+[monitor2.panels.11.Water]   # rotates with Battery (auto_interval 10 at panel speed 20 = 20 s each)
+source = "weather"
+vertical_screen = 0
+charts = ["water"]
+permanent_wind = false
+show_time = false
 
 [monitor2.panels.12.Telescopes]
 source = "telescopes"
