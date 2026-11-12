@@ -997,7 +997,7 @@ class _WaterPanel(_Panel):
     widget dates these messages by their NATS time (``_dual_day_history_loop(ts_from_nats=True)``). Bands: warning /
     danger below ``warn_pct`` / ``danger_pct`` of ``capacity_m3`` (as the Site panel). Little smoothing - a refill is
     a step and should stay one.
-    Y axis (2026-11-12): not from zero but a ``span_m3`` (0.5 m3 = 500 L) window around the data, so the daily use
+    Y axis (2026-11-12): not from zero but a ``span_m3`` (1 m3 = 1000 L) window around the data, so the daily use
     (~150-350 L) is visible; wider when the data do not fit (a refill), in 0.1 m3 steps.
     """
 
@@ -1005,7 +1005,7 @@ class _WaterPanel(_Panel):
     title = 'Water  [m³]'
     COLOR_WATER = '#4fa8ff'
     SIGMA_MIN = 2.0
-    span_m3 = 0.5
+    span_m3 = 1.0
 
     def __init__(self, *, capacity_m3: float = 15.0, warn_pct: float = 20.0, danger_pct: float = 10.0) -> None:
         super().__init__()
@@ -1058,7 +1058,7 @@ class _WaterPanel(_Panel):
         if not values:
             return
         lo, hi = min(values), max(values)
-        if hi - lo <= self.span_m3:     # a fixed 500 L window, centred on the data, on 0.1 m3
+        if hi - lo <= self.span_m3:     # a fixed span_m3 window, centred on the data, on 0.1 m3
             bottom = _math.floor((lo + hi - self.span_m3) / 2 * 10) / 10
             top = bottom + self.span_m3
             if top < hi:
