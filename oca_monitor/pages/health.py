@@ -10,9 +10,9 @@ are in ``oca_monitor/utils/connectivity.py`` (shared with the ``message`` page, 
 * NATS - the client connection (serverish ``Messenger``) and the age of the last message received by this page
   (``svc.heartbeat.>`` arrive every 5-10 s): connected and data red / orange / green.
 
-Below them, information only (no alarm, 2026-11-14): OVERWATCHES (alive RPC + alerts to acknowledge) and TIC / PMS -
-TIC per telescope by the age of ``tic.telemetry.<tel>.>`` (TIC itself speaks ZMQ, not NATS; pms.tic bridges it), pms
-units by the age of what each publishes (``PMS_UNITS``).
+Below them, information only (no alarm, 2026-11-14): OVERWATCHES (alive RPC) and TELESCOPES - one TIC lamp (age of
+the newest ``tic.telemetry.<tel>.>``; TIC itself speaks ZMQ, not NATS, pms.tic bridges it), then per telescope Alpaca
+(HTTP to the TCU's ASCOM Remote, ``ALPACA``), downloader / OFP alive RPC, dome follower heartbeat.
 
 The other detailed sections are shown only with the page option ``details = true`` (Marek 2026-11-14: too much
 information; the panel starts with the three tiles, the rest to be chosen).
@@ -23,8 +23,8 @@ timestamp, not from the payload ``ts`` (some senders, e.g. the water meter, writ
 
 * SITE DATA - freshness of the site telemetry (Davis, allsky_overwatch clouds, SMA power, water meter), temperature of
   the server room and the battery room (``telemetry.conditions.*``).
-* OVERWATCHES - alive RPC ``rpc.overwatch.oca.<name>.alive`` (as TOI), alerts waiting for an acknowledgement
-  (``status.overwatch.oca.self.alerts``: a problem red, only events orange).
+* OVERWATCHES - alive RPC ``rpc.overwatch.oca.<name>.alive`` (as TOI). (Alerts to acknowledge were shown too, removed
+  2026-11-14 by Marek.)
 * SERVICES - heartbeats ``svc.heartbeat.>`` (every 5-10 s; none for ``HEARTBEAT_STALE`` s = red), guider state from
   ``svc.status.guiding_svc.guider.*``.
 * TELESCOPES - per telescope: any ``tic.telemetry.<tel>.>`` (pms publishes on change, so only orange when quiet),
@@ -60,7 +60,7 @@ COLORS = {OK: '#6ed0a8', WARN: '#ffaa33', BAD: '#ff4d4d', NONE: '#5a5a5a'}
 TEXT = '#d8d8d8'
 DIM = '#808080'
 
-TELESCOPES = ('wk06', 'zb08', 'jk15')
+TELESCOPES = ('wk06', 'zb08', 'jk15', 'wg25')     # wg25 since 2026-11-14
 HEARTBEAT_STALE = 30.0          # s
 RPC_PERIOD = 10.0               # s
 PLANNER_ERROR_HOURS = 14.0      # an error this recent belongs to tonight
@@ -79,16 +79,14 @@ SERVICES: List[Tuple[str, List[Tuple[str, str]]]] = [
 ]
 GUIDER_ID = 'guiding_svc.guider.jk15-guider_beso'
 OVERWATCHES = ('conditions', 'flat', 'allsky')
-# TIC / PMS (2026-11-14, information only): no direct check of TIC here (ocabox / ZMQ), so TIC per telescope = age of
-# tic.telemetry.<tel>.> (pms.tic bridges TIC to NATS; mount / ccd temperature are published continuously), and every
-# pms unit = age of what it publishes. (key, name, subject(s) seen under the key, ok s, warn s)
+# TIC (2026-11-14, information only): one TIC for all telescopes; no direct check here (ocabox / ZMQ), so TIC = age of
+# the newest tic.telemetry.<tel>.> of any telescope (pms.tic bridges TIC to NATS; mount / ccd temperature are
+# published continuously)
 TIC_OK, TIC_WARN = 60.0, 300.0
-PMS_UNITS = (
-    ('pms.tic', 'tic', None, TIC_OK, TIC_WARN),                                 # any tic.telemetry.<tel>
-    ('pms.rest', 'rest', 'telemetry.conditions.>', 300.0, 900.0),               # BleBox sensors
-    ('pms.modbus', 'modbus', 'telemetry.power.data-manager', 60.0, 300.0),      # SMA inverter, ~5 s
-    ('pms.aggregator', 'aggregator', 'svc.publish.oca.observatory.>', 60.0, 180.0),   # products every 15-30 s
-)
+# Alpaca (ASCOM Remote) on the telescope TCUs, asked directly over HTTP (not through TIC): GET /management/apiversions
+ALPACA = {'wk06': '192.168.7.100:11111', 'zb08': '192.168.7.110:11111', 'jk15': '192.168.7.120:11111',
+          'wg25': '192.168.7.140:11116'}
+ALPACA_PERIOD = 30.0            # s
 # heartbeat / svc.status words: busy (dome follower working), idle (guider waiting) are normal
 HB_OK = {'ok', 'busy', 'idle', 'running', 'startup'}
 HB_BAD = {'error', 'failed', 'crashed', 'dead'}         # anything else (degraded, warning, ...) orange
@@ -151,10 +149,12 @@ class HealthWidget(QWidget):
 
     def __init__(self, main_window, details: bool = False, router_host: str = ROUTER_HOST,
                  internet_hosts: Optional[List[str]] = None,
-                 net_subject: str = 'svc.publish.oca.wan.status', **kwargs) -> None:
+                 net_subject: str = 'svc.publish.oca.wan.status', alpaca: Optional[Dict[str, str]] = None,
+                 **kwargs) -> None:
         super().__init__()
         self.main_window = main_window
         self.details = bool(details)
+        self.alpaca = dict(alpaca or ALPACA)
         self.conn = get_connectivity(router_host, internet_hosts or INTERNET_HOSTS)
         self.net_subject = net_subject
         self.start = time.time()
@@ -197,30 +197,32 @@ class HealthWidget(QWidget):
         for c, name in enumerate(OVERWATCHES):
             self.ow_dots[name] = _Dot(self.f, name)
             g.addWidget(self.ow_dots[name], 0, c)
-        self.alerts_dot = _Dot(self.f, 'alerts to acknowledge')
-        self.alerts_n = self._label('—', right=True)
-        g.addWidget(self.alerts_dot, 1, 0, 1, 2)
-        g.addWidget(self.alerts_n, 1, 2)
         self._spread(g)
-        root.addWidget(ow, 2)
+        root.addWidget(ow, 1)
 
-        tp = _Group('TIC / PMS')
+        # TELESCOPES: TIC (one for all), then per telescope Alpaca, downloader, OFP, dome follower
+        tp = _Group('TELESCOPES')
         g = self._grid(tp)
-        g.addWidget(self._label('TIC'), 0, 0)
-        self.tic_dots = {}
+        self.tic_dot = _Dot(self.f, 'TIC')
+        g.addWidget(self.tic_dot, 0, 0, 1, 1 + len(TELESCOPES))
         for c, tel in enumerate(TELESCOPES):
-            self.tic_dots[tel] = _Dot(self.f, tel)
-            g.addWidget(self.tic_dots[tel], 0, c + 1)
-        g.addWidget(self._label('pms'), 1, 0)
-        self.pms_dots = {}
-        for i, (key, name, *_) in enumerate(PMS_UNITS):
-            self.pms_dots[key] = _Dot(self.f, name)
-            g.addWidget(self.pms_dots[key], 1 + i // 2, 1 + (i % 2) * 2, 1, 2 if i % 2 == 0 else 1)
-        g.setColumnStretch(0, 1)
-        for c in range(1, 4):
+            h = self._label(tel)
+            h.setStyleSheet(f"color: {DIM};")
+            g.addWidget(h, 1, c + 1)
+        self.scope_cells: Dict[str, Dict[str, _Dot]] = {}
+        for r, (key, name) in enumerate((('alpaca', 'Alpaca'), ('download', 'downloader'),
+                                         ('pipeline', 'OFP'), ('dome', 'dome follower')), start=2):
+            g.addWidget(self._label(name), r, 0)
+            self.scope_cells[key] = {}
+            for c, tel in enumerate(TELESCOPES):
+                d = _Dot(self.f, '')
+                self.scope_cells[key][tel] = d
+                g.addWidget(d, r, c + 1)
+        g.setColumnStretch(0, 3)
+        for c in range(1, len(TELESCOPES) + 1):
             g.setColumnStretch(c, 2)
         self._spread(g)
-        root.addWidget(tp, 3)
+        root.addWidget(tp, 4)
 
         self.detail_boxes = []
         self._init_details(root)
@@ -338,7 +340,7 @@ class HealthWidget(QWidget):
                 self.tel_cells[key][tel] = d
                 g.addWidget(d, r, c + 1)
         g.setColumnStretch(0, 3)
-        for c in range(1, 4):
+        for c in range(1, len(TELESCOPES) + 1):
             g.setColumnStretch(c, 2)
         self._spread(g)
         root.addWidget(tl, 8)
@@ -376,13 +378,10 @@ class HealthWidget(QWidget):
             ('telemetry.water.level', 'last', self._seen_clb('water')),
             ('telemetry.conditions.serverroom-htsensor', 'last', self._seen_clb('serverroom', keep=True)),
             ('telemetry.conditions.batteryroom-tsensor', 'last', self._seen_clb('batteryroom', keep=True)),
-            ('status.overwatch.oca.self.alerts', 'last', self._seen_clb('alerts', keep=True)),
             ('svc.heartbeat.>', 'last_per_subject', self._heartbeat_clb),
             (f'svc.status.{GUIDER_ID}', 'last', self._seen_clb('guider', keep=True)),
             (self.net_subject, 'last', self._uplink_clb),
         ]
-        readers += [(subj, 'last_per_subject', self._seen_clb(key, latest=True))
-                    for key, _, subj, *_ in PMS_UNITS if subj]
         for tel in TELESCOPES:
             readers += [
                 (f'tic.telemetry.{tel}.>', 'last_per_subject', self._telemetry_clb(tel)),
@@ -398,9 +397,37 @@ class HealthWidget(QWidget):
                 logger.warning(f"health reader {subject} failed: {e!r}")
         await create_task(self._rpc_loop(), 'health_rpc_loop')
 
+    async def _alpaca_loop(self):
+        """GET /management/apiversions of every TCU (ASCOM Remote) - no TIC, no NATS needed"""
+        async def ask(addr) -> bool:
+            host, _, port = addr.partition(':')
+            try:
+                r, w = await asyncio.wait_for(asyncio.open_connection(host, int(port or 11111)), 3)
+                try:
+                    w.write(f'GET /management/apiversions HTTP/1.0\r\nHost: {host}\r\n\r\n'.encode())
+                    await w.drain()
+                    line = await asyncio.wait_for(r.readline(), 3)
+                finally:
+                    w.close()
+                return b' 200 ' in line
+            except Exception:
+                return False
+
+        while True:
+            try:
+                tels = [t for t in TELESCOPES if t in self.alpaca]
+                answers = await asyncio.gather(*(ask(self.alpaca[t]) for t in tels))
+                self.alive.update({f'alpaca.{t}': a for t, a in zip(tels, answers)})
+            except asyncio.CancelledError:
+                raise
+            except Exception as e:
+                logger.warning(f"health alpaca loop: {e!r}")
+            await asyncio.sleep(ALPACA_PERIOD)
+
     @asyncSlot()
     async def _start_checks(self):
         await self.conn.start_checks(self.main_window)
+        await create_task(self._alpaca_loop(), 'health_alpaca_loop')
 
     def _got_msg(self, meta) -> None:
         self.conn.got_msg(meta)
@@ -495,7 +522,7 @@ class HealthWidget(QWidget):
         try:
             self._render_connectivity()
             self._render_overwatches()
-            self._render_tic_pms()
+            self._render_tic()
             if self.details:
                 self._render_site()
                 self._render_services()
@@ -565,30 +592,24 @@ class HealthWidget(QWidget):
         for name, dot in self.ow_dots.items():
             a = self.alive.get(f'ow.{name}')
             dot.set(NONE if a is None else OK if a else BAD, name)
-        alerts = (self.values.get('alerts') or {}).get('alerts')
-        if alerts is None:
-            self.alerts_dot.set(NONE, 'alerts to acknowledge')
-            self.alerts_n.setText('—')
-            return
-        problems = [a for a in alerts if a.get('kind') != 'event']
-        state = BAD if problems else WARN if alerts else OK
-        self.alerts_dot.set(state, 'alerts to acknowledge')
-        self.alerts_n.setText(str(len(alerts)))
 
     def _fresh_state(self, age: Optional[float], ok_s: float, warn_s: float) -> str:
         if age is None:
             return NONE if self._waiting() else BAD
         return _fresh(age, ok_s, warn_s)
 
-    def _render_tic_pms(self) -> None:
-        ages = [self._age(f'tic.{tel}') for tel in TELESCOPES]
-        for tel, age in zip(TELESCOPES, ages):
-            self.tic_dots[tel].set(self._fresh_state(age, TIC_OK, TIC_WARN),
-                                   tel + (f' <span style="color:{DIM}">{_age(age)}</span>' if age and age >= 60 else ''))
-        known = [a for a in ages if a is not None]
-        for key, name, subj, ok_s, warn_s in PMS_UNITS:
-            age = (min(known) if known else None) if key == 'pms.tic' else self._age(key)
-            self.pms_dots[key].set(self._fresh_state(age, ok_s, warn_s), name)
+    def _render_tic(self) -> None:
+        ages = [a for a in (self._age(f'tic.{tel}') for tel in TELESCOPES) if a is not None]
+        age = min(ages) if ages else None
+        self.tic_dot.set(self._fresh_state(age, TIC_OK, TIC_WARN),
+                         'TIC' + (f' <span style="color:{DIM}">no data {_age(age)}</span>' if age and age >= TIC_OK
+                                  else ''))
+        cells = self.scope_cells
+        for tel in TELESCOPES:
+            for key in ('alpaca', 'download', 'pipeline'):
+                a = self.alive.get(f'{key}.{tel}')
+                cells[key][tel].set(NONE if a is None else OK if a else BAD)
+            cells['dome'][tel].set(self._hb_state(f'dome_follower_svc.dome_follower.{tel}-dome_follower'))
 
     def _hb_state(self, sid: str) -> str:
         hb = self.heartbeats.get(sid)
