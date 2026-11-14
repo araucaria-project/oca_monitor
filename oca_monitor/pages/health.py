@@ -1,5 +1,17 @@
 """System health panel (monitor2, 2026-11-12): the whole list, always shown, green when fine. No clicking.
 
+CONNECTIVITY (2026-11-14) - the three big tiles on top, the things without which nothing else is reported:
+
+* INTERNET - TCP connect to port 443 of a few hosts (``internet_hosts``: names test DNS too, an IP address does not);
+  green when at least two answer, orange when one, red when none. Names failing while the IP answers = DNS problem.
+  The uplink in use (Paranal / Starlink, wan-watchdog ``svc.publish.oca.wan.status``) is shown next to it.
+* ROUTER - ICMP ping of ``router_host`` (192.168.7.1); one failed round orange, two in a row red.
+* NATS - the client connection (serverish ``Messenger``) and the age of the last message received by this page
+  (``svc.heartbeat.>`` arrive every 5-10 s): connected and data red / orange / green.
+
+The detailed sections below are shown only with the page option ``details = true`` (Marek 2026-11-14: too much
+information; the panel starts with the three tiles, the rest to be chosen).
+
 Dots: green ok, orange warning, red bad, grey unknown / not applicable (e.g. allsky by day, still waiting for the first
 heartbeat). Every row is judged from what arrives on NATS; the age of a message is taken from its NATS (JetStream)
 timestamp, not from the payload ``ts`` (some senders, e.g. the water meter, write it in Chile local time).
@@ -25,12 +37,14 @@ import time
 from typing import Callable, Dict, List, Optional, Tuple
 
 from PyQt6 import QtCore, QtGui
-from PyQt6.QtWidgets import QGridLayout, QLabel, QVBoxLayout, QWidget
+from PyQt6.QtWidgets import QGridLayout, QHBoxLayout, QLabel, QVBoxLayout, QWidget
 from qasync import asyncSlot
 from serverish.base.task_manager import create_task
-from serverish.messenger import request
+from serverish.messenger import Messenger, request
 
+from oca_monitor.config import settings
 from oca_monitor.pages.site_status import _Group
+from oca_monitor.pages.telescopes import icon
 from oca_monitor.utils.ephem_ocm import sun_alt_deg
 
 logger = logging.getLogger(__name__.rsplit('.')[-1])
@@ -45,6 +59,12 @@ HEARTBEAT_STALE = 30.0          # s
 RPC_PERIOD = 10.0               # s
 PLANNER_ERROR_HOURS = 14.0      # an error this recent belongs to tonight
 ROOM_WARN_C, ROOM_BAD_C = 30.0, 35.0
+NET_PERIOD = 10.0               # s, internet and router checks
+NET_TIMEOUT = 4.0               # s, one TCP connect / ping
+NATS_DATA_WARN, NATS_DATA_BAD = 30.0, 120.0     # s without any message while connected
+INTERNET_HOSTS = ['google.com', 'yahoo.com', 'camk.edu.pl', '1.1.1.1']
+ROUTER_HOST = '192.168.7.1'
+UPLINK_COLORS = {'paranal': '#6ed0a8', 'starlink': '#ffaa33'}
 CCD_WARN, CCD_BAD = 2.0, 5.0    # deg from the set point
 
 # heartbeat service ids
@@ -118,10 +138,22 @@ class _Dot(QLabel):
 class HealthWidget(QWidget):
     """See module docstring."""
 
-    def __init__(self, main_window, **kwargs) -> None:
+    def __init__(self, main_window, details: bool = False, router_host: str = ROUTER_HOST,
+                 internet_hosts: Optional[List[str]] = None,
+                 net_subject: str = 'svc.publish.oca.wan.status', **kwargs) -> None:
         super().__init__()
         self.main_window = main_window
+        self.details = bool(details)
+        self.router_host = router_host
+        self.internet_hosts = list(internet_hosts or INTERNET_HOSTS)
+        self.net_subject = net_subject
         self.start = time.time()
+        self.last_msg: Optional[float] = None   # monotonic time of the last NATS message of any reader
+        self.inet: Dict[str, Optional[float]] = {}      # host -> connect time in ms, None = failed
+        self.inet_done = False
+        self.router_ms: Optional[float] = None
+        self.router_fails: Optional[int] = None         # failed rounds in a row (None: not asked yet)
+        self.uplink: Optional[str] = None
         self.seen: Dict[str, float] = {}        # subject / key -> NATS time of the last message
         self.values: Dict[str, object] = {}     # key -> last payload of interest
         self.heartbeats: Dict[str, Tuple[float, str]] = {}     # service id -> (time, status)
@@ -129,6 +161,7 @@ class HealthWidget(QWidget):
         self._sun = (0.0, None)                 # (time, altitude) cache
         self._init_ui()
         QtCore.QTimer.singleShot(0, self.async_init)
+        QtCore.QTimer.singleShot(0, self._start_net_loop)
         self._timer = QtCore.QTimer(self)
         self._timer.timeout.connect(self._render)
         self._timer.start(2000)
@@ -143,6 +176,76 @@ class HealthWidget(QWidget):
         root.setContentsMargins(6, 6, 6, 6)
         root.setSpacing(5)
 
+        # CONNECTIVITY: three big tiles
+        self.f_big = QtGui.QFont('Arial', 22, QtGui.QFont.Weight.Bold)
+        self.f_state = QtGui.QFont('Arial', 16, QtGui.QFont.Weight.Bold)
+        self.f_detail = QtGui.QFont('Arial', 12)
+        self.tiles = {}
+        for key, ico, title in (('internet', 'icon_globe', 'INTERNET'), ('router', 'icon_router', 'ROUTER'),
+                                ('nats', 'icon_network', 'NATS')):
+            self.tiles[key] = self._tile(ico, title)
+            root.addWidget(self.tiles[key]['box'], 1)
+
+        self.detail_boxes = []
+        self._init_details(root)
+        for box in self.detail_boxes:
+            box.setVisible(self.details)
+        if not self.details:
+            root.addStretch(1)
+
+        self.updated_l = QLabel('')
+        self.updated_l.setFont(self.f_small)
+        self.updated_l.setStyleSheet(f"color: {DIM};")
+        self.updated_l.setAlignment(QtCore.Qt.AlignmentFlag.AlignRight)
+        root.addWidget(self.updated_l)
+
+    def _tile(self, ico: str, title: str) -> dict:
+        """[icon] TITLE   state / small detail line"""
+        box = _Group('')
+        row = QHBoxLayout()
+        row.setSpacing(14)
+        pic = QLabel()
+        pic.setFixedSize(64, 64)
+        row.addWidget(pic, 0, QtCore.Qt.AlignmentFlag.AlignVCenter)
+        col = QVBoxLayout()
+        col.setSpacing(2)
+        head = QHBoxLayout()
+        t = QLabel(title)
+        t.setFont(self.f_big)
+        head.addWidget(t)
+        head.addStretch(1)
+        state = QLabel('—')
+        state.setFont(self.f_state)
+        state.setAlignment(QtCore.Qt.AlignmentFlag.AlignRight | QtCore.Qt.AlignmentFlag.AlignVCenter)
+        head.addWidget(state)
+        col.addStretch(1)
+        col.addLayout(head)
+        detail = QLabel('')
+        detail.setFont(self.f_detail)
+        detail.setTextFormat(QtCore.Qt.TextFormat.RichText)
+        detail.setWordWrap(True)
+        col.addWidget(detail)
+        col.addStretch(1)
+        row.addLayout(col, 1)
+        box.layout.addLayout(row, 1)
+        return {'box': box, 'icon': pic, 'ico': ico, 'title': t, 'state': state, 'detail': detail, 'last': None}
+
+    def _set_tile(self, key: str, state: str, text: str, detail: str) -> None:
+        tile = self.tiles[key]
+        color = COLORS[state]
+        if tile['last'] != state:        # repaint the icon / border only on a change
+            tile['last'] = state
+            tile['icon'].setPixmap(icon(tile['ico'], color, 64))
+            tile['title'].setStyleSheet(f"color: {color if state != NONE else DIM};")
+            tile['state'].setStyleSheet(f"color: {color if state != NONE else DIM};")
+            tile['box'].setStyleSheet(
+                f"QFrame#SiteGroup {{ background-color: #1f1f1f; border: 2px solid "
+                f"{color if state in (WARN, BAD) else '#383838'}; border-radius: 8px; }}"
+                "QLabel { background-color: transparent; }")
+        tile['state'].setText(text)
+        tile['detail'].setText(detail)
+
+    def _init_details(self, root: QVBoxLayout) -> None:
         # SITE DATA: label + one dot each
         site = _Group('SITE DATA')
         g = self._grid(site)
@@ -157,6 +260,7 @@ class HealthWidget(QWidget):
             self.site_rows[key] = (dot, detail)
         self._spread(g)
         root.addWidget(site, 6)
+        self.detail_boxes.append(site)
 
         # OVERWATCHES: three dots in a row + alerts
         ow = _Group('OVERWATCHES')
@@ -171,6 +275,7 @@ class HealthWidget(QWidget):
         g.addWidget(self.alerts_n, 1, 2)
         self._spread(g)
         root.addWidget(ow, 2)
+        self.detail_boxes.append(ow)
 
         # SERVICES: name + several dots
         sv = _Group('SERVICES')
@@ -191,6 +296,7 @@ class HealthWidget(QWidget):
         g.addWidget(self.guider_dot, r, 1, 1, 3)
         self._spread(g)
         root.addWidget(sv, 5)
+        self.detail_boxes.append(sv)
 
         # TELESCOPES: matrix
         tl = _Group('TELESCOPES')
@@ -215,12 +321,7 @@ class HealthWidget(QWidget):
             g.setColumnStretch(c, 2)
         self._spread(g)
         root.addWidget(tl, 8)
-
-        self.updated_l = QLabel('')
-        self.updated_l.setFont(self.f_small)
-        self.updated_l.setStyleSheet(f"color: {DIM};")
-        self.updated_l.setAlignment(QtCore.Qt.AlignmentFlag.AlignRight)
-        root.addWidget(self.updated_l)
+        self.detail_boxes.append(tl)
 
     def _grid(self, group: _Group) -> QGridLayout:
         g = QGridLayout()
@@ -257,6 +358,7 @@ class HealthWidget(QWidget):
             ('status.overwatch.oca.self.alerts', 'last', self._seen_clb('alerts', keep=True)),
             ('svc.heartbeat.>', 'last_per_subject', self._heartbeat_clb),
             (f'svc.status.{GUIDER_ID}', 'last', self._seen_clb('guider', keep=True)),
+            (self.net_subject, 'last', self._uplink_clb),
         ]
         for tel in TELESCOPES:
             readers += [
@@ -273,9 +375,28 @@ class HealthWidget(QWidget):
                 logger.warning(f"health reader {subject} failed: {e!r}")
         await create_task(self._rpc_loop(), 'health_rpc_loop')
 
+    @asyncSlot()
+    async def _start_net_loop(self):
+        await create_task(self._net_loop(), 'health_net_loop')
+
+    def _got_msg(self, meta) -> None:
+        """any NATS message received - NATS works end to end (only live ones count, not the replayed last values)"""
+        lag = time.time() - _nats_time(meta)
+        if lag < NATS_DATA_BAD:
+            t = time.monotonic() - max(0.0, lag)
+            self.last_msg = t if self.last_msg is None else max(t, self.last_msg)
+
+    async def _uplink_clb(self, data, meta) -> bool:
+        self._got_msg(meta)
+        try:
+            self.uplink = str(data['measurements']['route'])
+        except (KeyError, TypeError):
+            pass
+        return True
     def _seen_clb(self, key: str, keep: bool = False):
         async def clb(data, meta) -> bool:
             try:
+                self._got_msg(meta)
                 self.seen[key] = _nats_time(meta)
                 if keep:
                     self.values[key] = data
@@ -286,6 +407,7 @@ class HealthWidget(QWidget):
 
     async def _heartbeat_clb(self, data, meta) -> bool:
         try:
+            self._got_msg(meta)
             sid = data.get('service_id') or meta['nats']['subject'].removeprefix('svc.heartbeat.')
             self.heartbeats[sid] = (_nats_time(meta), str(data.get('status', 'ok')))
         except Exception as e:
@@ -295,6 +417,7 @@ class HealthWidget(QWidget):
     def _telemetry_clb(self, tel: str):
         async def clb(data, meta) -> bool:
             try:
+                self._got_msg(meta)
                 t = _nats_time(meta)
                 self.seen[f'tic.{tel}'] = max(t, self.seen.get(f'tic.{tel}', 0.0))
                 for k, v in (data.get('measurements') or {}).items():
@@ -331,6 +454,44 @@ class HealthWidget(QWidget):
                 logger.warning(f"health rpc loop: {e!r}")
             await asyncio.sleep(RPC_PERIOD)
 
+    async def _net_loop(self):
+        """internet (TCP connect to :443) and router (ping) every NET_PERIOD s - no NATS needed"""
+        async def connect(host) -> Optional[float]:
+            t0 = time.monotonic()
+            try:
+                _, w = await asyncio.wait_for(asyncio.open_connection(host, 443), NET_TIMEOUT)
+                w.close()
+                return (time.monotonic() - t0) * 1000
+            except Exception:
+                return None
+
+        async def ping(host) -> Optional[float]:
+            try:
+                p = await asyncio.create_subprocess_exec(
+                    'ping', '-n', '-c', '1', '-W', str(int(NET_TIMEOUT)), host,
+                    stdout=asyncio.subprocess.PIPE, stderr=asyncio.subprocess.DEVNULL)
+                out, _ = await asyncio.wait_for(p.communicate(), NET_TIMEOUT + 2)
+                if p.returncode != 0:
+                    return None
+                txt = out.decode(errors='replace')
+                i = txt.find('time=')
+                return float(txt[i + 5:].split()[0].removesuffix('ms')) if i >= 0 else 0.0
+            except Exception:
+                return None
+
+        while True:
+            try:
+                answers = await asyncio.gather(ping(self.router_host), *(connect(h) for h in self.internet_hosts))
+                self.router_ms = answers[0]
+                self.router_fails = 0 if answers[0] is not None else (self.router_fails or 0) + 1
+                self.inet = dict(zip(self.internet_hosts, answers[1:]))
+                self.inet_done = True
+            except asyncio.CancelledError:
+                raise
+            except Exception as e:
+                logger.warning(f"health net loop: {e!r}")
+            await asyncio.sleep(NET_PERIOD)
+
     # ---- judging / drawing (plain Qt slot - must not raise) -----------------
 
     def _age(self, key: str) -> Optional[float]:
@@ -349,13 +510,67 @@ class HealthWidget(QWidget):
 
     def _render(self) -> None:
         try:
-            self._render_site()
-            self._render_overwatches()
-            self._render_services()
-            self._render_telescopes()
+            self._render_connectivity()
+            if self.details:
+                self._render_site()
+                self._render_overwatches()
+                self._render_services()
+                self._render_telescopes()
             self.updated_l.setText(f"updated {datetime.datetime.now(datetime.timezone.utc):%H:%M:%S} UT")
         except Exception as e:
             logger.warning(f"health render: {e!r}")
+
+    def _render_connectivity(self) -> None:
+        # INTERNET
+        if not self.inet_done:
+            self._set_tile('internet', NONE, 'checking…', '')
+        else:
+            ok = [h for h, ms in self.inet.items() if ms is not None]
+            names_ok = [h for h in ok if not h.replace('.', '').isdigit()]
+            ips_ok = [h for h in ok if h.replace('.', '').isdigit()]
+            n = len(ok)
+            state = OK if n >= 2 else WARN if n == 1 else BAD
+            text = 'OK' if state == OK else 'DOWN' if state == BAD else 'POOR'
+            if ips_ok and not names_ok:
+                state, text = WARN, 'NO DNS'
+            parts = [f'<span style="color:{COLORS[OK if ms is not None else BAD]}">●</span> '
+                     f'{h.split(".")[0] if not h.replace(".", "").isdigit() else h}'
+                     f' <span style="color:{DIM}">{f"{ms:.0f} ms" if ms is not None else "—"}</span>'
+                     for h, ms in self.inet.items()]
+            detail = '<br>'.join(' &nbsp;&nbsp; '.join(parts[i:i + 2]) for i in range(0, len(parts), 2))
+            if self.uplink:
+                c = UPLINK_COLORS.get(self.uplink.lower(), TEXT)
+                detail = f'via <b style="color:{c}">{self.uplink}</b><br>' + detail
+            self._set_tile('internet', state, text, detail)
+        # ROUTER
+        if self.router_fails is None:
+            self._set_tile('router', NONE, 'checking…', self.router_host)
+        elif self.router_fails == 0:
+            self._set_tile('router', OK, 'OK', f'{self.router_host} &nbsp; <span style="color:{DIM}">'
+                                               f'ping {self.router_ms:.0f} ms</span>')
+        else:
+            self._set_tile('router', WARN if self.router_fails == 1 else BAD, 'NO PING',
+                           f'{self.router_host} &nbsp; <span style="color:{DIM}">'
+                           f'{self.router_fails} failed in a row</span>')
+        # NATS
+        try:
+            nc = Messenger().connection.nc
+            connected = nc is not None and nc.is_connected
+        except Exception:
+            connected = False
+        host = f'{settings.nats_host}:{settings.nats_port}'
+        age = None if self.last_msg is None else time.monotonic() - self.last_msg
+        if not connected:
+            state, text = (NONE, 'connecting…') if self._waiting() else (BAD, 'DISCONNECTED')
+            detail = f'{host} &nbsp; <span style="color:{DIM}">no connection - nothing can be reported</span>'
+        elif age is None or age > NATS_DATA_BAD:
+            state, text = (NONE, 'waiting…') if self._waiting() else (BAD, 'NO DATA')
+            detail = f'{host} &nbsp; <span style="color:{DIM}">connected, but no messages arrive</span>'
+        else:
+            state = OK if age <= NATS_DATA_WARN else WARN
+            text = 'OK' if state == OK else 'SLOW'
+            detail = f'{host} &nbsp; <span style="color:{DIM}">last message {_age(age)} ago</span>'
+        self._set_tile('nats', state, text, detail)
 
     def _waiting(self) -> bool:
         return time.time() - self.start < HEARTBEAT_STALE

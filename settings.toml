@@ -95,6 +95,10 @@ log_level = "INFO"
 
 [monitor2.panels.00.Health]
 source = "health"  # system health: site data, overwatches, services, telescopes (pages/health.py)
+# 2026-11-14: only the three big tiles INTERNET / ROUTER / NATS; details = true brings back the full lists
+details = false
+#router_host = "192.168.7.1"
+#internet_hosts = ["google.com", "yahoo.com", "camk.edu.pl", "1.1.1.1"]
 
 [monitor2.panels.01.Weather]
 source = "weather"
