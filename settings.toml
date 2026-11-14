@@ -183,6 +183,9 @@ source = "events"   # conditions_overwatch events (the engine of TOI's Events ta
 
 [monitor3.panels.11.Message]
 source = "message"  # also plays the sounds - run it on one screen of a room only
+# local SYSTEM ALERT when INTERNET / ROUTER / NATS of this computer is red (utils/connectivity.py), 2026-11-14
+#system_alarms = true
+#system_alarm_repeat_min = 0    # 0 = only once (Marek 2026-11-14); N = repeat every N min while it lasts
 
 [monitor3.panels.12.Site]
 source = "site_status"

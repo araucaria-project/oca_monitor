@@ -1,3 +1,4 @@
+import datetime
 import logging
 import os
 import re
@@ -12,6 +13,8 @@ from qasync import asyncSlot
 from serverish.base import dt_ensure_datetime
 from serverish.base.task_manager import create_task_sync, create_task
 from serverish.messenger import get_reader
+
+from oca_monitor.utils.connectivity import BAD, INTERNET_HOSTS, ROUTER_HOST, get_connectivity
 
 
 logger = logging.getLogger(__name__.rsplit('.')[-1])
@@ -48,6 +51,9 @@ LABEL_SOUNDS = {
     "CLOUDS INFO": (NOTIFICATION, WARN_C),
 }
 DEFAULT_SOUND = (NOTIFICATION, GRAY_C)
+# lokalny alarm systemowy (2026-11-14): INTERNET / ROUTER / NATS tego komputera (utils/connectivity.py) na czerwono ->
+# dzwiek SYSTEM ALERT i czerwona linia w logu; liczone tutaj, bez NATS (bez NATS nikt inny by tego nie zglosil)
+SYSTEM_CHECK_MS = 5000
 # dzwieki eventow (pole "sound"): najpierw wspolny katalog conditions_overwatch (ten sam wybieraja TOI i overwatch),
 # potem sounds/ w repo; nazwa pliku bez sciezki (albo special/<plik> - podkatalog wspolnego katalogu)
 SHARED_SOUNDS = "/data/misc/oca_overwatch/sounds"
@@ -84,7 +90,9 @@ def play(sound):
     subprocess.Popen(["sh", "-c", "; ".join(script), "sh"] + args)
 
 class MessageWidget(QWidget):
-    def __init__(self, main_window, subject='telemetry.weather.davis', vertical_screen = False, **kwargs):
+    def __init__(self, main_window, subject='telemetry.weather.davis', vertical_screen = False,
+                 system_alarms=True, system_alarm_repeat_min=0, router_host=ROUTER_HOST, internet_hosts=None,
+                 **kwargs):
         super().__init__()
         self.parent = main_window
         self.subject = subject
@@ -99,11 +107,22 @@ class MessageWidget(QWidget):
         self.fade_timer.timeout.connect(self.fade_messages)
         self.fade_timer.start(60 * 1000)
         QTimer.singleShot(0, self.async_init)
+        # lokalny alarm systemowy: nazwa -> [czas wlaczenia alarmu, czas ostatniego dzwieku]
+        self.system_alarms = bool(system_alarms)
+        self.system_repeat = float(system_alarm_repeat_min) * 60    # 0 = bez powtarzania
+        self.alarmed = {}
+        if self.system_alarms:
+            self.conn = get_connectivity(router_host, internet_hosts or INTERNET_HOSTS)
+            self.system_timer = QTimer(self)
+            self.system_timer.timeout.connect(self.check_systems)
+            self.system_timer.start(SYSTEM_CHECK_MS)
         #self.script_location = os.path.dirname(os.path.abspath(__file__))
         logger.info(f"MessageWidget init setup done")
 
     @asyncSlot()
     async def async_init(self):
+        if self.system_alarms:
+            await self.conn.start_checks(self.parent)
         await create_task(self.reader_ocm_messages(), "nats_ocm_message_reader")
 
     def initUI(self,):
@@ -132,17 +151,46 @@ class MessageWidget(QWidget):
 
                     if data.get("test"):    # sound test from TOI's PING window: the sound, but not the alarm colour
                         c = GRAY_C
-                    txt = f'{data["ut"]} [{data["user"]}] {data["info"]}'
-                    doc = self.info_e.document()
-                    start = doc.characterCount() - 1
-                    self.info_e.setTextColor(c)
-                    self.info_e.append(txt)
-                    self.shown.append([time.time(), start, doc.characterCount() - 1, QColor(c), -1])
-                    self.info_e.repaint()
+                    self.add_line(f'{data["ut"]} [{data["user"]}] {data["info"]}', c)
 
 
                 except Exception as e:
                     logger.warning(f'{e} {data}')
+
+    def add_line(self, txt, c):
+        doc = self.info_e.document()
+        start = doc.characterCount() - 1
+        self.info_e.setTextColor(c)
+        self.info_e.append(txt)
+        self.shown.append([time.time(), start, doc.characterCount() - 1, QColor(c), -1])
+        self.info_e.repaint()
+
+    def check_systems(self):
+        """Co SYSTEM_CHECK_MS: INTERNET / ROUTER / NATS na czerwono -> SYSTEM ALERT (jeden dzwiek na raz, nawet gdy
+        padlo kilka), powtarzany co system_alarm_repeat_min, dopoki trwa; powrot -> zielona linia bez dzwieku"""
+        try:
+            now = time.time()
+            ut = datetime.datetime.now(datetime.timezone.utc).strftime('%H:%M:%S')
+            sound = False
+            for name, c in self.conn.all().items():
+                if c.state == BAD:
+                    if name not in self.alarmed:
+                        self.alarmed[name] = [now, now]
+                        self.add_line(f'{ut} [ocam] SYSTEM ALERT: {name} {c.text} - {c.detail} (this computer)',
+                                      ALERT_C)
+                        sound = True
+                    elif self.system_repeat and now - self.alarmed[name][1] >= self.system_repeat:
+                        self.alarmed[name][1] = now
+                        down = (now - self.alarmed[name][0]) / 60
+                        self.add_line(f'{ut} [ocam] SYSTEM ALERT: {name} still {c.text} ({down:.0f} min)', ALERT_C)
+                        sound = True
+                elif name in self.alarmed:
+                    down = (now - self.alarmed.pop(name)[0]) / 60
+                    self.add_line(f'{ut} [ocam] {name} OK again (was down {down:.0f} min)', OK_C)
+            if sound:
+                play(LABEL_SOUNDS["SYSTEM ALERT"][0])
+        except Exception as e:      # zwykly slot Qt: wyjatek nie moze uciec
+            logger.warning(f'check_systems: {e!r}')
 
     def fade_messages(self):
         """Co minute: starsze wiadomosci zlewaja sie z tlem (FADE_STEPS); zmienia tylko kolor ich fragmentu
