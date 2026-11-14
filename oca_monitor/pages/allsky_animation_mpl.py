@@ -29,13 +29,15 @@ CAMERA_PARAMS = (611.18, 623.42, 0.031, 6.21458, -3.7e-05)
 STATE_COLORS = {'clear': '#4caf50', 'veil': '#ffc107', 'thin': '#ffc107', 'cloudy': '#ff7043', 'overcast': '#e53935',
                 'twilight': '#90caf9'}     # twilight: Sun above -18 deg, clouds not measured (blue as TOI's UT)
 MARKS_GRID = 4      # the marks of allsky_overwatch are on every 4th pixel of the frame
+# telescope dots (colours as TOI / OCM Telescopes); wg25 since 2026-11-14
+TEL_COLORS = {'wk06': '#14AD4E', 'zb08': '#0082E8', 'jk15': '#67F4F5', 'wg25': '#FF8C00'}
 VEIL_RING_ALT = 30.0    # deg; a veil is drawn as a dashed yellow circle here (the edge of the sky allsky_overwatch analyses)
 
 
 class AllskyAnimationMplWidget(QWidget):
     def __init__(self, main_window, allsky_dir='/data/misc/allsky/', vertical_screen=False,
                  clouds_subject='data.overwatch.oca.allsky.clouds', clouds=True,
-                 wind_subject='telemetry.weather.davis', **kwargs):
+                 wind_subject='telemetry.weather.davis', telescopes=None, **kwargs):
         super().__init__()
         self.main_window = main_window
         self.dir = allsky_dir
@@ -45,6 +47,11 @@ class AllskyAnimationMplWidget(QWidget):
         # which no production env runs, so the arrow stood still at 0 deg
         self.wind_subject = wind_subject
         self.winddir = None         # deg from Davis; None - no arrow
+        # telescope positions read here too (2026-11-14): main_window.telescopes_az / _alt were set only by the
+        # telescopes page, so screens without it (monitor3) had no dots; tel -> {'azimuth': deg, 'altitude': deg},
+        # None = unknown (no message yet, or a pms "gaps" tombstone)
+        self.telescopes = list(telescopes or TEL_COLORS)
+        self.tel_pos = {t: {'azimuth': None, 'altitude': None} for t in self.telescopes}
         self.camera = CAMERA_PARAMS
         self.clouds = {}            # (file size, mtime) -> allsky_overwatch message of that frame (last few)
         self.unmatched = set()      # (file size, mtime) of frames drawn before their message came
@@ -127,6 +134,16 @@ class AllskyAnimationMplWidget(QWidget):
         x_prim, y_prim = x_0 - r_prim * math.cos(a), y_0 + r_prim * math.sin(a)
         return x, y, x_prim - x, y_prim - y
 
+    def _mount_callback(self, tel, axis):
+        async def clb(data, meta) -> bool:
+            try:
+                v = next(iter((data.get('measurements') or {}).values()), None)
+                self.tel_pos[tel][axis] = None if v is None else float(v)
+            except (TypeError, ValueError, AttributeError):
+                self.tel_pos[tel][axis] = None
+            return True
+        return clb
+
     async def _wind_callback(self, data, meta) -> bool:
         try:
             self.winddir = float(data['measurements']['wind_dir_deg'])
@@ -191,23 +208,18 @@ class AllskyAnimationMplWidget(QWidget):
         image = plt.imread(image_path)
         ax.imshow(image)
 
-        try:
-            for t in self.main_window.telescope_names:
-                if self.main_window.telescopes_alt and self.main_window.telescopes_az:
-                    if t in self.main_window.telescopes_alt.keys() and t in self.main_window.telescopes_az.keys():
-                        x, y = self.sky_xy(float(self.main_window.telescopes_alt[t]),
-                                           float(self.main_window.telescopes_az[t]))
-                        if t == "wk06":
-                            ax.plot(x, y, "o", color='#14AD4E')
-                            ax.text(10, 30, "wk06", color='#14AD4E', fontsize=12)
-                        if t == "zb08":
-                            ax.plot(x, y, "o", color='#0082E8')
-                            ax.text(10, 70, "zb08", color='#0082E8', fontsize=12)
-                        if t == "jk15":
-                            ax.plot(x, y, "o", color='#67F4F5')
-                            ax.text(10, 110, "jk15", color='#67F4F5', fontsize=12)
-        except Exception as e:
-            print(f"EXCEPTION 32: {e}")
+        # one telescope without a position (no message yet, pms tombstone) must not hide the others
+        for i, t in enumerate(self.telescopes):
+            try:
+                pos = self.tel_pos[t]
+                if pos['altitude'] is None or pos['azimuth'] is None:
+                    continue
+                x, y = self.sky_xy(pos['altitude'], pos['azimuth'])
+                color = TEL_COLORS.get(t, '#ffffff')
+                ax.plot(x, y, "o", color=color)
+                ax.text(10, 30 + 40 * i, t, color=color, fontsize=12)
+            except Exception as e:
+                logger.warning(f'allsky telescope {t}: not drawn: {e!r}')
 
         if self.show_clouds:
             try:
@@ -263,6 +275,14 @@ class AllskyAnimationMplWidget(QWidget):
             await self.main_window.run_reader(clb=self._wind_callback, subject=self.wind_subject, deliver_policy='last')
         except Exception as e:
             logger.warning(f'allsky wind reader {self.wind_subject} failed: {e}')
+        for t in self.telescopes:
+            for axis in ('azimuth', 'altitude'):
+                subject = f'tic.telemetry.{t}.mount.{axis}'
+                try:
+                    await self.main_window.run_reader(clb=self._mount_callback(t, axis), subject=subject,
+                                                      deliver_policy='last')
+                except Exception as e:
+                    logger.warning(f'allsky reader {subject} failed: {e}')
         if self.show_clouds:
             await create_task(self.clouds_reader(), 'allsky_clouds')
         self.display = display = ImageDisplay(
