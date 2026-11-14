@@ -12,7 +12,7 @@ are in ``oca_monitor/utils/connectivity.py`` (shared with the ``message`` page, 
 
 Below them, information only (no alarm, 2026-11-14): OVERWATCHES (alive RPC) and TELESCOPES - one TIC lamp (age of
 the newest ``tic.telemetry.<tel>.>``; TIC itself speaks ZMQ, not NATS, pms.tic bridges it), then per telescope Alpaca
-(HTTP to the TCU's ASCOM Remote, ``ALPACA``), downloader / OFP alive RPC, dome follower heartbeat.
+as TIC sees it (values vs ``gaps`` tombstones on ``tic.telemetry.<tel>.>``, never directly to the TCU), downloader / OFP alive RPC, dome follower heartbeat.
 
 The other detailed sections are shown only with the page option ``details = true`` (Marek 2026-11-14: too much
 information; the panel starts with the three tiles, the rest to be chosen).
@@ -21,7 +21,8 @@ Dots: green ok, orange warning, red bad, grey unknown / not applicable (e.g. all
 heartbeat). Every row is judged from what arrives on NATS; the age of a message is taken from its NATS (JetStream)
 timestamp, not from the payload ``ts`` (some senders, e.g. the water meter, write it in Chile local time).
 
-* SITE DATA - freshness of the site telemetry (Davis, allsky_overwatch clouds, SMA power, water meter), temperature of
+* SITE DATA (always shown since 2026-11-14) - freshness of the site telemetry (Davis, allsky_overwatch clouds, water
+  meter; SMA power dropped), temperature of the control room (no limits) and of
   the server room and the battery room (``telemetry.conditions.*``).
 * OVERWATCHES - alive RPC ``rpc.overwatch.oca.<name>.alive`` (as TOI). (Alerts to acknowledge were shown too, removed
   2026-11-14 by Marek.)
@@ -64,7 +65,11 @@ TELESCOPES = ('wk06', 'zb08', 'jk15', 'wg25')     # wg25 since 2026-11-14
 HEARTBEAT_STALE = 30.0          # s
 RPC_PERIOD = 10.0               # s
 PLANNER_ERROR_HOURS = 14.0      # an error this recent belongs to tonight
-ROOM_WARN_C, ROOM_BAD_C = 30.0, 35.0
+ROOM_WARN_C, ROOM_BAD_C = 30.0, 35.0     # server room, battery room
+ROOM_STALE = 1800.0             # s, an older room temperature does not count
+SITE_ROWS = (('davis', 'Weather station (Davis)'), ('allsky', 'Allsky / clouds'), ('water', 'Water meter'),
+             ('serverroom', 'Server room'), ('batteryroom', 'Battery room'), ('controlroom', 'Control room'))
+SITE_FRESH = {'davis': (120, 300), 'allsky': (360, 900), 'water': (3600, 3 * 3600)}     # ok s, warn s
 UPLINK_COLORS = {'paranal': '#6ed0a8', 'starlink': '#ffaa33'}
 CCD_WARN, CCD_BAD = 2.0, 5.0    # deg from the set point
 
@@ -83,10 +88,11 @@ OVERWATCHES = ('conditions', 'flat', 'allsky')
 # the newest tic.telemetry.<tel>.> of any telescope (pms.tic bridges TIC to NATS; mount / ccd temperature are
 # published continuously)
 TIC_OK, TIC_WARN = 60.0, 300.0
-# Alpaca (ASCOM Remote) on the telescope TCUs, asked directly over HTTP (not through TIC): GET /management/apiversions
-ALPACA = {'wk06': '192.168.7.100:11111', 'zb08': '192.168.7.110:11111', 'jk15': '192.168.7.120:11111',
-          'wg25': '192.168.7.140:11116'}
-ALPACA_PERIOD = 30.0            # s
+# Alpaca of a telescope as TIC sees it (Marek 2026-11-14: through TIC, never directly to the TCU). pms.tic publishes
+# tic.telemetry.<tel>.<component>.<metric>: values while TIC has contact (at least every keepalive, 900 s), and one
+# tombstone - value null + a "gaps" block - when TIC loses the device. The last message of every subject decides:
+# a value not older than CONTACT_MAX_AGE = contact, a tombstone = no contact.
+CONTACT_MAX_AGE = 1200.0        # s, keepalive 900 s + margin
 # heartbeat / svc.status words: busy (dome follower working), idle (guider waiting) are normal
 HB_OK = {'ok', 'busy', 'idle', 'running', 'startup'}
 HB_BAD = {'error', 'failed', 'crashed', 'dead'}         # anything else (degraded, warning, ...) orange
@@ -149,12 +155,12 @@ class HealthWidget(QWidget):
 
     def __init__(self, main_window, details: bool = False, router_host: str = ROUTER_HOST,
                  internet_hosts: Optional[List[str]] = None,
-                 net_subject: str = 'svc.publish.oca.wan.status', alpaca: Optional[Dict[str, str]] = None,
-                 **kwargs) -> None:
+                 net_subject: str = 'svc.publish.oca.wan.status', **kwargs) -> None:
         super().__init__()
         self.main_window = main_window
         self.details = bool(details)
-        self.alpaca = dict(alpaca or ALPACA)
+        self.contact: Dict[str, Dict[str, Tuple[float, bool]]] = {t: {} for t in TELESCOPES}   # tel -> subject ->
+        #                                                          (NATS time, True = value / False = gaps tombstone)
         self.conn = get_connectivity(router_host, internet_hosts or INTERNET_HOSTS)
         self.net_subject = net_subject
         self.start = time.time()
@@ -199,6 +205,19 @@ class HealthWidget(QWidget):
             g.addWidget(self.ow_dots[name], 0, c)
         self._spread(g)
         root.addWidget(ow, 1)
+
+        # SITE DATA (2026-11-14 Marek): data freshness of Davis / allsky / water meter, room temperatures
+        site = _Group('SITE DATA')
+        g = self._grid(site)
+        self.site_rows = {}
+        for r, (key, name) in enumerate(SITE_ROWS):
+            dot = _Dot(self.f, name)
+            detail = self._label('—', right=True)
+            g.addWidget(dot, r, 0)
+            g.addWidget(detail, r, 1)
+            self.site_rows[key] = (dot, detail)
+        self._spread(g)
+        root.addWidget(site, 4)
 
         # TELESCOPES: TIC (one for all), then per telescope Alpaca, downloader, OFP, dome follower
         tp = _Group('TELESCOPES')
@@ -284,21 +303,6 @@ class HealthWidget(QWidget):
         tile['detail'].setText(detail)
 
     def _init_details(self, root: QVBoxLayout) -> None:
-        # SITE DATA: label + one dot each
-        site = _Group('SITE DATA')
-        g = self._grid(site)
-        self.site_rows = {}
-        for r, (key, name) in enumerate((('davis', 'Weather station (Davis)'), ('allsky', 'Allsky / clouds'),
-                                         ('power', 'Power (SMA)'), ('water', 'Water meter'),
-                                         ('serverroom', 'Server room'), ('batteryroom', 'Battery room'))):
-            dot = _Dot(self.f, name)
-            detail = self._label('—', right=True)
-            g.addWidget(dot, r, 0)
-            g.addWidget(detail, r, 1)
-            self.site_rows[key] = (dot, detail)
-        self._spread(g)
-        root.addWidget(site, 6)
-        self.detail_boxes.append(site)
 
         # SERVICES: name + several dots
         sv = _Group('SERVICES')
@@ -378,6 +382,7 @@ class HealthWidget(QWidget):
             ('telemetry.water.level', 'last', self._seen_clb('water')),
             ('telemetry.conditions.serverroom-htsensor', 'last', self._seen_clb('serverroom', keep=True)),
             ('telemetry.conditions.batteryroom-tsensor', 'last', self._seen_clb('batteryroom', keep=True)),
+            ('telemetry.conditions.controlroom-htsensor', 'last', self._seen_clb('controlroom', keep=True)),
             ('svc.heartbeat.>', 'last_per_subject', self._heartbeat_clb),
             (f'svc.status.{GUIDER_ID}', 'last', self._seen_clb('guider', keep=True)),
             (self.net_subject, 'last', self._uplink_clb),
@@ -397,37 +402,9 @@ class HealthWidget(QWidget):
                 logger.warning(f"health reader {subject} failed: {e!r}")
         await create_task(self._rpc_loop(), 'health_rpc_loop')
 
-    async def _alpaca_loop(self):
-        """GET /management/apiversions of every TCU (ASCOM Remote) - no TIC, no NATS needed"""
-        async def ask(addr) -> bool:
-            host, _, port = addr.partition(':')
-            try:
-                r, w = await asyncio.wait_for(asyncio.open_connection(host, int(port or 11111)), 3)
-                try:
-                    w.write(f'GET /management/apiversions HTTP/1.0\r\nHost: {host}\r\n\r\n'.encode())
-                    await w.drain()
-                    line = await asyncio.wait_for(r.readline(), 3)
-                finally:
-                    w.close()
-                return b' 200 ' in line
-            except Exception:
-                return False
-
-        while True:
-            try:
-                tels = [t for t in TELESCOPES if t in self.alpaca]
-                answers = await asyncio.gather(*(ask(self.alpaca[t]) for t in tels))
-                self.alive.update({f'alpaca.{t}': a for t, a in zip(tels, answers)})
-            except asyncio.CancelledError:
-                raise
-            except Exception as e:
-                logger.warning(f"health alpaca loop: {e!r}")
-            await asyncio.sleep(ALPACA_PERIOD)
-
     @asyncSlot()
     async def _start_checks(self):
         await self.conn.start_checks(self.main_window)
-        await create_task(self._alpaca_loop(), 'health_alpaca_loop')
 
     def _got_msg(self, meta) -> None:
         self.conn.got_msg(meta)
@@ -467,8 +444,17 @@ class HealthWidget(QWidget):
             try:
                 self._got_msg(meta)
                 t = _nats_time(meta)
-                self.seen[f'tic.{tel}'] = max(t, self.seen.get(f'tic.{tel}', 0.0))
-                for k, v in (data.get('measurements') or {}).items():
+                msm = data.get('measurements') or {}
+                valid = bool(msm) and not data.get('gaps') and all(v is not None for v in msm.values())
+                subject = meta['nats']['subject']
+                old = self.contact[tel].get(subject)
+                if old is None or t >= old[0]:      # last_per_subject replays in any order
+                    self.contact[tel][subject] = (t, valid)
+                if valid:
+                    self.seen[f'tic.{tel}'] = max(t, self.seen.get(f'tic.{tel}', 0.0))
+                for k, v in msm.items():
+                    if v is None:
+                        continue
                     if k.endswith('.camera.ccdtemperature'):
                         self.values[f'ccd.{tel}'] = (t, float(v))
                     elif k.endswith('.camera.setccdtemperature'):
@@ -523,8 +509,8 @@ class HealthWidget(QWidget):
             self._render_connectivity()
             self._render_overwatches()
             self._render_tic()
+            self._render_site()
             if self.details:
-                self._render_site()
                 self._render_services()
                 self._render_telescopes()
             self.updated_l.setText(f"updated {datetime.datetime.now(datetime.timezone.utc):%H:%M:%S} UT")
@@ -556,8 +542,7 @@ class HealthWidget(QWidget):
         return time.time() - self.start < HEARTBEAT_STALE
 
     def _render_site(self) -> None:
-        limits = {'davis': (120, 300), 'allsky': (360, 900), 'power': (60, 300), 'water': (3600, 3 * 3600)}
-        for key, (ok_s, warn_s) in limits.items():
+        for key, (ok_s, warn_s) in SITE_FRESH.items():
             dot, detail = self.site_rows[key]
             age = self._age(key)
             state = _fresh(age, ok_s, warn_s)
@@ -569,17 +554,20 @@ class HealthWidget(QWidget):
                 state = NONE
             dot.set(state, self._name(dot))
             detail.setText(_age(age) if age is not None else 'no data')
-        for key in ('serverroom', 'batteryroom'):
+        for key in ('serverroom', 'batteryroom', 'controlroom'):
             dot, detail = self.site_rows[key]
             age = self._age(key)
             msm = (self.values.get(key) or {}).get('measurements') or {}
             temp = msm.get('temperature')
-            if temp is None or age is None or age > 1800:
+            if temp is None or age is None or age > ROOM_STALE:
                 dot.set(NONE if age is None and self._waiting() else WARN, self._name(dot))
                 detail.setText('no data' if age is None else f'— ({_age(age)})')
                 continue
             temp = float(temp)
-            state = OK if temp < ROOM_WARN_C else WARN if temp < ROOM_BAD_C else BAD
+            if key == 'controlroom':        # information only, no limits
+                state = OK
+            else:
+                state = OK if temp < ROOM_WARN_C else WARN if temp < ROOM_BAD_C else BAD
             dot.set(state, self._name(dot))
             hum = msm.get('humidity')
             detail.setText(f"{temp:.1f} °C" + (f"  {float(hum):.0f} %" if hum is not None else ''))
@@ -605,8 +593,16 @@ class HealthWidget(QWidget):
                          'TIC' + (f' <span style="color:{DIM}">no data {_age(age)}</span>' if age and age >= TIC_OK
                                   else ''))
         cells = self.scope_cells
+        now = time.time()
         for tel in TELESCOPES:
-            for key in ('alpaca', 'download', 'pipeline'):
+            subjects = self.contact[tel].values()
+            n_ok = sum(1 for t, valid in subjects if valid and now - t <= CONTACT_MAX_AGE)
+            n_gap = sum(1 for t, valid in subjects if not valid)
+            if n_ok:
+                cells['alpaca'][tel].set(WARN if n_gap else OK)
+            else:
+                cells['alpaca'][tel].set(NONE if self._waiting() else BAD)
+            for key in ('download', 'pipeline'):
                 a = self.alive.get(f'{key}.{tel}')
                 cells[key][tel].set(NONE if a is None else OK if a else BAD)
             cells['dome'][tel].set(self._hb_state(f'dome_follower_svc.dome_follower.{tel}-dome_follower'))

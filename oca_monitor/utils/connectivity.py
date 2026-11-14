@@ -16,6 +16,7 @@ from __future__ import annotations
 import asyncio
 import datetime
 import logging
+import subprocess
 import time
 from dataclasses import dataclass, field
 from typing import Dict, List, Optional
@@ -32,7 +33,7 @@ NET_TIMEOUT = 4.0               # s, one TCP connect / ping
 NATS_DATA_WARN, NATS_DATA_BAD = 30.0, 120.0     # s without any message while connected
 NATS_DISCONNECTED_BAD = 30.0    # s disconnected before red (nats-py reconnects in a few seconds)
 STARTUP_GRACE = 30.0            # s after start: grey "checking" instead of red
-INTERNET_HOSTS = ['google.com', 'yahoo.com', 'camk.edu.pl', '1.1.1.1']
+INTERNET_HOSTS = ['google.com', 'camk.edu.pl', 'xkcd.com', '1.1.1.1']
 ROUTER_HOST = '192.168.7.1'
 HEARTBEAT_SUBJECT = 'svc.heartbeat.>'
 
@@ -77,7 +78,8 @@ class Connectivity:
         if self._started:
             return
         self._started = True
-        await create_task(self._net_loop(), 'connectivity_net_loop')
+        await create_task(self._internet_loop(), 'connectivity_internet_loop')
+        await create_task(self._router_loop(), 'connectivity_router_loop')
         try:
             await main_window.run_reader(clb=self._heartbeat_clb, subject=HEARTBEAT_SUBJECT, deliver_policy='new')
         except Exception as e:
@@ -107,32 +109,43 @@ class Connectivity:
             return None
 
     @staticmethod
-    async def _ping(host) -> Optional[float]:
+    def _ping_blocking(host) -> Optional[float]:
         try:
-            p = await asyncio.create_subprocess_exec(
-                'ping', '-n', '-c', '1', '-W', str(int(NET_TIMEOUT)), host,
-                stdout=asyncio.subprocess.PIPE, stderr=asyncio.subprocess.DEVNULL)
-            out, _ = await asyncio.wait_for(p.communicate(), NET_TIMEOUT + 2)
+            p = subprocess.run(['ping', '-n', '-c', '1', '-W', str(int(NET_TIMEOUT)), host],
+                               capture_output=True, text=True, timeout=NET_TIMEOUT + 2)
             if p.returncode != 0:
                 return None
-            txt = out.decode(errors='replace')
-            i = txt.find('time=')
-            return float(txt[i + 5:].split()[0].removesuffix('ms')) if i >= 0 else 0.0
+            i = p.stdout.find('time=')
+            return float(p.stdout[i + 5:].split()[0].removesuffix('ms')) if i >= 0 else 0.0
         except Exception:
             return None
 
-    async def _net_loop(self):
+    @classmethod
+    async def _ping(cls, host) -> Optional[float]:
+        """in a thread: asyncio subprocesses under qasync finish late (ping of 4 s seen ending after 18 s)"""
+        return await asyncio.get_running_loop().run_in_executor(None, cls._ping_blocking, host)
+
+    async def _internet_loop(self):
         while True:
             try:
-                answers = await asyncio.gather(self._ping(self.router_host),
-                                               *(self._connect(h) for h in self.internet_hosts))
-                self.router_ms = answers[0]
-                self.router_fails = 0 if answers[0] is not None else (self.router_fails or 0) + 1
-                self.inet = dict(zip(self.internet_hosts, answers[1:]))
+                answers = await asyncio.gather(*(self._connect(h) for h in self.internet_hosts))
+                self.inet = dict(zip(self.internet_hosts, answers))
             except asyncio.CancelledError:
                 raise
             except Exception as e:
-                logger.warning(f"connectivity net loop: {e!r}")
+                logger.warning(f"connectivity internet loop: {e!r}")
+            await asyncio.sleep(NET_PERIOD)
+
+    async def _router_loop(self):
+        while True:
+            try:
+                ms = await self._ping(self.router_host)
+                self.router_ms = ms
+                self.router_fails = 0 if ms is not None else (self.router_fails or 0) + 1
+            except asyncio.CancelledError:
+                raise
+            except Exception as e:
+                logger.warning(f"connectivity router loop: {e!r}")
             await asyncio.sleep(NET_PERIOD)
 
     # ---- judging ------------------------------------------------------------
