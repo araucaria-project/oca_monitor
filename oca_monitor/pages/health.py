@@ -4,7 +4,8 @@ CONNECTIVITY (2026-11-14) - the three big tiles on top, the things without which
 are in ``oca_monitor/utils/connectivity.py`` (shared with the ``message`` page, which plays the local SYSTEM ALERT):
 
 * INTERNET - TCP connect to port 443 of a few hosts (``internet_hosts``: names test DNS too, an IP address does not);
-  green when at least two answer, orange when one, red when none. Names failing while the IP answers = DNS problem.
+  green when at least two answer, orange when one or when none for less than a minute, red when none for 60 s
+  (``INET_DOWN_BAD``). Names failing while the IP answers = DNS problem.
   The uplink in use (Paranal / Starlink, wan-watchdog ``svc.publish.oca.wan.status``) is shown next to it.
 * ROUTER - ICMP ping of ``router_host`` (192.168.7.1); one failed round orange, two in a row red.
 * NATS - the client connection (serverish ``Messenger``) and the age of the last message received by this page

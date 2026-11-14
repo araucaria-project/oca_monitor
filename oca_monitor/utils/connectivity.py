@@ -5,7 +5,8 @@ One checker per process (``get_connectivity``), shared by the ``health`` page (s
 judging is done here, locally, and not sent over NATS).
 
 * INTERNET - TCP connect to port 443 of ``internet_hosts`` every ``NET_PERIOD`` s (a name tests DNS too, an IP
-  address does not). Green when at least two answer, orange when one, red when none; names failing while an IP
+  address does not). Green when at least two answer, orange when one; none answering is orange "DOWN" at first and
+  red only after ``INET_DOWN_BAD`` s in a row (short outages gave false alarms); names failing while an IP
   answers = orange "NO DNS".
 * ROUTER - one ICMP ping of ``router_host``; one failed round orange, two in a row red.
 * NATS - the client connection (serverish ``Messenger``) and the age of the last live message: heartbeats
@@ -30,6 +31,7 @@ OK, WARN, BAD, NONE = 'ok', 'warn', 'bad', 'none'
 
 NET_PERIOD = 10.0               # s, internet and router checks
 NET_TIMEOUT = 4.0               # s, one TCP connect / ping
+INET_DOWN_BAD = 60.0            # s with no host answering before INTERNET is red (alarm); orange until then
 NATS_DATA_WARN, NATS_DATA_BAD = 30.0, 120.0     # s without any message while connected
 NATS_DISCONNECTED_BAD = 30.0    # s disconnected before red (nats-py reconnects in a few seconds)
 STARTUP_GRACE = 30.0            # s after start: grey "checking" instead of red
@@ -65,6 +67,7 @@ class Connectivity:
         self.start = time.monotonic()
         self.last_msg: Optional[float] = None       # monotonic time of the last live NATS message
         self.inet: Optional[Dict[str, Optional[float]]] = None
+        self.inet_down_since: Optional[float] = None    # monotonic time of the first round with no answer at all
         self.router_ms: Optional[float] = None
         self.router_fails: Optional[int] = None     # failed rounds in a row (None: not asked yet)
         self.disconnected_since: Optional[float] = None
@@ -130,6 +133,10 @@ class Connectivity:
             try:
                 answers = await asyncio.gather(*(self._connect(h) for h in self.internet_hosts))
                 self.inet = dict(zip(self.internet_hosts, answers))
+                if any(ms is not None for ms in answers):
+                    self.inet_down_since = None
+                elif self.inet_down_since is None:
+                    self.inet_down_since = time.monotonic()
             except asyncio.CancelledError:
                 raise
             except Exception as e:
@@ -158,12 +165,18 @@ class Connectivity:
             return Check()
         ok = [h for h, ms in self.inet.items() if ms is not None]
         n = len(ok)
-        state = OK if n >= 2 else WARN if n == 1 else BAD
-        text = 'OK' if state == OK else 'DOWN' if state == BAD else 'POOR'
+        state = OK if n >= 2 else WARN
+        text = 'OK' if n >= 2 else 'POOR' if n == 1 else 'DOWN'
         if ok and all(is_ip(h) for h in ok):
             state, text = WARN, 'NO DNS'
         failed = [h for h, ms in self.inet.items() if ms is None]
-        return Check(state, text, 'no answer from ' + ', '.join(failed) if failed else '', dict(self.inet))
+        detail = 'no answer from ' + ', '.join(failed) if failed else ''
+        if n == 0 and self.inet_down_since is not None:
+            down = time.monotonic() - self.inet_down_since
+            if down >= INET_DOWN_BAD:
+                state = BAD
+            detail = f'no answer from any host for {down:.0f} s'
+        return Check(state, text, detail, dict(self.inet))
 
     def router(self) -> Check:
         if self.router_fails is None:
