@@ -105,6 +105,10 @@ tel = 'zb08'
 source = "telescope_ofp"  # page source - page is defined in oca_monitor/pages/example.py
 tel = 'jk15'
 
+[aux.panels.03.wg25]
+source = "telescope_ofp"  # page source - page is defined in oca_monitor/pages/example.py
+tel = 'wg25'
+
 [aux.panels.10.wk06]
 source = "quality_log"  # page source - page is defined in oca_monitor/pages/example.py
 tel = 'wk06'
@@ -117,6 +121,10 @@ tel = 'zb08'
 source = "quality_log"  # page source - page is defined in oca_monitor/pages/example.py
 tel = 'jk15'
 
+[aux.panels.13.wg25]
+source = "quality_log"  # page source - page is defined in oca_monitor/pages/example.py
+tel = 'wg25'
+
 [aux.panels.20.wk06]
 source = "quality_chart"  # page source - page is defined in oca_monitor/pages/example.py
 tel = 'wk06'
@@ -128,6 +136,10 @@ tel = 'zb08'
 [aux.panels.22.jk15]
 source = "quality_chart"  # page source - page is defined in oca_monitor/pages/example.py
 tel = 'jk15'
+
+[aux.panels.23.wg25]
+source = "quality_chart"  # page source - page is defined in oca_monitor/pages/example.py
+tel = 'wg25'
 
 
 
@@ -330,6 +342,10 @@ tel = 'zb08'
 source = "telescope_ofp"  # page source - page is defined in oca_monitor/pages/example.py
 tel = 'jk15'
 
+[aux_dev.panels.03.wg25]
+source = "telescope_ofp"  # page source - page is defined in oca_monitor/pages/example.py
+tel = 'wg25'
+
 [aux_dev.panels.10.wk06]
 source = "quality_log"  # page source - page is defined in oca_monitor/pages/example.py
 tel = 'wk06'
@@ -341,3 +357,8 @@ tel = 'zb08'
 [aux_dev.panels.12.jk15]
 source = "quality_log"  # page source - page is defined in oca_monitor/pages/example.py
 tel = 'jk15'
+
+[aux_dev.panels.13.wg25]
+source = "quality_log"  # page source - page is defined in oca_monitor/pages/example.py
+tel = 'wg25'
+
