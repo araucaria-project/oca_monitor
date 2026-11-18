@@ -212,14 +212,22 @@ class MainWindow(QMainWindow):
             self.grid_layout.setRowStretch(i, size)
 
         # Iterate over panels and add tabs to each panel
+        covered = set()  # grid cells taken by a panel from a row above (row_span)
         for i in range(len(rows)):
             for j in range(len(cols)):
                 panel_key = f'{i:1d}{j:1d}'  # e.g. '21' for panel in 2nd row, 1st column
+                if (i, j) in covered:
+                    continue
 
                 # Each panel has its own tab widget
                 # tab_widget = AsyncTabWidget()
                 tab_widget = ConfigurableTabWidget(**settings.panels.get(panel_key, {}))
-                self.grid_layout.addWidget(tab_widget, i, j)
+                # a page with row_span = n: the panel takes n rows of its column, down from this one (monitor2)
+                row_span = max([int(ps.get('row_span', 1)) for ps in (settings.panels.get(panel_key) or {}).values()
+                                if isinstance(ps, dict)] or [1])
+                row_span = max(1, min(row_span, len(rows) - i))
+                covered.update((i + k, j) for k in range(1, row_span))
+                self.grid_layout.addWidget(tab_widget, i, j, row_span, 1)
 
                 # Content of each panel (group of tabs) is defined in the settings also
                 # Searches for [<environment>.panels.<i><j>.<tab_name>] in the settings file

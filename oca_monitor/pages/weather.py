@@ -54,6 +54,16 @@ def _ephemeris_parts() -> Tuple[str, float, str]:
 # Panels
 # ----------------------------------------------------------------------------
 
+def _pressure_hpa(p: float) -> float:
+    """Davis ``pressure_Pa`` -> hPa; some messages already carry hPa (as in ``_HumidityPressurePanel``)."""
+    return p / 100.0 if p > 10000 else p
+
+
+def _tile_name(title: str) -> str:
+    """'Wind  [m/s]' -> 'Wind': a chart title without its units, for a value tile."""
+    return title.split('[')[0].strip()
+
+
 class _Panel:
     """Base class for one row of the squeezed chart stack."""
 
@@ -78,14 +88,22 @@ class _Panel:
 
     def __init__(self) -> None:
         self.ax = None  # type: Optional[Any]
+        self.tile_ax = None  # value tile beside the chart (value_tiles): name + live values, set before init_axes
         self._overlay = None
         self._dirty = False
 
     def init_axes(self, ax) -> None:
         self.ax = ax
         ax.set_zorder(2)
-        if self.title:
+        if self.tile_ax is not None:
+            ck.tile_title(self.tile_ax, self.tile_title())
+        elif self.title:
             ck.inline_title(ax, self.title, side=self.title_side)
+
+    def tile_title(self) -> str:
+        """Chart name for the value tile, without the units - the values carry them. A second series (``title_right``)
+        is named over its own value (``_value_overlay(label=...)``)."""
+        return _tile_name(self.title)
 
     def render(self) -> None:
         """Pull data → smooth → set_data → autoscale.
@@ -100,7 +118,19 @@ class _Panel:
     # Live-value overlay — subclasses opt in by calling _add_overlay() in
     # init_axes and overriding format_overlay().
     def _add_overlay(self, ax, **kwargs) -> None:
-        self._overlay = ck.big_overlay(ax, **kwargs)
+        self._overlay = self._value_overlay(ax, **kwargs)
+
+    def _value_overlay(self, ax, *, label: str = '', tile_fontsize: Optional[int] = None, **kwargs):
+        """``ck.big_overlay`` over the chart ``ax``, or opaque in the value tile when there is one - left-aligned, with
+        ``label`` (small, like the tile name) over it. The label stays when ``show_values = false`` hides the value."""
+        if self.tile_ax is None:
+            return ck.big_overlay(ax, **kwargs)
+        y = 0.06 + 0.78 * kwargs.pop('y', 0.55)     # the tile name is on top
+        fontsize = tile_fontsize or ck.VALUE_TILE_FONTSIZE
+        kwargs.update(x=ck.TILE_PAD_X, y=y, ha='left', alpha=1.0, fontsize=fontsize)
+        if label:
+            ck.tile_label(self.tile_ax, _tile_name(label), y=y, above_pt=fontsize * 0.75)
+        return ck.big_overlay(self.tile_ax, **kwargs)
 
     def format_overlay(self, msm: dict) -> Optional[str]:
         return None
@@ -182,9 +212,11 @@ class _SimpleSeriesPanel(_Panel):
                  warn_above: Optional[float] = None,
                  danger_above: Optional[float] = None,
                  warn_below: Optional[float] = None,
-                 danger_below: Optional[float] = None) -> None:
+                 danger_below: Optional[float] = None,
+                 convert=None) -> None:
         super().__init__()
         self.measurement_key = measurement_key
+        self.convert = convert      # raw measurement -> plotted value (e.g. Pa -> hPa); None: as is
         self.title = y_label
         self.today_color = today_color
         self.y_min = y_min
@@ -218,9 +250,14 @@ class _SimpleSeriesPanel(_Panel):
         self._fill_today = None
         self._fill_yesterday = None
 
+    def _value(self, msm: dict) -> float:
+        """The measurement from a Davis message, converted; raises KeyError / TypeError / ValueError."""
+        v = float(msm[self.measurement_key])
+        return self.convert(v) if self.convert is not None else v
+
     def alert_color(self, msm):
         try:
-            v = float(msm[self.measurement_key])
+            v = self._value(msm)
         except (KeyError, TypeError, ValueError):
             return None
         if self.danger_above is not None and v >= self.danger_above:
@@ -258,7 +295,7 @@ class _SimpleSeriesPanel(_Panel):
     def format_overlay(self, msm):
         if self.overlay_unit is None:
             return None
-        v = float(msm[self.measurement_key])
+        v = self._value(msm)
         return f"{self.overlay_format.format(v)} {self.overlay_unit}"
 
     def _accepts(self, value: float) -> bool:
@@ -321,7 +358,7 @@ class _SimpleSeriesPanel(_Panel):
 
     def on_weather(self, hour, ts, msm, *, is_yesterday) -> None:
         try:
-            value = float(msm[self.measurement_key])
+            value = self._value(msm)
         except (KeyError, TypeError, ValueError):
             return
         if not self._accepts(value):
@@ -343,9 +380,16 @@ class _WindPanel(_SimpleSeriesPanel):
     (``wind_ms``, ~1/min), today only - gusts above the mean are seen at once. The limits are lines only (no filled
     zones); the direction arrows have their own strip under the zero line (``ARROW_STRIP`` of the y range), so the
     chart does not run over them; whole-number y ticks (labels like "17.5" were cut at the panel edge).
+
+    Live value (2026-11-18): the 10 min mean big (readable across the room), the instant wind smaller under it as
+    "gust ..." (the old translucent "5.2 (8.1)" was hard to read and ambiguous), both in one opaque tile, coloured
+    by the mean's zone (the limits are for the mean only). The tile sits in the upper right corner while the mean is
+    below ``TILE_FLIP_MS``, above it in the lower right - away from where the line runs. With a value tile left of the
+    chart (``value_tiles``) the values are there instead, the direction on a line of its own.
     """
 
     ARROW_STRIP = 0.14      # share of the y range below 0 for the direction arrows
+    TILE_FLIP_MS = 12.0     # mean wind [m/s] from which the value tile moves to the bottom
 
     def __init__(self) -> None:
         super().__init__(
@@ -369,11 +413,21 @@ class _WindPanel(_SimpleSeriesPanel):
         self._gust_x: List[float] = []      # instant wind (wind_ms), today
         self._gust_v: List[float] = []
         self._dots = None
+        self._overlay_tile = None           # '_overlay*' name: hidden with the others by show_values = false
+        self._tile_mean = None
+        self._tile_gust = None
+        self._tile_dir = None               # value tile only; over the chart the direction follows the mean
 
     def init_axes(self, ax) -> None:
         super().init_axes(ax)
         self._draw_zones()
-        self._add_overlay(ax)
+        if self.tile_ax is not None:
+            self._overlay_tile, (label, self._tile_mean, self._tile_gust, self._tile_dir) = ck.value_tile(
+                self.tile_ax, fontsizes=(ck.TILE_LABEL_FONTSIZE, ck.VALUE_TILE_FONTSIZE, 12, 14), frameon=False)
+            label.set_text('AVERAGE')
+            label.set_color(ck.FG_DIM)
+        else:
+            self._overlay_tile, (self._tile_mean, self._tile_gust) = ck.value_tile(ax, fontsizes=(30, 17))
         self._dots, = ax.plot([], [], '.', color=self.today_color, markersize=2.5, alpha=0.55, zorder=3)
 
     def render(self) -> None:
@@ -393,7 +447,33 @@ class _WindPanel(_SimpleSeriesPanel):
 
     def on_live_summary(self, msm: dict) -> None:
         self._last_summary = msm
-        super().on_live_summary(msm)
+        if self._overlay_tile is None:
+            return
+        try:
+            mean = float(msm['wind_10min_ms'])
+            text = self.format_overlay(msm) if self._tile_dir is None else f"{mean:.1f} m/s"
+        except (KeyError, TypeError, ValueError):
+            return
+        try:
+            gust = f"gust {float(msm['wind_ms']):.1f} m/s"
+        except (KeyError, TypeError, ValueError):
+            gust = ''
+        color = self.alert_color(msm) or ck.FG_TEXT    # the limits are for the mean only - the gust takes its colour
+        self._tile_mean.set_text(text)
+        self._tile_mean.set_color(color)
+        self._tile_gust.set_text(gust)
+        self._tile_gust.set_color(color)
+        if self._tile_dir is not None:     # in the value tile: nothing to move away from
+            try:
+                self._tile_dir.set_text(f"dir {int(msm['wind_dir_deg'])}°")
+            except (KeyError, TypeError, ValueError):
+                self._tile_dir.set_text('')
+            self._tile_dir.set_color(color)
+            return
+        if mean < self.TILE_FLIP_MS:
+            ck.place_tile(self._overlay_tile, top=True)
+        else:   # bottom edge just above the direction-arrow strip
+            ck.place_tile(self._overlay_tile, top=False, y=self.ARROW_STRIP / (1 + self.ARROW_STRIP) + 0.03)
 
     def _draw_zones(self) -> None:
         """(Re)draw the wind zones and fit the y-axis to the highest limit; safe to repeat."""
@@ -421,11 +501,7 @@ class _WindPanel(_SimpleSeriesPanel):
     def format_overlay(self, msm):
         wind = float(msm['wind_10min_ms'])
         wdir = int(msm['wind_dir_deg'])
-        try:        # instant wind in brackets (2026-11-12)
-            inst = f" ({float(msm['wind_ms']):.1f})"
-        except (KeyError, TypeError, ValueError):
-            inst = ""
-        return f"{wind:.1f}{inst} m/s   {wdir:>3d}°"
+        return f"{wind:.1f} m/s   {wdir:>3d}°"     # the instant wind ("gust") is _overlay_gust, under it
 
     def on_weather(self, hour, ts, msm, *, is_yesterday) -> None:
         super().on_weather(hour, ts, msm, is_yesterday=is_yesterday)
@@ -574,12 +650,12 @@ class _HumidityPressurePanel(_Panel):
                                              linewidth=1.3, zorder=4)
         self.ax_p.set_ylim(self.PRES_INITIAL_LO, self.PRES_INITIAL_HI)
         # Right-hand title pill on parent axes so live overlays paint over it.
-        ck.inline_title(ax, self.title_right, side='right',
-                        color=ck.COLOR_PRESSURE)
+        if self.tile_ax is None:    # else in the value tile (tile_title)
+            ck.inline_title(ax, self.title_right, side='right', color=ck.COLOR_PRESSURE)
         # Live overlay split between the two metrics, both rendered in
         # the parent axes so colour/alpha logic stays unified.
-        self._overlay_h = ck.big_overlay(ax, x=0.99, y=0.72, color=ck.COLOR_HUMIDITY)
-        self._overlay_p = ck.big_overlay(ax, x=0.99, y=0.32, color=ck.COLOR_PRESSURE)
+        self._overlay_h = self._value_overlay(ax, x=0.99, y=0.72, color=ck.COLOR_HUMIDITY)
+        self._overlay_p = self._value_overlay(ax, x=0.99, y=0.32, color=ck.COLOR_PRESSURE, label=self.title_right)
 
     def alert_color(self, msm):
         try:
@@ -805,11 +881,16 @@ class _PowerPanel(_Panel):
         self._fill_load_envelope = None
         self._overlay_soc = None
         self._overlay_kw = None
+        # value tile only (2026-11-18, as the Utilities POWER box): battery icon, ▲ / ▼ charging, ☀ solar, ⚡ load
+        self._overlay_soc_icon = None
+        self._overlay_charge = None
+        self._overlay_pv = None
+        self._overlay_load = None
 
     def init_axes(self, ax) -> None:
         super().init_axes(ax)
         ax.set_ylim(0, 100)
-        ax.set_yticks([0, 25, 50, 75, 100])
+        ax.set_yticks([0, 25, 50, 75])     # no 100: on the top edge it ran into the lowest label of the chart above
         ax.axhspan(0, self.soc_danger_pct, color=ck.COLOR_DANGER,
                    alpha=0.20, linewidth=0, zorder=0)
         ax.axhspan(self.soc_danger_pct, self.soc_warn_pct,
@@ -846,10 +927,21 @@ class _PowerPanel(_Panel):
         self._line_load_today, = self.ax_p.plot([], [], '-', color=ck.COLOR_LOAD,
                                                 linewidth=1.3, zorder=4)
         # Right-hand title pill on parent axes (see _HumidityPressurePanel).
-        ck.inline_title(ax, self.title_right, side='right',
-                        color=ck.COLOR_SOLAR)
-        self._overlay_soc = ck.big_overlay(ax, x=0.99, y=0.72, color=ck.COLOR_BATTERY)
-        self._overlay_kw = ck.big_overlay(ax, x=0.99, y=0.32, color=ck.COLOR_SOLAR)
+        if self.tile_ax is None:    # else in the value tile (tile_title)
+            ck.inline_title(ax, self.title_right, side='right', color=ck.COLOR_SOLAR)
+        if self.tile_ax is None:
+            self._overlay_soc = self._value_overlay(ax, x=0.99, y=0.72, color=ck.COLOR_BATTERY)
+            self._overlay_kw = self._value_overlay(ax, x=0.99, y=0.32, color=ck.COLOR_SOLAR)
+            return
+        tile = self.tile_ax
+        self._overlay_soc_icon, self._overlay_soc = ck.tile_icon_text(
+            tile, 'battery', y=0.6, fontsize=ck.VALUE_TILE_FONTSIZE, color=ck.COLOR_BATTERY)
+        self._overlay_charge = tile.text(0.97, 0.6, '', transform=tile.transAxes, ha='right', va='center',
+                                         fontsize=12, fontweight='bold', zorder=12)
+        self._overlay_pv = tile.text(ck.TILE_PAD_X, 0.36, '', transform=tile.transAxes, ha='left', va='center',
+                                     fontsize=14, fontweight='bold', color=ck.COLOR_SOLAR, zorder=12)
+        self._overlay_load = tile.text(ck.TILE_PAD_X, 0.17, '', transform=tile.transAxes, ha='left', va='center',
+                                       fontsize=14, fontweight='bold', color=ck.COLOR_LOAD, zorder=12)
 
     # ---- helpers ----
 
@@ -1014,6 +1106,19 @@ class _PowerPanel(_Panel):
         if self._overlay_soc is not None and soc is not None:
             self._overlay_soc.set_text(f"{soc:.0f} %")
             self._overlay_soc.set_color(self.alert_color(msm) or ck.COLOR_BATTERY)
+            if self._overlay_soc_icon is not None:
+                self._overlay_soc_icon.set_color(self.alert_color(msm) or ck.COLOR_BATTERY)
+        if self._overlay_charge is not None:
+            charge = (self._valid_w(msm.get('battery_charge')) or 0.0) - (self._valid_w(msm.get('battery_discharge'))
+                                                                           or 0.0)
+            if abs(charge) < 50:    # idle, as in Utilities
+                self._overlay_charge.set_text('')
+            else:
+                self._overlay_charge.set_text('▲' if charge > 0 else '▼')
+                self._overlay_charge.set_color(ck.COLOR_OK if charge > 0 else ck.COLOR_WARN)
+        if self._overlay_pv is not None:
+            self._overlay_pv.set_text(f"☀ {self._fmt_kw(pv)} kW" if pv else "☀ —")
+            self._overlay_load.set_text(f"⚡ {self._fmt_kw(load)} kW")
         if self._overlay_kw is not None:
             # Format: "Solar / -Load kW" — load shown negative for the
             # source/sink convention.
@@ -1055,9 +1160,17 @@ class _WaterPanel(_Panel):
         self._line_today = None
         self._line_yest = None
         self._fill_today = None
+        self._overlay_drop = None       # value tile only (2026-11-18, as the Utilities WATER box): drop, m3, %
+        self._overlay_m3 = None
+        self._overlay_pct = None
 
     def init_axes(self, ax) -> None:
         super().init_axes(ax)
+        if self.tile_ax is not None:
+            self._overlay_drop, self._overlay_m3 = ck.tile_icon_text(
+                self.tile_ax, 'drop', y=0.55, fontsize=ck.VALUE_TILE_FONTSIZE, color=self.COLOR_WATER)
+            self._overlay_pct = self.tile_ax.text(ck.TILE_PAD_X, 0.3, '', transform=self.tile_ax.transAxes,
+                                                  ha='left', va='center', fontsize=15, fontweight='bold', zorder=12)
         ax.set_ylim(0, self.capacity_m3)        # until the first data (then _rescale)
         ax.yaxis.set_major_locator(MaxNLocator(nbins=5, steps=[1, 2, 5]))
         ax.yaxis.set_major_formatter(FormatStrFormatter('%.1f'))
@@ -1117,6 +1230,21 @@ class _WaterPanel(_Panel):
         if 0.0 <= m3 <= self.capacity_m3 * 1.5:
             (self._yest if is_yesterday else self._today).append(hour, m3)
             self._dirty = True
+            self._show_level(m3, old=is_yesterday)
+
+    def _show_level(self, m3: float, *, old: bool = False) -> None:
+        """The latest level in the value tile; the % coloured by the warn / danger bands, grey otherwise. The history
+        replays in order, so the last call is the newest; ``old`` (yesterday - the 24 h replay of the 1 Hz meter
+        takes minutes after a start): the value grey until today's arrive."""
+        if self._overlay_m3 is None:
+            return
+        self._overlay_m3.set_text(f"{m3:.1f} m³")
+        self._overlay_m3.set_color(ck.FG_DIM if old else self.COLOR_WATER)
+        self._overlay_drop.set_color(ck.FG_DIM if old else self.COLOR_WATER)
+        pct = 100.0 * m3 / self.capacity_m3
+        self._overlay_pct.set_text(f"{pct:.0f} %")
+        self._overlay_pct.set_color(ck.COLOR_DANGER if m3 <= self.danger_m3 else ck.COLOR_WARN if m3 <= self.warn_m3
+                                    else ck.FG_DIM)
 
     def on_midnight_rollover(self) -> None:
         self._today, self._yest = ck.TimeBinSeries(), self._today
@@ -1347,7 +1475,7 @@ class _FwhmPanel(_PerTelescopeScatterPanel):
             self._smooth_lines[tel], = ax.plot(
                 [], [], '-', color=color, linewidth=1.4, alpha=0.95,
                 zorder=7)
-        self._overlay = ck.big_overlay(ax)
+        self._overlay = self._value_overlay(ax)
         QtCore.QTimer.singleShot(int(self.OVERLAY_ROTATE_SEC * 1000),
                                  self._do_rotate)
 
@@ -1594,7 +1722,7 @@ class _PhotZeroPanel(_Panel):
         # the chart palette, marking this line as "not a telescope".
         self._line_smoothed, = ax.plot([], [], '-', color=self.MEAN_LINE_COLOR,
                                        linewidth=1.4, alpha=0.95, zorder=8)
-        self._overlay_avg = ck.big_overlay(ax)
+        self._overlay_avg = self._value_overlay(ax)
 
     def restamp_telescope_colors(self) -> None:
         for tel in self.telescopes:
@@ -1806,7 +1934,7 @@ class _CloudsPanel(_Panel):
         ax.set_ylim(0.0, 1.0)
         ax.set_yticks([0.0, 0.5])
         ax.yaxis.set_major_formatter(lambda v, _pos: f'{v * 100:.0f}%')
-        self._overlay_state = ck.big_overlay(ax)
+        self._overlay_state = self._value_overlay(ax)
         self._now_line = ax.axvline(_hour_now_utc(), color='#ffffff', linestyle='--', linewidth=1.0, alpha=0.9, zorder=6)
 
     def on_clouds(self, hour: float, data: dict) -> None:
@@ -1929,7 +2057,7 @@ class WeatherDataWidget(QWidget):
 
     DEFAULT_CHARTS: Tuple[str, ...] = ('wind', 'temperature', 'humidity_pressure', 'power')
     KNOWN_CHARTS = frozenset({
-        'wind', 'humidity_pressure', 'temperature', 'power', 'water',
+        'wind', 'humidity_pressure', 'humidity', 'pressure', 'temperature', 'power', 'water',
         'dome_wind_az', 'fwhm', 'quality', 'phot_zero', 'clouds',
     })
 
@@ -1950,6 +2078,7 @@ class WeatherDataWidget(QWidget):
                  permanent_wind: bool = True,
                  show_time: bool = True,
                  show_values: bool = True,
+                 value_tiles=False,
                  **kwargs) -> None:
         super().__init__()
         self.main_window = main_window
@@ -1975,6 +2104,9 @@ class WeatherDataWidget(QWidget):
         self.permanent_wind = bool(permanent_wind)   # False: no wind chart unless asked (e.g. the Sky page)
         self.show_values = bool(show_values)    # False: no big live numbers over the charts (monitor2 Battery)
         self.show_time = bool(show_time)    # False: no LT / Sun / UT strip (monitor2 - the time is elsewhere, low panels)
+        # chart names and live values in a column of tiles beside the charts, the charts clean (monitor2, 2026-11-18):
+        # true / "left": left of the charts, "right": right of them; horizontal layout only
+        self.value_tiles = value_tiles if value_tiles in ('left', 'right') else 'left' if value_tiles else None
         self.chart_keys = self._resolve_charts(charts)
         self.panels: List[_Panel] = self._build_panels()
         self._init_ui()
@@ -2007,6 +2139,30 @@ class WeatherDataWidget(QWidget):
                 panels.append(_HumidityPressurePanel(
                     warn_pct=self.humidity_warn_pct,
                     danger_pct=self.humidity_danger_pct))
+            elif key == 'humidity':    # humidity_pressure split in two charts (monitor2, 2026-11-18)
+                panels.append(_SimpleSeriesPanel(
+                    measurement_key='humidity',
+                    y_label='Humidity  [%]',
+                    today_color=ck.COLOR_HUMIDITY,
+                    y_min=0.0, y_max=100.0,
+                    reject_above=100.5, reject_below=0.0,
+                    zone_drawer=ck.humidity_zone_bands,
+                    sigma_minutes=_HumidityPressurePanel.SIGMA_HUM_MIN,
+                    overlay_unit='%', overlay_format='{:.0f}',
+                    warn_above=self.humidity_warn_pct, danger_above=self.humidity_danger_pct,
+                ))
+            elif key == 'pressure':
+                panels.append(_SimpleSeriesPanel(
+                    measurement_key='pressure_Pa',
+                    y_label='Pressure  [hPa]',
+                    today_color=ck.COLOR_PRESSURE,
+                    convert=_pressure_hpa,
+                    reject_above=1100.0, reject_below=500.0,
+                    sigma_minutes=_HumidityPressurePanel.SIGMA_PRES_MIN,
+                    overlay_unit='hPa', overlay_format='{:.0f}',
+                    y_min_initial=_HumidityPressurePanel.PRES_INITIAL_LO,
+                    y_max_initial=_HumidityPressurePanel.PRES_INITIAL_HI,
+                ))
             elif key == 'temperature':
                 panels.append(_SimpleSeriesPanel(
                     measurement_key='temperature_C',
@@ -2125,6 +2281,9 @@ class WeatherDataWidget(QWidget):
                     ck.format_hour_xaxis(ordered[idx])
         else:
             axes = ck.make_stacked_axes(self.figure, n)
+            if self.value_tiles:
+                for panel, tile in zip(self.panels, ck.add_value_tiles(self.figure, axes, side=self.value_tiles)):
+                    panel.tile_ax = tile
             for panel, ax in zip(self.panels, axes):
                 panel.init_axes(ax)
             if axes:

@@ -79,12 +79,16 @@ source = "site_status"  # unified clocks + sun/moon events + water level
 
 #---------------------------monitor2 - additional controlroom screen (2026-11-12, layout being tried)---------------------
 # poetry run ocam --env monitor2
-# 00 system health                        | 01 weather charts | 02 radar
-# 10 power / water / internet             | 11 battery / water level (rotating)                      | 12 telescopes
+# 2026-11-18: system health and the weather charts take the whole height (row_span); water and power are only in
+# the value tiles of their charts (no Utilities panel):
+# 00 system health (both rows) | 01 weather charts (both rows):  | 02 radar
+#                              |    wind, temperature, humidity, |
+#                              |    pressure, water, power       | 12 telescopes
 
 [monitor2]
 window_size = [1910, 1040]
-panel_columns = [5,6,9]  # radar column ~ as wide as the top row is high (radar is round); 2026-11-12
+panel_columns = [8,15,17]  # radar column ~ as wide as the top row is high (radar is round); 2026-11-12
+                           # health and radar narrower, weather wider for its value tiles (2026-11-18, was [5,6,9])
 panel_rows = [4,1]   # The size ratio of the rows in the panel grid
 style = "dark"
 
@@ -97,36 +101,21 @@ log_level = "INFO"
 source = "health"  # system health: site data, overwatches, services, telescopes (pages/health.py)
 # 2026-11-14: only the three big tiles INTERNET / ROUTER / NATS; details = true brings back the full lists
 details = false
+row_span = 2       # the whole height of the window (2026-11-18)
 #router_host = "192.168.7.1"
 #internet_hosts = ["google.com", "camk.edu.pl", "xkcd.com", "1.1.1.1"]
 
 [monitor2.panels.01.Weather]
 source = "weather"
 vertical_screen = 0
-charts = ["wind", "temperature", "humidity_pressure"]
+row_span = 2        # the whole height of the window, no panel 11 (2026-11-18)
+charts = ["wind", "temperature", "humidity", "pressure", "water", "power"]
 show_time = false   # no LT / Sun / UT strip above the charts
+value_tiles = "right"  # chart names and live values in tiles right of the charts ("left" / true: left of them),
+                       # the charts clean (2026-11-18)
 
 [monitor2.panels.02.Radar]
 source = "radar"
-
-[monitor2.panels.10.Utilities]
-source = "utilities"  # battery, solar / load, water level, internet uplink
-
-[monitor2.panels.11.Battery]
-source = "weather"
-vertical_screen = 0
-charts = ["power"]
-permanent_wind = false
-show_time = false
-show_values = false   # no big numbers over the chart - they are in Utilities next to it
-compact_panel = true  # panel 11 rotates Battery / Water without the tab bar and Play / Stop buttons
-
-[monitor2.panels.11.Water]   # rotates with Battery (auto_interval 10 at panel speed 20 = 20 s each)
-source = "weather"
-vertical_screen = 0
-charts = ["water"]
-permanent_wind = false
-show_time = false
 
 [monitor2.panels.12.Telescopes]
 source = "telescopes"

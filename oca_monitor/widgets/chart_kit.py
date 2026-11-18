@@ -17,6 +17,10 @@ import numpy as np
 from matplotlib.artist import Artist
 from matplotlib.axes import Axes
 from matplotlib.figure import Figure
+from matplotlib.offsetbox import AnchoredOffsetbox, TextArea, VPacker
+from matplotlib.patches import FancyBboxPatch
+from matplotlib.path import Path
+from matplotlib.transforms import offset_copy
 from matplotlib.ticker import MaxNLocator
 
 logger = logging.getLogger(__name__.rsplit('.')[-1])
@@ -43,6 +47,8 @@ FG_DIM = '#9a9a9a'
 GRID_MAJOR = '#3a3a3a'
 GRID_MINOR = '#2a2a2a'
 SPINE = '#404040'
+BG_TILE = '#2c2c2c'      # live-value tile, a shade lighter than the axes
+TILE_EDGE = '#4a4a4a'
 
 COLOR_TODAY = '#5cc4ff'
 COLOR_YESTERDAY = '#5a5a5a'  # legacy fallback; new style uses today-colour faded
@@ -199,6 +205,114 @@ def big_overlay(ax: Axes, *, x: float = 0.99, y: float = 0.55,
         ha=ha, va=va, fontsize=fontsize, fontweight='bold',
         color=color or FG_TEXT, alpha=alpha, zorder=12,
     )
+
+
+def value_tile(ax: Axes, fontsizes: Sequence[int] = (30, 17), *,
+               frameon: bool = True) -> Tuple[AnchoredOffsetbox, List[Any]]:
+    """Live values stacked right-aligned in one opaque rounded tile; returns ``(tile, texts)``.
+
+    The tile hides the plotted data under it, unlike the translucent ``big_overlay``. ``texts`` are the
+    ``Text`` objects (one per font size, top to bottom) to ``set_text``/``set_color``; the tile starts
+    in the upper right corner, move it with ``place_tile``. ``frameon=False``: just the stacked values,
+    left-aligned at the middle of ``ax`` - for an ``ax`` that is a tile itself (``add_value_tiles``).
+    """
+    areas = [TextArea('', textprops=dict(fontsize=fs, fontweight='bold', color=FG_TEXT)) for fs in fontsizes]
+    tile = AnchoredOffsetbox(
+        loc='upper right' if frameon else 'center left',
+        child=VPacker(children=areas, align='right' if frameon else 'left', pad=0, sep=1 if frameon else 3),
+        bbox_to_anchor=(0.99, 0.97) if frameon else (TILE_PAD_X, 0.45), bbox_transform=ax.transAxes,
+        frameon=frameon, pad=0.25, borderpad=0,
+    )
+    tile.patch.set_boxstyle('round,pad=0.1,rounding_size=0.4')
+    tile.patch.set_facecolor(BG_TILE)
+    tile.patch.set_edgecolor(TILE_EDGE)
+    tile.patch.set_alpha(0.92)
+    tile.set_zorder(12)
+    ax.add_artist(tile)
+    return tile, [a._text for a in areas]   # TextArea has no public accessor for its Text
+
+
+def place_tile(tile: AnchoredOffsetbox, *, top: bool, y: float = 0.97) -> None:
+    """Pin a ``value_tile`` to the upper right (top edge at ``y``) or lower right (bottom edge at ``y``) corner."""
+    tile.loc = AnchoredOffsetbox.codes['upper right' if top else 'lower right']
+    tile.set_bbox_to_anchor((0.99, y), transform=tile.axes.transAxes)
+
+
+VALUE_TILE_BG = '#262626'    # the value tiles left of the charts, like the system health tiles
+VALUE_TILE_EDGE = '#383838'
+VALUE_TILE_FONTSIZE = 20     # big value in a tile (vs 30 over the chart: the tile is narrow)
+TILE_LABEL_FONTSIZE = 10     # tile name, value labels
+TILE_PAD_X = 0.06            # left margin of the tile text, axes fraction
+
+
+def add_value_tiles(fig: Figure, axes: Sequence[Axes], width: float = 0.22, side: str = 'left') -> List[Axes]:
+    """A column of value tiles on the ``side`` (``'left'`` / ``'right'``) of the stacked ``axes`` (``make_stacked_axes``),
+    one per chart, of its height.
+
+    The charts move aside to make room (``width`` = figure fraction of the tile column); a tile is an axes without
+    ticks, drawn as a rounded box - put the chart name (``tile_title``) and the live values (``big_overlay``,
+    ``value_tile``) into it. Returns the tiles, in the order of ``axes``.
+    """
+    gap = 0.004
+    if side == 'right':     # the twin-axis (right) tick labels are inside the charts, a gap is enough
+        fig.subplots_adjust(right=1.0 - width - 0.008)
+        x0 = 1.0 - width
+    else:                   # room for the y tick labels left of the charts
+        fig.subplots_adjust(left=width + 0.05)
+        x0 = gap
+    tiles = []
+    for ax in axes:
+        pos = ax.get_position()
+        tile = fig.add_axes([x0, pos.y0 + gap, width - gap, pos.height - 2 * gap])
+        tile.set_axis_off()
+        tile.add_patch(FancyBboxPatch((0, 0), 1, 1, transform=tile.transAxes, clip_on=False,
+                                      boxstyle='round,pad=0,rounding_size=0.04',
+                                      facecolor=VALUE_TILE_BG, edgecolor=VALUE_TILE_EDGE, linewidth=1.5))
+        tiles.append(tile)
+    return tiles
+
+
+def tile_title(tile: Axes, text: str) -> None:
+    """Chart name in the upper left corner of a value tile, small dim capitals like the system health tiles."""
+    tile.text(TILE_PAD_X, 0.93, text.upper(), transform=tile.transAxes, ha='left', va='top',
+              fontsize=TILE_LABEL_FONTSIZE + 1, fontweight='bold', color=FG_DIM)
+
+
+def tile_label(tile: Axes, text: str, *, y: float, above_pt: float) -> None:
+    """Small dim name of a value in a tile, ``above_pt`` points above the middle (``y``) of that value."""
+    trans = offset_copy(tile.transAxes, fig=tile.figure, y=above_pt, units='points')
+    tile.text(TILE_PAD_X, y, text.upper(), transform=trans, ha='left', va='bottom',
+              fontsize=TILE_LABEL_FONTSIZE, fontweight='bold', color=FG_DIM)
+
+
+def _drop_path() -> Path:
+    """Water drop: a circle below, the tangents from it up to the tip."""
+    r, cy = 0.55, -0.3
+    a = np.radians(np.linspace(25, -205, 40))   # the circle between the two tangent points, round the bottom
+    return Path([(0.0, 1.0)] + list(zip(r * np.cos(a), cy + r * np.sin(a))) + [(0.0, 1.0)], closed=True)
+
+
+def _battery_path() -> Path:
+    """Upright battery: body and the terminal on top."""
+    return Path([(-0.5, -1.0), (0.5, -1.0), (0.5, 0.82), (0.2, 0.82), (0.2, 1.0), (-0.2, 1.0), (-0.2, 0.82),
+                 (-0.5, 0.82), (-0.5, -1.0)], closed=True)
+
+
+# Emoji (💧 🔋) are not in the matplotlib font (DejaVu), so these two are drawn; ☀ ⚡ ▲ ▼ are glyphs there.
+TILE_ICONS = {'drop': _drop_path(), 'battery': _battery_path()}
+
+
+def tile_icon_text(tile: Axes, icon: str, *, y: float, fontsize: float, color: str = FG_TEXT):
+    """A drawn icon (``TILE_ICONS``) of the text height and a value right of it, on a line of a value tile (middle
+    at ``y``). Returns ``(icon, text)``; ``icon`` is a Line2D marker, ``set_color`` / ``set_visible`` it like the text."""
+    size = fontsize * 0.95
+    icon_trans = offset_copy(tile.transAxes, fig=tile.figure, x=size / 2, units='points')
+    text_trans = offset_copy(tile.transAxes, fig=tile.figure, x=size + fontsize * 0.35, units='points')
+    marker, = tile.plot([TILE_PAD_X], [y], linestyle='none', marker=TILE_ICONS[icon], markersize=size,
+                        color=color, transform=icon_trans, clip_on=False, zorder=12)
+    text = tile.text(TILE_PAD_X, y, '', transform=text_trans, ha='left', va='center',
+                     fontsize=fontsize, fontweight='bold', color=color, zorder=12)
+    return marker, text
 
 
 def format_hour_xaxis(ax: Axes, *, x_min: float = 0.0, x_max: float = 24.0) -> None:
