@@ -20,7 +20,7 @@ from PyQt6.QtWidgets import QPushButton, QVBoxLayout
 from serverish.base.task_manager import create_task_sync, create_task, Task, TaskManager
 from serverish.messenger import Messenger, single_read
 from serverish.messenger.msg_callback_sub import MsgCallbackSubscriber
-from serverish.base.exceptions import MessengerNotConnected, MessengerRequestTimeout
+from serverish.base.exceptions import MessengerNotConnected
 
 from oca_monitor.config import settings
 from oca_monitor.tab_config_dialog import TabConfigDialog
@@ -170,8 +170,8 @@ class ConfigurableTabWidget(QWidget):
 
 
 class MainWindow(QMainWindow):
-    def __init__(self):
-        self.nats_cfg: Dict = {}
+    def __init__(self, nats_cfg: Optional[Dict] = None):
+        self.nats_cfg: Dict = nats_cfg or {}
         super().__init__()
         self._config = None
         self.task_manager: TaskManager = TaskManager()
@@ -268,24 +268,7 @@ class MainWindow(QMainWindow):
 
     @asyncSlot()
     async def async_init(self):
-        logger.info('Starting to get observatory config...')
-        retries = 5
-        self.nats_cfg = {}
-        for attempt in range(1, retries + 1):
-            try:
-                data, meta = await single_read(subject='tic.config.observatory')
-                self.nats_cfg = data
-                logger.info('Config loaded ok')
-                break
-            except MessengerRequestTimeout as e:
-                logger.warning(f'Observatory config timeout, attempt {attempt}/{retries}: {e}')
-                if attempt < retries:
-                    await asyncio.sleep(5)
-            except (AttributeError, LookupError, ValueError, MessengerNotConnected):
-                logger.error('Can not get observatory config.')
-                break
-        else:
-            logger.error(f'Can not get observatory config after {retries} attempts.')
+        # nats_cfg is read in main.asyncmain before the window is created
         await create_task(self.run_task_monitor(), "task_monitor")
 
     @asyncSlot()

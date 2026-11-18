@@ -14,7 +14,7 @@ from logging.handlers import RotatingFileHandler
 
 from PyQt6.QtWidgets import QMainWindow
 from qasync import QEventLoop, QApplication
-from serverish.messenger import Messenger
+from serverish.messenger import Messenger, single_read
 
 from oca_monitor.config import settings
 from oca_monitor.main_window import MainWindow
@@ -29,6 +29,27 @@ async def dummytask():
         await asyncio.sleep(1)
         logger.info('Dummy task')
 
+async def wait_for_observatory_config(retry_sec: float = 5) -> dict:
+    """Reads tic.config.observatory, retrying until it arrives.
+
+    Pages read main_window.nats_cfg (limits, colours), so the window is not
+    created before the config is in hand.
+    """
+    attempt = 0
+    while True:
+        attempt += 1
+        logger.info(f'Getting observatory config (attempt {attempt})...')
+        try:
+            data, meta = await single_read(subject='tic.config.observatory')
+            logger.info('Observatory config loaded ok')
+            return data
+        except asyncio.CancelledError:
+            raise
+        except Exception as e:
+            logger.warning(f'Can not get observatory config: {e!r}, retrying in {retry_sec}s')
+            await asyncio.sleep(retry_sec)
+
+
 async def asyncmain(app):
     host, port = settings.nats_host, settings.nats_port
 
@@ -39,7 +60,9 @@ async def asyncmain(app):
     else:
         logger.warning(f'NATS Messenger not connected, will still trying to connect to nats://{host}:{port}')
 
-    window = MainWindow()
+    nats_cfg = await wait_for_observatory_config()
+
+    window = MainWindow(nats_cfg=nats_cfg)
     window.show()
 
     app_close_event = asyncio.Event()
