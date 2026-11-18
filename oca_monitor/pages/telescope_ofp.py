@@ -49,7 +49,11 @@ class TelescopeOfp(QWidget):
                  **kwargs  # other parameters
                  ):
         self.tel = tel
-        self.dir = f"/data/fits/{self.tel}/processed-ofp/thumbnails/"
+        # TODO very temporary
+        if self.tel == 'wg25':
+            self.dir = f"/data/fits/wg25-cmos/processed-ofp/thumbnails/"
+        else:
+            self.dir = f"/data/fits/{self.tel}/processed-ofp/thumbnails/"
         self.main_window = main_window
         self.info_e_txt: str = ''
         self.info_e_last_date_obs: Optional[datetime.datetime] = None
