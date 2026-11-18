@@ -20,7 +20,7 @@ from PyQt6.QtWidgets import QPushButton, QVBoxLayout
 from serverish.base.task_manager import create_task_sync, create_task, Task, TaskManager
 from serverish.messenger import Messenger, single_read
 from serverish.messenger.msg_callback_sub import MsgCallbackSubscriber
-from serverish.base.exceptions import MessengerNotConnected
+from serverish.base.exceptions import MessengerNotConnected, MessengerRequestTimeout
 
 from oca_monitor.config import settings
 from oca_monitor.tab_config_dialog import TabConfigDialog
@@ -269,13 +269,23 @@ class MainWindow(QMainWindow):
     @asyncSlot()
     async def async_init(self):
         logger.info('Starting to get observatory config...')
-        try:
-            data, meta = await single_read(subject=f'tic.config.observatory')
-            self.nats_cfg = data
-            logger.info('Config loaded ok')
-        except (AttributeError, LookupError, ValueError, MessengerNotConnected):
-            logger.error(f'Can not get observatory config.')
-            self.nats_cfg = {}
+        retries = 5
+        self.nats_cfg = {}
+        for attempt in range(1, retries + 1):
+            try:
+                data, meta = await single_read(subject='tic.config.observatory')
+                self.nats_cfg = data
+                logger.info('Config loaded ok')
+                break
+            except MessengerRequestTimeout as e:
+                logger.warning(f'Observatory config timeout, attempt {attempt}/{retries}: {e}')
+                if attempt < retries:
+                    await asyncio.sleep(5)
+            except (AttributeError, LookupError, ValueError, MessengerNotConnected):
+                logger.error('Can not get observatory config.')
+                break
+        else:
+            logger.error(f'Can not get observatory config after {retries} attempts.')
         await create_task(self.run_task_monitor(), "task_monitor")
 
     @asyncSlot()
