@@ -179,8 +179,8 @@ class ConfigurableTabWidget(QWidget):
 
 
 class MainWindow(QMainWindow):
-    def __init__(self):
-        self.nats_cfg: Dict = {}
+    def __init__(self, nats_cfg: Optional[Dict] = None):
+        self.nats_cfg: Dict = nats_cfg or {}
         super().__init__()
         self._config = None
         self.task_manager: TaskManager = TaskManager()
@@ -289,14 +289,7 @@ class MainWindow(QMainWindow):
 
     @asyncSlot()
     async def async_init(self):
-        logger.info('Starting to get observatory config...')
-        try:
-            data, meta = await single_read(subject=f'tic.config.observatory')
-            self.nats_cfg = data
-            logger.info('Config loaded ok')
-        except (AttributeError, LookupError, ValueError, MessengerNotConnected):
-            logger.error(f'Can not get observatory config.')
-            self.nats_cfg = {}
+        # nats_cfg is read in main.asyncmain before the window is created
         await create_task(self.run_task_monitor(), "task_monitor")
 
     @asyncSlot()

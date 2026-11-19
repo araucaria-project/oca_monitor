@@ -38,6 +38,7 @@ class TelescopeOfp(QWidget):
         'jk15': {'temp': -10.890872, 'hum': -0.364425, 'intercept': 25474.446194},
         'zb08': {'temp': -7.224958, 'hum': -0.609259, 'intercept': 15497.403565},
         'wk06': {'temp': -5.019173, 'hum': -0.595964, 'intercept': 21310.179660},
+        'wg25': {'temp': -10.890872, 'hum': -0.364425, 'intercept': 25474.446194},
     }
 
     # You can use just def __init__(self, **kwargs) if you don't want to bother with the arguments
@@ -49,7 +50,11 @@ class TelescopeOfp(QWidget):
                  **kwargs  # other parameters
                  ):
         self.tel = tel
-        self.dir = f"/data/fits/{self.tel}/processed-ofp/thumbnails/"
+        # TODO very temporary
+        if self.tel == 'wg25':
+            self.dir = f"/data/fits/wg25-cmos/processed-ofp/thumbnails/"
+        else:
+            self.dir = f"/data/fits/{self.tel}/processed-ofp/thumbnails/"
         self.main_window = main_window
         self.info_e_txt: str = ''
         self.info_e_last_date_obs: Optional[datetime.datetime] = None
