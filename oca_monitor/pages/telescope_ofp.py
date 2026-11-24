@@ -125,7 +125,7 @@ class TelescopeOfp(QWidget):
                     t_col = self.OBSERV_AGO_BAD_COLOR
                 else:
                     t_col = text_color
-                txt = f" <p style='font-size: 20pt;'>"
+                txt = f" <p style='font-size: 19pt;'>"
                 txt +=  f"<span style='color: {t_col}; font-weight: bold;'> [{ago_txt['txt']}] </span> "
                 txt += self.info_e_txt
                 self.info_e.clear()
