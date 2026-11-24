@@ -219,9 +219,11 @@ class TelescopeOfp(QWidget):
                     _foc = "None"
 
                 txt = txt + (
-                    f'<font size="5">| fwhm x:{fwhm_x} y:{fwhm_y} alt:{alt_tel:.0f} '
-                    f' focus:{focus:.0f}({_foc})</font>|<br>'
+                    f'<font size="5">'
+                    f'| fwhm x:{fwhm_x} y:{fwhm_y} alt:{alt_tel:.0f} '
+                    f' focus:{focus:.0f}({_foc})'
                     f' min:{arr_min:.0f} max:{arr_max:.0f} mean:{mean:.0f} med:{median:.0f}'
+                    f'</font>|<br>'
 
                 )
 
