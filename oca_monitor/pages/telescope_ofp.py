@@ -219,9 +219,10 @@ class TelescopeOfp(QWidget):
                     _foc = "None"
 
                 txt = txt + (
-                    f'<font size="4.5">| fwhm x:{fwhm_x} y:{fwhm_y} alt:{alt_tel:.0f}'
-                    f' min:{arr_min:.0f} max:{arr_max:.0f} mean:{mean:.0f} med:{median:.0f}'
+                    f'<font size="5">| fwhm x:{fwhm_x} y:{fwhm_y} alt:{alt_tel:.0f} '
                     f' focus:{focus:.0f}({_foc})</font>|<br>'
+                    f' min:{arr_min:.0f} max:{arr_max:.0f} mean:{mean:.0f} med:{median:.0f}'
+
                 )
 
             except (ValueError, LookupError, TypeError) as e:
@@ -234,7 +235,7 @@ class TelescopeOfp(QWidget):
                         adu_max = obj_data["adu_max"]
                         moon_sep = obj_data["moon_separation"]
 
-                        txt = txt + (f' <font size="4.5"><b>{obj_name}</b>'
+                        txt = txt + (f' <font size="5"><b>{obj_name}</b>'
                                      f' max-adu:{adu_max:.0f} moon-dist:{moon_sep:.0f} </font>|')
 
             except (ValueError, LookupError, TypeError) as e:
