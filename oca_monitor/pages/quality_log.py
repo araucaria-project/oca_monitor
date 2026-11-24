@@ -8,7 +8,7 @@ from typing import Union, List, Optional
 
 from PyQt6.QtWidgets import  QWidget, QHBoxLayout, QTextEdit
 from PyQt6.QtCore import QTimer, Qt
-from PyQt6.QtGui import QColor
+from PyQt6.QtGui import QColor, QFont
 from qasync import asyncSlot
 from serverish.base import create_task, dt_from_array
 from serverish.base.iterators import AsyncListIter
@@ -86,6 +86,8 @@ class QualityLogWidget(QWidget):
         self.subject = f'tic.journal.{tel}.quality'
         self.log: List[Record] = []
         self.lock: asyncio.Lock = asyncio.Lock()
+        self.font_size: int = 14
+        self.info_e.setFont(QFont("DejaVu Sans", self.font_size))
         # self.displayed: List[Record] = []
         QTimer.singleShot(0, self.async_init)
         logger.info(f"QualityLogWidget {self.tel} init setup done")

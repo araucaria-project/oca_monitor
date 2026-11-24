@@ -186,7 +186,7 @@ show_net = false
 ##-------------------------- aux obs display---------------
 
 [aux]  # global configuration is used by all environments, setting from here override all other settings
-window_size = [2700, 1350]
+window_size = [3600, 2000]
 panel_columns = [1, 1, 1, 1]  # The size ratio of the columns in the panel grid
 panel_rows = [8, 2, 2]   # The size ratio of the rows in the panel grid
 style = "dark"
@@ -423,7 +423,7 @@ example_parameter = "Ho Ho"
 ##-------------------------- aux dev obs display---------------
 
 [aux_dev]  # global configuration is used by all environments, setting from here override all other settings
-window_size = [1900, 900]
+window_size = [2300, 1300]
 panel_columns = [1, 1, 1]  # The size ratio of the columns in the panel grid
 panel_rows = [3, 1]   # The size ratio of the rows in the panel grid
 style = "dark"
