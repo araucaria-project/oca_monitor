@@ -15,6 +15,8 @@ Below them, information only (no alarm, 2026-11-14): OVERWATCHES (alive RPC) and
 the newest ``tic.telemetry.<tel>.>``; TIC itself speaks ZMQ, not NATS, pms.tic bridges it), then per telescope Alpaca
 as TIC sees it (values vs ``gaps`` tombstones on ``tic.telemetry.<tel>.>``, never directly to the TCU), downloader / OFP alive RPC, dome follower heartbeat.
 
+With ``tiles_only = true`` only the three tiles are shown (a 300 px high strip, ocarc 2026-11-26).
+
 The other detailed sections are shown only with the page option ``details = true`` (Marek 2026-11-14: too much
 information; the panel starts with the three tiles, the rest to be chosen).
 
@@ -154,12 +156,13 @@ class _Dot(QLabel):
 class HealthWidget(QWidget):
     """See module docstring."""
 
-    def __init__(self, main_window, details: bool = False, router_host: str = ROUTER_HOST,
+    def __init__(self, main_window, details: bool = False, tiles_only: bool = False, router_host: str = ROUTER_HOST,
                  internet_hosts: Optional[List[str]] = None,
                  net_subject: str = 'svc.publish.oca.wan.status', **kwargs) -> None:
         super().__init__()
         self.main_window = main_window
         self.details = bool(details)
+        self.tiles_only = bool(tiles_only)   # only the three tiles (low panels, the ocarc strip 2026-11-26)
         self.contact: Dict[str, Dict[str, Tuple[float, bool]]] = {t: {} for t in TELESCOPES}   # tel -> subject ->
         #                                                          (NATS time, True = value / False = gaps tombstone)
         self.conn = get_connectivity(router_host, internet_hosts or INTERNET_HOSTS)
@@ -243,12 +246,15 @@ class HealthWidget(QWidget):
             g.setColumnStretch(c, 2)
         self._spread(g)
         root.addWidget(tp, 4)
+        if self.tiles_only:     # still built and updated, just not shown
+            for box in (ow, site, tp):
+                box.hide()
 
         self.detail_boxes = []
         self._init_details(root)
         for box in self.detail_boxes:
-            box.setVisible(self.details)
-        if not self.details:
+            box.setVisible(self.details and not self.tiles_only)
+        if not self.details and not self.tiles_only:
             root.addStretch(2)
 
         self.updated_l = QLabel('')
@@ -256,6 +262,7 @@ class HealthWidget(QWidget):
         self.updated_l.setStyleSheet(f"color: {DIM};")
         self.updated_l.setAlignment(QtCore.Qt.AlignmentFlag.AlignRight)
         root.addWidget(self.updated_l)
+        self.updated_l.setVisible(not self.tiles_only)
 
     def _tile(self, ico: str, title: str) -> dict:
         """[icon] TITLE   state / small detail line"""

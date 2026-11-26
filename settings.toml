@@ -183,6 +183,85 @@ show_water = false
 show_net = false
 
 
+#---------------------------ocarc - OCA remote control, the screen at CAMK (2026-11-26)---------------------
+# poetry run ocam --env ocarc
+# No /data at CAMK, so only the NATS pages (no allsky, satellite, ofp thumbnails). nats.oca.lan does not resolve
+# in the CAMK DNS, but 192.168.7.38 is routed (via v_camk), hence the IP.
+# A 3840x300 strip of a 3840x2160 screen: one row of panels without tab bars (compact_panel), two charts a panel
+# (one chart a panel makes them too narrow for the y labels and the value tiles):
+# health tiles / events | wind, humidity | temperature, pressure | clouds, zero point | fwhm, power | radar | telescopes
+
+[ocarc]
+window_size = [3840, 300]
+panel_columns = [10, 15, 15, 15, 15, 7, 11]
+panel_rows = [1]
+style = "dark"
+
+nats_host = "192.168.7.38"   # nats.oca.lan
+nats_port = 4222
+
+log_level = "INFO"
+
+[ocarc.panels.00.Health]
+source = "health"
+tiles_only = true    # INTERNET / ROUTER / NATS only
+compact_panel = true
+auto_interval = 20
+# router_host stays 192.168.7.1: green = the OCM LAN is reachable from CAMK
+
+[ocarc.panels.00.Events]
+source = "events"
+auto_interval = 10
+
+[ocarc.panels.00.Message]
+source = "message"   # plays the observatory alarm sounds (from ./sounds, no /data/misc/oca_overwatch here)
+auto_enabled = false # no system_alarms: this computer's net is not the observatory's
+
+[ocarc.panels.01.Weather]
+source = "weather"
+compact_panel = true
+charts = ["wind", "humidity"]
+permanent_wind = true
+show_time = false
+value_tiles = "right"
+value_tile_width = 0.29   # the default 0.22 cuts "PHOTOMETRIC ZERO" in a ~650 px panel
+
+[ocarc.panels.02.Weather]
+source = "weather"
+compact_panel = true
+charts = ["temperature", "pressure"]
+permanent_wind = false
+show_time = false
+value_tiles = "right"
+value_tile_width = 0.29   # the default 0.22 cuts "PHOTOMETRIC ZERO" in a ~650 px panel
+
+[ocarc.panels.03.Sky]
+source = "weather"
+compact_panel = true
+charts = ["clouds", "phot_zero"]
+permanent_wind = false
+show_time = false
+value_tiles = "right"
+value_tile_width = 0.29   # the default 0.22 cuts "PHOTOMETRIC ZERO" in a ~650 px panel
+
+[ocarc.panels.04.Sky]
+source = "weather"
+compact_panel = true
+charts = ["fwhm", "power"]
+permanent_wind = false
+show_time = false
+value_tiles = "right"
+value_tile_width = 0.29   # the default 0.22 cuts "PHOTOMETRIC ZERO" in a ~650 px panel
+
+[ocarc.panels.05.Radar]
+source = "radar"
+compact_panel = true
+
+[ocarc.panels.06.Telescopes]
+source = "telescopes"
+compact_panel = true
+
+
 ##-------------------------- aux obs display---------------
 
 [aux]  # global configuration is used by all environments, setting from here override all other settings

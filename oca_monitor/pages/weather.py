@@ -2079,6 +2079,7 @@ class WeatherDataWidget(QWidget):
                  show_time: bool = True,
                  show_values: bool = True,
                  value_tiles=False,
+                 value_tile_width: float = 0.22,
                  **kwargs) -> None:
         super().__init__()
         self.main_window = main_window
@@ -2107,6 +2108,7 @@ class WeatherDataWidget(QWidget):
         # chart names and live values in a column of tiles beside the charts, the charts clean (monitor2, 2026-11-18):
         # true / "left": left of the charts, "right": right of them; horizontal layout only
         self.value_tiles = value_tiles if value_tiles in ('left', 'right') else 'left' if value_tiles else None
+        self.value_tile_width = float(value_tile_width)  # figure fraction; wider in narrow panels (ocarc strip)
         self.chart_keys = self._resolve_charts(charts)
         self.panels: List[_Panel] = self._build_panels()
         self._init_ui()
@@ -2282,7 +2284,8 @@ class WeatherDataWidget(QWidget):
         else:
             axes = ck.make_stacked_axes(self.figure, n)
             if self.value_tiles:
-                for panel, tile in zip(self.panels, ck.add_value_tiles(self.figure, axes, side=self.value_tiles)):
+                for panel, tile in zip(self.panels, ck.add_value_tiles(self.figure, axes, width=self.value_tile_width,
+                                                                      side=self.value_tiles)):
                     panel.tile_ax = tile
             for panel, ax in zip(self.panels, axes):
                 panel.init_axes(ax)
