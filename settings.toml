@@ -187,14 +187,15 @@ show_net = false
 # poetry run ocam --env ocarc
 # No /data at CAMK, so only the NATS pages (no allsky, satellite, ofp thumbnails). nats.oca.lan does not resolve
 # in the CAMK DNS, but 192.168.7.38 is routed (via v_camk), hence the IP.
-# A 3840x300 strip of a 3840x2160 screen: one row of panels without tab bars (compact_panel), two charts a panel
-# (one chart a panel makes them too narrow for the y labels and the value tiles):
-# health tiles / events | wind, humidity | temperature, pressure | clouds, zero point | fwhm, power | radar | telescopes
+# A 3840x600 strip of a 3840x2160 screen, panels without tab bars (compact_panel), three charts a panel; all but the
+# last column take both rows (row_span):
+# health | wind, humidity, temperature | pressure, power, water | clouds, zero point, fwhm | radar | 04 telescopes
+#        |                             |                        |                           |       | 14 events
 
 [ocarc]
-window_size = [3840, 300]
-panel_columns = [10, 15, 15, 15, 15, 7, 11]
-panel_rows = [1]
+window_size = [3840, 600]
+panel_columns = [17, 18, 18, 18, 14, 12]
+panel_rows = [1, 2]
 style = "dark"
 
 nats_host = "192.168.7.38"   # nats.oca.lan
@@ -204,62 +205,57 @@ log_level = "INFO"
 
 [ocarc.panels.00.Health]
 source = "health"
-tiles_only = true    # INTERNET / ROUTER / NATS only
 compact_panel = true
-auto_interval = 20
+row_span = 2
+two_columns = true   # the tiles left of the lists: one under another they do not fit in 600 px
 # router_host stays 192.168.7.1: green = the OCM LAN is reachable from CAMK
-
-[ocarc.panels.00.Events]
-source = "events"
-auto_interval = 10
-
-[ocarc.panels.00.Message]
-source = "message"   # plays the observatory alarm sounds (from ./sounds, no /data/misc/oca_overwatch here)
-auto_enabled = false # no system_alarms: this computer's net is not the observatory's
 
 [ocarc.panels.01.Weather]
 source = "weather"
 compact_panel = true
-charts = ["wind", "humidity"]
+row_span = 2
+charts = ["wind", "humidity", "temperature"]
 permanent_wind = true
 show_time = false
 value_tiles = "right"
-value_tile_width = 0.29   # the default 0.22 cuts "PHOTOMETRIC ZERO" in a ~650 px panel
+value_tile_width = 0.27   # the default 0.22 cuts "PHOTOMETRIC ZERO" in a ~710 px panel
 
 [ocarc.panels.02.Weather]
 source = "weather"
 compact_panel = true
-charts = ["temperature", "pressure"]
+row_span = 2
+charts = ["pressure", "power", "water"]
 permanent_wind = false
 show_time = false
 value_tiles = "right"
-value_tile_width = 0.29   # the default 0.22 cuts "PHOTOMETRIC ZERO" in a ~650 px panel
+value_tile_width = 0.27   # the default 0.22 cuts "PHOTOMETRIC ZERO" in a ~710 px panel
 
 [ocarc.panels.03.Sky]
 source = "weather"
 compact_panel = true
-charts = ["clouds", "phot_zero"]
+row_span = 2
+charts = ["clouds", "phot_zero", "fwhm"]
 permanent_wind = false
 show_time = false
 value_tiles = "right"
-value_tile_width = 0.29   # the default 0.22 cuts "PHOTOMETRIC ZERO" in a ~650 px panel
+value_tile_width = 0.27   # the default 0.22 cuts "PHOTOMETRIC ZERO" in a ~710 px panel
 
-[ocarc.panels.04.Sky]
-source = "weather"
-compact_panel = true
-charts = ["fwhm", "power"]
-permanent_wind = false
-show_time = false
-value_tiles = "right"
-value_tile_width = 0.29   # the default 0.22 cuts "PHOTOMETRIC ZERO" in a ~650 px panel
-
-[ocarc.panels.05.Radar]
+[ocarc.panels.04.Radar]
 source = "radar"
 compact_panel = true
+row_span = 2
 
-[ocarc.panels.06.Telescopes]
+[ocarc.panels.05.Telescopes]
 source = "telescopes"
 compact_panel = true
+
+[ocarc.panels.15.Events]
+source = "events"
+compact_panel = true
+
+[ocarc.panels.15.Message]
+source = "message"   # only for the observatory alarm sounds (from ./sounds, no /data/misc/oca_overwatch here)
+auto_enabled = false # no system_alarms: this computer's net is not the observatory's
 
 
 ##-------------------------- aux obs display---------------

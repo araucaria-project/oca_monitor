@@ -15,7 +15,8 @@ Below them, information only (no alarm, 2026-11-14): OVERWATCHES (alive RPC) and
 the newest ``tic.telemetry.<tel>.>``; TIC itself speaks ZMQ, not NATS, pms.tic bridges it), then per telescope Alpaca
 as TIC sees it (values vs ``gaps`` tombstones on ``tic.telemetry.<tel>.>``, never directly to the TCU), downloader / OFP alive RPC, dome follower heartbeat.
 
-With ``tiles_only = true`` only the three tiles are shown (a 300 px high strip, ocarc 2026-11-26).
+With ``tiles_only = true`` only the three tiles are shown (a 300 px high strip, ocarc 2026-11-26); with
+``two_columns = true`` the tiles are left of the other sections (a wide and low panel, ocarc 3840x600).
 
 The other detailed sections are shown only with the page option ``details = true`` (Marek 2026-11-14: too much
 information; the panel starts with the three tiles, the rest to be chosen).
@@ -156,13 +157,15 @@ class _Dot(QLabel):
 class HealthWidget(QWidget):
     """See module docstring."""
 
-    def __init__(self, main_window, details: bool = False, tiles_only: bool = False, router_host: str = ROUTER_HOST,
+    def __init__(self, main_window, details: bool = False, tiles_only: bool = False, two_columns: bool = False,
+                 router_host: str = ROUTER_HOST,
                  internet_hosts: Optional[List[str]] = None,
                  net_subject: str = 'svc.publish.oca.wan.status', **kwargs) -> None:
         super().__init__()
         self.main_window = main_window
         self.details = bool(details)
         self.tiles_only = bool(tiles_only)   # only the three tiles (low panels, the ocarc strip 2026-11-26)
+        self.two_columns = bool(two_columns)  # the tiles left, the lists right (wide and low panels, ocarc 2026-11-26)
         self.contact: Dict[str, Dict[str, Tuple[float, bool]]] = {t: {} for t in TELESCOPES}   # tel -> subject ->
         #                                                          (NATS time, True = value / False = gaps tombstone)
         self.conn = get_connectivity(router_host, internet_hosts or INTERNET_HOSTS)
@@ -186,9 +189,20 @@ class HealthWidget(QWidget):
         self.setStyleSheet("HealthWidget { background-color: #181818; } QLabel { color: #d8d8d8; }")
         self.f = QtGui.QFont('Arial', 13, QtGui.QFont.Weight.Bold)
         self.f_small = QtGui.QFont('Arial', 9)
-        root = QVBoxLayout(self)
-        root.setContentsMargins(6, 6, 6, 6)
-        root.setSpacing(5)
+        outer = QVBoxLayout(self)
+        outer.setContentsMargins(6, 6, 6, 6)
+        outer.setSpacing(5)
+        if self.two_columns:    # tiles_box: the three tiles, root: everything else
+            cols = QHBoxLayout()
+            cols.setSpacing(8)
+            tiles_box, root = QVBoxLayout(), QVBoxLayout()
+            tiles_box.setSpacing(5)
+            root.setSpacing(5)
+            cols.addLayout(tiles_box, 1)
+            cols.addLayout(root, 1)
+            outer.addLayout(cols, 1)
+        else:
+            tiles_box = root = outer
 
         # CONNECTIVITY: three big tiles
         self.f_big = QtGui.QFont('Arial', 22, QtGui.QFont.Weight.Bold)
@@ -198,7 +212,7 @@ class HealthWidget(QWidget):
         for key, ico, title in (('internet', 'icon_globe', 'INTERNET'), ('router', 'icon_router', 'ROUTER'),
                                 ('nats', 'icon_network', 'NATS')):
             self.tiles[key] = self._tile(ico, title)
-            root.addWidget(self.tiles[key]['box'], 3)
+            tiles_box.addWidget(self.tiles[key]['box'], 3)
 
         # information only (no alarm): OVERWATCHES, TIC / PMS
         ow = _Group('OVERWATCHES')
@@ -261,7 +275,7 @@ class HealthWidget(QWidget):
         self.updated_l.setFont(self.f_small)
         self.updated_l.setStyleSheet(f"color: {DIM};")
         self.updated_l.setAlignment(QtCore.Qt.AlignmentFlag.AlignRight)
-        root.addWidget(self.updated_l)
+        outer.addWidget(self.updated_l)
         self.updated_l.setVisible(not self.tiles_only)
 
     def _tile(self, ico: str, title: str) -> dict:
